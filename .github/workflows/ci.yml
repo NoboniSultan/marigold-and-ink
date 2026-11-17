@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch or PR cancels the run still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    # This name is the status check that branch protection requires before merging to main.
+    name: 'Server: lint, migrate, test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # A throwaway Postgres for this run, same major version as local and production.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: marigold
+          POSTGRES_PASSWORD: marigold
+          POSTGRES_DB: marigold_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marigold -d marigold_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # Values for CI only. None of them are secrets: the database is discarded after the run.
+    env:
+      NODE_ENV: test
+      TEST_DATABASE_URL: postgres://marigold:marigold@localhost:5432/marigold_test
+      AUTH_SECRET: ci-only-placeholder-not-a-real-secret-0000
+      CORS_ORIGINS: http://localhost:5173
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run migrations
+        run: npm run migrate:up
+
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: server/coverage/
+          retention-days: 14
