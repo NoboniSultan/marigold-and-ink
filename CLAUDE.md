@@ -53,9 +53,22 @@ Node.js 26 LTS with **ES modules** (`"type": "module"`), Express, PostgreSQL via
 
 ## Commands
 
-Filled in as milestones land. Run from `server/` unless noted.
+Run from `server/` unless noted.
 
 ```bash
-nvm use                 # repo root; Node version from .nvmrc
-docker compose up -d    # repo root; milestone 1
+nvm use                       # repo root; Node 26 from .nvmrc
+docker compose up -d --wait   # repo root; dev db :5434, test db :5433, redis :6379
+npm run dev                   # node --watch, loads ../.env
+npm test                      # vitest run (needs db-test running)
+npm run test:coverage
+npm run lint
+npm run format                # or format:check
 ```
+
+## Implementation notes
+
+- `app.js` builds the app (`createApp()`); `server.js` only listens and handles shutdown. Tests import `createApp`.
+- Throw `AppError` subclasses from `server/src/errors/`; never build error responses by hand. Express 5 forwards async errors to the error handler, so no try/catch or wrapper is needed in controllers.
+- Log with `logger` from `lib/logger.js`; the request ID is added automatically (AsyncLocalStorage). Never use `console`.
+- Integration tests that write data call `beforeEach(truncateAllTables)` from `tests/setup/database.js`.
+- To simulate a database failure in a test, use `vi.spyOn(pool, 'query')`.

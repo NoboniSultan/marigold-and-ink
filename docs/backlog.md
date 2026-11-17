@@ -17,4 +17,8 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 
 ## Ideas and notes
 
-- None yet.
+- **Make `REDIS_URL` required** once a feature (BullMQ jobs, or Redis-backed sessions if chosen in milestone 3) depends on Redis. It is validated but optional for now.
+- **`trust proxy` setting** (milestone 3): behind Render or Railway's proxy, Express must trust `X-Forwarded-For`, or the rate limiter will see every client as the proxy's IP.
+- **Production database TLS** (milestone 3): the hosted Postgres may require `ssl` options on the pool.
+- **Dev-dependency audit**: `npm audit` reports a high-severity ReDoS advisory in `picomatch`, which the Vitest toolchain pulls in (dev-only; production dependencies report 0 vulnerabilities). npm's suggested fix downgrades Vitest by two major versions, so it was not applied. Re-check when Vitest or tinyglobby release a fix.
+- **Health check for Redis** once Redis is used.

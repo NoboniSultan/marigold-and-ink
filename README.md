@@ -15,7 +15,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Feature | Status |
 | --- | --- |
 | Project scaffold, docs, ADRs | Built |
-| Server foundation (config, logging, errors, health check) | Planned |
+| Server foundation (config, logging, errors, health check) | Built |
 | Database schema and migrations | Planned |
 | Authentication and roles | Planned |
 | CI and deployment | Planned |
@@ -31,8 +31,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Area | Choice |
 | --- | --- |
 | Runtime | Node.js 26 LTS (ES modules) |
-| API | Express |
-| Database | PostgreSQL with the `pg` driver and raw parameterized SQL |
+| API | Express 5 |
+| Database | PostgreSQL 17 with the `pg` driver and raw parameterized SQL |
 | Migrations | SQL-first migration tool (chosen in milestone 2) |
 | Validation | zod |
 | Auth | Chosen in milestone 3 (see ADRs) |
@@ -72,22 +72,44 @@ client/src/       React app: api layer, components, pages, hooks, design tokens
 
 ## Local setup
 
-> Fills in as milestone 1 lands.
-
 **Prerequisites:** Node.js 26 (`nvm use` reads `.nvmrc`), Docker Desktop, Git.
 
 ```bash
 git clone https://github.com/NoboniSultan/marigold-and-ink.git
 cd marigold-and-ink
 nvm use
-cp .env.example .env          # then fill in values
-docker compose up -d          # milestone 1
-# migrate, seed, run server, run client: commands added as each milestone lands
+
+# 1. Environment: copy the example and set AUTH_SECRET
+cp .env.example .env
+openssl rand -base64 48        # paste the output after AUTH_SECRET= in .env
+
+# 2. Infrastructure: dev Postgres (port 5434), test Postgres (5433), Redis (6379)
+docker compose up -d --wait
+
+# 3. Server
+cd server
+npm install
+npm run dev                    # http://localhost:3000/api/v1/health
 ```
+
+The server validates its environment at startup. If a variable is missing or invalid, it lists every problem and exits instead of starting half-configured.
+
+The dev database uses host port **5434**, not the default 5432, so it does not clash with a Postgres already installed on your machine (Postgres.app, Homebrew).
+
+Migrations, seeds, and the client are added in later milestones.
 
 ## Running tests
 
-> Added in milestone 1.
+Tests need the test database container (`docker compose up -d db-test`). They refuse to run against any database whose name does not end in `_test`.
+
+```bash
+cd server
+npm test                # run once
+npm run test:watch      # re-run on change
+npm run test:coverage   # coverage summary in the terminal; HTML report in server/coverage/index.html
+npm run lint            # ESLint
+npm run format:check    # Prettier
+```
 
 ## Testing Stripe webhooks locally
 
@@ -97,9 +119,13 @@ docker compose up -d          # milestone 1
 
 All routes are under `/api/v1`. Successful responses use `{ "data": ... }`; errors use `{ "error": { "code", "message", "details" } }`.
 
+Every response carries an `X-Request-Id` header. Send your own (letters, digits, `.`, `_`, `-`, up to 128 characters) to trace a request through the logs.
+
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| | | | Endpoints are listed here as they are built. |
+| GET | `/api/v1/health` | Public | App status and a database ping. Returns 200, or 503 if the database is unreachable. |
+
+Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` (401), `FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` (404), `CONFLICT` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` (422), `RATE_LIMITED` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` (503).
 
 ## Deployment
 
