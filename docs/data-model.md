@@ -163,9 +163,14 @@ erDiagram
         date payout_date
         text receipt_reference
     }
+    sessions {
+        text sid PK
+        jsonb sess "{ userId, cookie }"
+        timestamptz expire
+    }
 ```
 
-`created_at` and `updated_at` are on every table and are omitted from the diagram. `commission_events` has only `created_at`, because events are never updated. `processed_webhook_events` uses `processed_at`.
+`created_at` and `updated_at` are on every table and are omitted from the diagram. `commission_events` has only `created_at`, because events are never updated. `processed_webhook_events` uses `processed_at`. `sessions` follows the column layout required by the connect-pg-simple session store and has no relationships: the user ID lives inside `sess`.
 
 ## Tables, constraints, and indexes
 
@@ -295,6 +300,15 @@ Only the tables exist so far; the endpoints come in a later phase.
 | `donations_payment_id_key` | UNIQUE | One donation per payment, so a replayed webhook can never create a second donation. |
 | `donations_charity_id_idx`, `donations_status_idx`, `donations_created_at_idx` | Index | The admin filters: by charity, by status, and by month (a `created_at` range). |
 | `donations_commission_id_idx` | Index | Donations for one commission. |
+
+### sessions
+
+Server-side login sessions (milestone 3, [ADR 0004](decisions/0004-server-sessions-in-postgres.md)). The browser holds only the signed `sid` in an `httpOnly` cookie.
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `sessions_pkey` | PRIMARY KEY `(sid)` | Every request looks up its session by ID. |
+| `sessions_expire_idx` | Index | The store's periodic cleanup deletes `WHERE expire < now()`. |
 
 ## Deliberately deferred
 

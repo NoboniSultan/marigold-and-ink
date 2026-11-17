@@ -5,6 +5,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-17 (Milestone 3: authentication, CI, deploy config)
+
+### Added
+
+- Auth endpoints: `POST /auth/register`, `/auth/login`, `/auth/logout`. Users endpoints: `GET /users/me`, `GET /users/:id` (owner or admin), and admin-only `GET /users` (paginated).
+- Server-side sessions in Postgres (express-session + connect-pg-simple) via a new `sessions` migration. The cookie is `httpOnly`, `SameSite=Lax`, with `Secure` and the `__Host-` prefix in production. Sessions roll over 7 days, and the session ID is regenerated on login.
+- `requireAuth` (re-reads the user on every request), `requireRole`, `requireOwnerOrAdmin`, and a pure `canAccessOwnedResource` rule.
+- bcrypt password hashing (cost 12). Password policy: 12+ characters, at most 72 bytes. Logins take the same time and give the same `INVALID_CREDENTIALS` response for an unknown email or a wrong password.
+- Rate limits: 10 failed logins per IP + email per 15 minutes; 5 registrations per IP per hour (configurable).
+- CSRF origin check: state-changing requests from an `Origin` outside `CORS_ORIGINS` get `403 CSRF_ORIGIN_MISMATCH`.
+- `validate()` middleware (zod, results on `req.validated`), pagination helpers, and duplicate-email translation to `409 EMAIL_TAKEN`.
+- Idempotent admin seed (`npm run seed`) from `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+- GitHub Actions CI: lint, format check, migrations, and tests with coverage against a Postgres 17 service container. `main` now requires a PR and this check.
+- Render Blueprint (`render.yaml`): web service and Postgres 17. It deploys only after CI passes, and runs migrations and the seed on start.
+- ADR 0004 (sessions in Postgres) and ADR 0005 (Render).
+- 60 new tests: 141 in total.
+
+### Changed
+
+- `pg` now parses `bigint` columns as JavaScript numbers instead of strings.
+- New optional environment variables: `TRUST_PROXY`, `BCRYPT_ROUNDS`, `SESSION_MAX_AGE_DAYS`, and `RATE_LIMIT_*`. `ADMIN_EMAIL` and `ADMIN_PASSWORD` are used by the seed.
+
 ## [0.2.0] - 2026-11-17 (Milestone 2: database schema)
 
 ### Added

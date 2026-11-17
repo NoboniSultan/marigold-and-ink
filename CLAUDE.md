@@ -66,7 +66,22 @@ npm run format                # or format:check
 npm run migrate:up            # dev database (NODE_ENV=test targets the test database)
 npm run migrate:down          # revert last; `-- 3` or `-- all`
 npm run migrate:create -- name
+npm run seed                  # idempotent; creates/promotes the admin from ADMIN_EMAIL/ADMIN_PASSWORD
 ```
+
+## Git and GitHub rules
+
+- `main` is protected: no direct pushes (admins included), no force-pushes. Changes land only through a PR, and the **"Server: lint, migrate, test"** CI check must pass with the branch up to date with `main`.
+- Render deploys `main` only after CI passes (`render.yaml`, `autoDeployTrigger: checksPass`).
+- The repo is public. Never put personal data (such as the admin email) or secrets in committed files; they belong in `.env` and Render's Dashboard.
+- Stage explicit paths, never whole directories, and check `git diff --cached --name-only` before committing.
+
+## Auth rules
+
+- Protect routes with `requireAuth`, then `requireRole('admin')` or `requireOwnerOrAdmin(getOwnerId)`. In services, use `assertCanAccessOwnedResource(user, ownerId)` after loading a resource.
+- Controllers read input only from `req.validated` (set by `validate({ params, query, body })`).
+- Repositories select explicit column lists; only `findByEmailWithPasswordHash` returns `password_hash`.
+- Tests: `loggedInAgent(app, { role })` from `tests/helpers/auth.js` returns a logged-in Supertest agent; state-changing requests need `.set('Origin', TRUSTED_ORIGIN)`.
 
 ## Database rules
 
