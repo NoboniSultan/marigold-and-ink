@@ -29,8 +29,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.js'],
-      // CLI entry points: their logic lives in tested modules (app.js, migrator.js).
-      exclude: ['src/server.js', 'src/db/migrate.js', 'src/**/__tests__/**'],
+      // CLI entry points: their logic lives in tested modules (app.js, migrator.js, seeds/).
+      exclude: ['src/server.js', 'src/db/migrate.js', 'src/db/seed.js', 'src/**/__tests__/**'],
       reporter: ['text', 'html', 'lcov'],
       // Per-folder thresholds for the state machine, pricing, payments, and
       // donations modules are added in the milestones that create them.
