@@ -1,0 +1,56 @@
+# Local infrastructure only. Credentials here are for local development and match .env.example.
+# Production databases are provisioned by the hosting platform (milestone 3).
+name: marigold-and-ink
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: marigold
+      POSTGRES_PASSWORD: marigold
+      POSTGRES_DB: marigold_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U marigold -d marigold_dev']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Separate database for automated tests, so tests can truncate tables freely
+  # without ever touching development data.
+  db-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: marigold
+      POSTGRES_PASSWORD: marigold
+      POSTGRES_DB: marigold_test
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata-test:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U marigold -d marigold_test']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata-dev:
+  pgdata-test:
+  redisdata:
