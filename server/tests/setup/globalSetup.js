@@ -1,9 +1,10 @@
 import pg from 'pg';
+import { migrate } from '../../src/db/migrator.js';
 
 /**
  * Runs once before the whole test run, in the main Vitest process.
- * Refuses to run against anything that is not clearly a test database, and fails
- * with a helpful message if the test database is not running.
+ * Refuses to run against anything that is not clearly a test database, fails with a
+ * helpful message if the test database is not running, then applies all migrations.
  */
 export default async function globalSetup() {
   const url = process.env.TEST_DATABASE_URL;
@@ -30,4 +31,7 @@ export default async function globalSetup() {
   } finally {
     await client.end().catch(() => {});
   }
+
+  // Bring the test database schema up to date before any test runs.
+  await migrate({ databaseUrl: url, direction: 'up' });
 }

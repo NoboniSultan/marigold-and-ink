@@ -22,3 +22,8 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Production database TLS** (milestone 3): the hosted Postgres may require `ssl` options on the pool.
 - **Dev-dependency audit**: `npm audit` reports a high-severity ReDoS advisory in `picomatch`, which the Vitest toolchain pulls in (dev-only; production dependencies report 0 vulnerabilities). npm's suggested fix downgrades Vitest by two major versions, so it was not applied. Re-check when Vitest or tinyglobby release a fix.
 - **Health check for Redis** once Redis is used.
+- **Map database constraint errors to API errors** (milestone 3): e.g. a `users_email_key` unique violation becomes `409 EMAIL_TAKEN` instead of a 500, in case two registrations race past the service-level check.
+- **Currency** (milestone 7): `payments.currency` is required. Confirm the shop's currency with the owner and put it in config.
+- **Rush fee shape** (milestone 4): `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column then.
+- **Donation adjustment history** (milestone 8): partial refunds need an auditable adjustment record; design it with the refund-after-payout rule.
+- **Artwork full-text search index** (milestone 5).

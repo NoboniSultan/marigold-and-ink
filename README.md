@@ -16,7 +16,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | --- | --- |
 | Project scaffold, docs, ADRs | Built |
 | Server foundation (config, logging, errors, health check) | Built |
-| Database schema and migrations | Planned |
+| Database schema and migrations | Built |
 | Authentication and roles | Planned |
 | CI and deployment | Planned |
 | Commission state machine | Planned |
@@ -33,7 +33,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Runtime | Node.js 26 LTS (ES modules) |
 | API | Express 5 |
 | Database | PostgreSQL 17 with the `pg` driver and raw parameterized SQL |
-| Migrations | SQL-first migration tool (chosen in milestone 2) |
+| Migrations | node-pg-migrate with plain `.sql` files |
 | Validation | zod |
 | Auth | Chosen in milestone 3 (see ADRs) |
 | Security | helmet, cors allow-list, express-rate-limit, bcrypt |
@@ -51,7 +51,9 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 
 The backend is organized by feature module. Each module has strict layers: routes, then controller, then service, then repository. Third-party SDKs are wrapped in adapters. Pure domain logic (state machine, pricing, donation calculation) has no database or HTTP access, so it is unit tested directly.
 
-See [docs/architecture.md](docs/architecture.md) for the layer diagram, request flow, and module map.
+See [docs/architecture.md](docs/architecture.md) for the layer diagram, request flow, and module map, and [docs/data-model.md](docs/data-model.md) for the database schema (ER diagram plus every constraint and index explained).
+
+The database enforces the money rules as a backstop to the application. For example: deposit plus balance must equal the quoted total, a commission can be paid at most once per stage, each payment produces at most one donation, there is one active charity at a time, and the commission history is append-only.
 
 ## Folder structure
 
@@ -89,14 +91,28 @@ docker compose up -d --wait
 # 3. Server
 cd server
 npm install
+npm run migrate:up             # create the schema in the dev database
 npm run dev                    # http://localhost:3000/api/v1/health
 ```
+
+### Database migrations
+
+Migrations are plain SQL files in `server/src/db/migrations/`. Each has an `-- Up Migration` and a `-- Down Migration` section. The schema is documented in [docs/data-model.md](docs/data-model.md).
+
+```bash
+npm run migrate:up                     # apply all pending migrations
+npm run migrate:down                   # revert the most recent one
+npm run migrate:down -- all            # revert everything
+npm run migrate:create -- add-thing    # new timestamped .sql file to fill in
+```
+
+The test database is migrated automatically before every test run.
 
 The server validates its environment at startup. If a variable is missing or invalid, it lists every problem and exits instead of starting half-configured.
 
 The dev database uses host port **5434**, not the default 5432, so it does not clash with a Postgres already installed on your machine (Postgres.app, Homebrew).
 
-Migrations, seeds, and the client are added in later milestones.
+Seeds and the client are added in later milestones.
 
 ## Running tests
 
@@ -137,6 +153,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 
 - [0001: Record architecture decisions](docs/decisions/0001-record-architecture-decisions.md)
 - [0002: ES modules and Vitest](docs/decisions/0002-es-modules-and-vitest.md)
+- [0003: Database migrations and schema conventions](docs/decisions/0003-database-schema-conventions.md)
 
 ## Roadmap
 
