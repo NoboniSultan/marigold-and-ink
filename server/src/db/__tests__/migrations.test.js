@@ -1,7 +1,11 @@
 import { describe, it, expect, afterAll } from 'vitest';
+import { readdirSync } from 'node:fs';
 import { pool } from '../pool.js';
-import { migrate } from '../migrator.js';
+import { migrate, MIGRATIONS_DIR } from '../migrator.js';
 import { config } from '../../config/env.js';
+
+// Derived from the files on disk, so adding a migration never requires editing this test.
+const MIGRATION_COUNT = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).length;
 
 const EXPECTED_TABLES = [
   'artwork_tags',
@@ -17,6 +21,7 @@ const EXPECTED_TABLES = [
   'pricing_rules',
   'processed_webhook_events',
   'quotes',
+  'sessions',
   'tags',
   'users',
 ];
@@ -61,14 +66,14 @@ describe('migrations', () => {
   it('roll all the way down, leaving nothing behind but the migrations table', async () => {
     const reverted = await run('down', Infinity);
 
-    expect(reverted).toHaveLength(7);
+    expect(reverted).toHaveLength(MIGRATION_COUNT);
     expect(await schemaObjects()).toEqual(['table:pgmigrations']);
   });
 
   it('apply again cleanly after a full rollback', async () => {
     const applied = await run('up');
 
-    expect(applied).toHaveLength(7);
+    expect(applied).toHaveLength(MIGRATION_COUNT);
     expect(await schemaObjects()).toEqual(
       expect.arrayContaining([
         'domain:commission_status',
@@ -81,12 +86,12 @@ describe('migrations', () => {
   });
 
   it('can each be reverted and re-applied one step at a time', async () => {
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < MIGRATION_COUNT; i += 1) {
       expect(await run('down', 1)).toHaveLength(1);
     }
     expect(await schemaObjects()).toEqual(['table:pgmigrations']);
 
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < MIGRATION_COUNT; i += 1) {
       expect(await run('up', 1)).toHaveLength(1);
     }
     expect(await run('up')).toEqual([]);
