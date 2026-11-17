@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment files (real secrets live only here; .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# Test output
+coverage/
+
+# Build output
+dist/
+build/
+client/dist/
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Local working folder for original photos (not part of the repo)
+photo-assets/
