@@ -12,7 +12,7 @@ const server = app.listen(config.port, () => {
 
 /**
  * Graceful shutdown: stop accepting new connections, let in-flight requests finish,
- * then close the database pool. Hosting platforms send SIGTERM before replacing an
+ * then close the session store and the database pool. Hosting platforms send SIGTERM before replacing an
  * instance; Ctrl+C sends SIGINT.
  */
 function shutdown(signal) {
@@ -26,6 +26,8 @@ function shutdown(signal) {
 
   server.close(async (serverErr) => {
     try {
+      // Stop the session store's cleanup timer before closing the pool it uses.
+      await app.locals.sessionStore.close();
       await pool.end();
     } catch (poolErr) {
       logger.error({ err: poolErr }, 'error closing database pool');

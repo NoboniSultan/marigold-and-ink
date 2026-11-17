@@ -6,32 +6,47 @@ import { requestId } from './middleware/requestId.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requireTrustedOrigin } from './middleware/originCheck.js';
+import { createSessionMiddleware } from './lib/session.js';
+import { pool } from './db/pool.js';
 import { apiRouter } from './routes.js';
 
 /**
  * Builds the Express app without starting a server, so tests can drive it with
  * Supertest and server.js can own the network and process lifecycle.
  * Middleware order matters and is commented step by step.
+ * The session store is exposed on app.locals so server.js can close it on shutdown.
  */
 export function createApp() {
   const app = express();
+
+  // Behind Render's proxy, trust X-Forwarded-For/-Proto from that many hops, so req.ip
+  // is the real client (rate limiting) and req.secure is true (Secure cookies).
+  app.set('trust proxy', config.trustProxy);
 
   // 1. Tag the request with an ID first, so everything after it can log with that ID.
   app.use(requestId);
   app.use(requestLogger());
 
   // 2. Security headers, and only allow browser calls from known front-end origins.
+  //    `credentials: true` lets those origins send the session cookie.
   app.use(helmet());
-  app.use(cors({ origin: [...config.corsOrigins] }));
+  app.use(cors({ origin: [...config.corsOrigins], credentials: true }));
 
   // 3. Parse JSON bodies, rejecting anything over 100 KB to limit abuse.
   //    (The Stripe webhook will need the raw body and is mounted before this in milestone 7.)
   app.use(express.json({ limit: '100kb' }));
 
-  // 4. Feature routes.
+  // 4. Sessions (Postgres-backed, httpOnly cookie), then CSRF origin check for writes.
+  const { middleware: sessionMiddleware, store: sessionStore } = createSessionMiddleware({ pool });
+  app.locals.sessionStore = sessionStore;
+  app.use(sessionMiddleware);
+  app.use(requireTrustedOrigin({ allowedOrigins: config.corsOrigins }));
+
+  // 5. Feature routes.
   app.use('/api/v1', apiRouter);
 
-  // 5. Nothing matched: 404. Then turn every error into the standard JSON shape.
+  // 6. Nothing matched: 404. Then turn every error into the standard JSON shape.
   app.use(notFound);
   app.use(errorHandler());
 
