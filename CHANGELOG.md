@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-17 (Milestone 2: database schema)
+
+### Added
+
+- `node-pg-migrate` with plain SQL migrations, a `migrator.js` library (used by tests), and `migrate:up`, `migrate:down [n|all]`, and `migrate:create` scripts.
+- Seven migrations: users; artworks, tags, artwork_tags; pricing_rules; commissions, commission_events, quotes; payments, processed_webhook_events; files, messages; charities, donations.
+- Shared `set_updated_at()` trigger, the `commission_status` and `fulfillment_type` domains, `citext` emails, and an append-only trigger on `commission_events`.
+- Database-level money invariants: deposit plus balance equals total, positive payment amounts, one successful payment per stage, unique Stripe IDs, one donation per payment, one active charity, and one current quote per commission.
+- `docs/data-model.md`: Mermaid ER diagram and an explanation of every constraint and index. It was verified against the live schema (14 tables, 98 columns).
+- ADR 0003: migration tool and schema conventions.
+- Test factories (`tests/factories/`). The test database is migrated automatically before each run.
+- 42 new tests: migrations up, down, and step-by-step redo with no leftover objects; every key constraint rejects bad data.
+
 ## [0.1.0] - 2026-11-17 (Milestone 1: server foundation)
 
 ### Added

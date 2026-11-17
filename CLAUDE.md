@@ -63,12 +63,21 @@ npm test                      # vitest run (needs db-test running)
 npm run test:coverage
 npm run lint
 npm run format                # or format:check
+npm run migrate:up            # dev database (NODE_ENV=test targets the test database)
+npm run migrate:down          # revert last; `-- 3` or `-- all`
+npm run migrate:create -- name
 ```
+
+## Database rules
+
+- Schema changes only through new migration files (never edit an applied migration). Write both up and down; the migration test reverts and re-applies all of them.
+- Follow ADR 0003: bigint identity IDs, `citext` email, `text` + named `CHECK` (domains for shared lists), integer `_cents` money, `timestamptz`, an `updated_at` trigger on every mutable table, `ON DELETE RESTRICT` for anything tied to money or history.
+- Name every constraint and index; add a constraint test in `src/db/__tests__/constraints.test.js` and document it in `docs/data-model.md`.
 
 ## Implementation notes
 
 - `app.js` builds the app (`createApp()`); `server.js` only listens and handles shutdown. Tests import `createApp`.
 - Throw `AppError` subclasses from `server/src/errors/`; never build error responses by hand. Express 5 forwards async errors to the error handler, so no try/catch or wrapper is needed in controllers.
 - Log with `logger` from `lib/logger.js`; the request ID is added automatically (AsyncLocalStorage). Never use `console`.
-- Integration tests that write data call `beforeEach(truncateAllTables)` from `tests/setup/database.js`.
+- Integration tests that write data call `beforeEach(truncateAllTables)` from `tests/setup/database.js`, and create rows with the factories in `tests/factories/`.
 - To simulate a database failure in a test, use `vi.spyOn(pool, 'query')`.
