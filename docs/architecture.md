@@ -37,6 +37,27 @@ flowchart TD
 - **Adapters with dependency injection:** services receive adapters (such as the Stripe adapter) as arguments instead of importing an SDK. Tests can pass a fake, and switching providers only touches the adapter. See [ADR 0002](decisions/0002-es-modules-and-vitest.md).
 - **Pure domain logic:** the rules most likely to cost money if wrong (state transitions, quotes, donations) are plain functions, so they get exhaustive unit tests.
 
+## Request lifecycle
+
+Global middleware runs in this order (see `server/src/app.js`):
+
+1. **requestId**: reuses a safe incoming `X-Request-Id` or generates a UUID, sets the response header, and runs the rest of the request inside an AsyncLocalStorage context.
+2. **requestLogger**: one log line per request when it finishes (method, path, status, duration).
+3. **helmet**: security headers.
+4. **cors**: only origins listed in `CORS_ORIGINS` get CORS headers.
+5. **express.json**: parses JSON bodies up to 100 KB.
+6. **/api/v1 routes**: feature modules.
+7. **notFound**: anything unmatched becomes `404 ROUTE_NOT_FOUND`.
+8. **errorHandler**: the only place errors become HTTP responses.
+
+### Errors
+
+Code at any layer throws an `AppError` subclass (`NotFoundError`, `ConflictError`, ...). Express 5 forwards both thrown errors and rejected promises to the error handler. The handler turns them into `{ "error": { "code", "message", "details" } }`. Any error that is not an `AppError` is a bug: the client gets a generic `500 INTERNAL_ERROR`, and the real error and stack trace go only to the logs.
+
+### Logging and request IDs
+
+`lib/logger.js` adds the current request ID to every log line through a pino mixin that reads AsyncLocalStorage. A service or repository can log without receiving `req`, and its lines still correlate with the request.
+
 ## Request flow (example)
 
 To be expanded in milestone 4. For example, `POST /api/v1/commissions/:id/transitions` goes from route, through `requireAuth` and `validate`, to the controller, then to `commissions.service`. The service runs `withTransaction`: it loads the commission, calls `assertTransition`, updates the status, and inserts a `commission_events` row, then commits.
@@ -45,6 +66,7 @@ To be expanded in milestone 4. For example, `POST /api/v1/commissions/:id/transi
 
 | Module | Responsibility | Milestone |
 | --- | --- | --- |
+| health | `GET /health`: app status and a database ping | 1 |
 | auth | register, login, logout, session/token handling | 3 |
 | users | user profile, `GET /me` | 3 |
 | commissions | requests, state machine, event history | 4 |
