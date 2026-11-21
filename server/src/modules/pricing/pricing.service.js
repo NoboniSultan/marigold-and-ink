@@ -1,6 +1,6 @@
 import * as pricingRepository from './pricing.repository.js';
 import { BusinessRuleError } from '../../errors/index.js';
-import { withTransaction } from '../../db/transaction.js';
+import { withTransaction } from '../../db/transaction.ts';
 
 /**
  * Inserts `rules` only if there are no active rules at all (used by seeds). All or
