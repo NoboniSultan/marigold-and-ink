@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runner } from 'node-pg-migrate';
+import { buildConnectionConfig } from './connection.js';
 
 export const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
 export const MIGRATIONS_TABLE = 'pgmigrations';
@@ -19,7 +20,8 @@ export const MIGRATIONS_TABLE = 'pgmigrations';
  */
 export async function migrate({ databaseUrl, direction, count, log = () => {} }) {
   const ran = await runner({
-    databaseUrl,
+    // Same TLS and channel-binding handling as the app's pool.
+    databaseUrl: buildConnectionConfig(databaseUrl),
     dir: MIGRATIONS_DIR,
     migrationsTable: MIGRATIONS_TABLE,
     direction,
