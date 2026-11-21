@@ -1,0 +1,308 @@
+{
+  "artworks": [
+    {
+      "image": "guayasamin-embrace-replica-with-charcoal",
+      "slug": "embrace",
+      "title": "Embrace",
+      "category": "portraits",
+      "medium": "charcoal on paper",
+      "year": null,
+      "published": true
+    },
+    {
+      "image": "img-20190612-195453-original",
+      "slug": "fawn",
+      "title": "Fawn",
+      "category": "nature",
+      "medium": "scratchboard",
+      "year": null,
+      "published": true
+    },
+    {
+      "image": "digital-abstract-goddess",
+      "slug": "goddess",
+      "title": "Goddess",
+      "category": "portraits",
+      "medium": "soft pastel",
+      "year": null,
+      "published": true
+    },
+    {
+      "image": "digital-portrait-example",
+      "slug": "i-stay-i-pray",
+      "title": "I Stay I Pray",
+      "category": "portraits",
+      "medium": "mixed media: pencil drawing with digital work",
+      "year": null,
+      "published": true
+    },
+    {
+      "image": "digital-portrait-example-2",
+      "slug": "stargazer",
+      "title": "Stargazer",
+      "category": "portraits",
+      "medium": "mixed media: ink and pencil with digital work",
+      "year": null,
+      "published": true
+    },
+    {
+      "image": "scratch-painting-starry-night",
+      "slug": "starry-night",
+      "title": "Starry Night",
+      "category": "studies",
+      "medium": "scratchboard",
+      "credit": "after Vincent van Gogh",
+      "year": null,
+      "published": true
+    },
+    {
+      "image": "acrylic-painting",
+      "slug": "two-faces",
+      "title": "Two Faces",
+      "category": "portraits",
+      "medium": "acrylic and ink on canvas",
+      "year": null,
+      "published": true
+    },
+    {
+      "image": "img-0177",
+      "slug": "img-0177",
+      "title": "IMG_0177",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "acrylic-abstract-face",
+      "slug": "acrylic-abstract-face",
+      "title": "acrylic-abstract-face",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "acrylic-and-henna-mixed-media",
+      "slug": "acrylic-and-henna-mixed-media",
+      "title": "acrylic-and-henna-mixed-media",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "acrylic-painted-bench",
+      "slug": "acrylic-painted-bench",
+      "title": "acrylic-painted-bench",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "acrylic-painted-door",
+      "slug": "acrylic-painted-door",
+      "title": "acrylic-painted-door",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "acrylic-panel-of-portraits",
+      "slug": "acrylic-panel-of-portraits",
+      "title": "acrylic-panel-of-portraits",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "clay-2",
+      "slug": "clay-2",
+      "title": "clay-2",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "clay-book",
+      "slug": "clay-book",
+      "title": "clay-book",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "clay-mask-with-henna-mixed-media",
+      "slug": "clay-mask-with-henna-mixed-media",
+      "title": "clay-mask-with-henna-mixed-media",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "deck-mandala",
+      "slug": "deck-mandala",
+      "title": "deck-mandala",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "greeting-card-with-dried-flowers-and-recycled-tea-bag",
+      "slug": "greeting-card-with-dried-flowers-and-recycled-tea-bag",
+      "title": "greeting-card-with-dried-flowers-and-recycled-tea-bag",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "guayasamin-replica-colored-version",
+      "slug": "guayasamin-replica-colored-version",
+      "title": "guayasamin-replica-colored-version",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "handmade-dolls-acrylic-handpainted-stand",
+      "slug": "handmade-dolls-acrylic-handpainted-stand",
+      "title": "handmade-dolls-acrylic-handpainted-stand",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "handpainted-heels-and-vase",
+      "slug": "handpainted-heels-and-vase",
+      "title": "handpainted-heels-and-vase",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "john-wilson-replica",
+      "slug": "john-wilson-replica",
+      "title": "john-wilson-replica",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "masked-woman-sketch",
+      "slug": "masked-woman-sketch",
+      "title": "masked-woman-sketch",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "old-work-1",
+      "slug": "old-work-1",
+      "title": "old-work-1",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "old-work-2",
+      "slug": "old-work-2",
+      "title": "old-work-2",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "old-work-3-frida",
+      "slug": "old-work-3-frida",
+      "title": "old-work-3-frida",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "old-work-4",
+      "slug": "old-work-4",
+      "title": "old-work-4",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "old-work-5",
+      "slug": "old-work-5",
+      "title": "old-work-5",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "old-work-6",
+      "slug": "old-work-6",
+      "title": "old-work-6",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "old-work-7",
+      "slug": "old-work-7",
+      "title": "old-work-7",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "pet-portrait-2",
+      "slug": "pet-portrait-2",
+      "title": "pet-portrait-2",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "pet-portrait-in-ink",
+      "slug": "pet-portrait-in-ink",
+      "title": "pet-portrait-in-ink",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "portrait-example-2",
+      "slug": "portrait-example-2",
+      "title": "portrait-example-2",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "portrait-example",
+      "slug": "portrait-example",
+      "title": "portrait-example",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "portrait-sewn",
+      "slug": "portrait-sewn",
+      "title": "portrait-sewn",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "sketch1",
+      "slug": "sketch1",
+      "title": "sketch1",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    },
+    {
+      "image": "unfinished-work",
+      "slug": "unfinished-work",
+      "title": "unfinished-work",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "published": false
+    }
+  ]
+}

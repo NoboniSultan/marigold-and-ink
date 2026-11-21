@@ -1,0 +1,553 @@
+{
+  "settings": "d11e864ee18d",
+  "artworks": {
+    "img-0177": {
+      "source": "IMG_0177.heic",
+      "sourceHash": "58ee831a6f95b12e975beb9e0959685c969fceaaab355bed2d97e0fa9b255a3e",
+      "thumb": {
+        "src": "/media/artworks/img-0177.thumb.80dad55a.webp",
+        "width": 600,
+        "height": 466
+      },
+      "large": {
+        "src": "/media/artworks/img-0177.large.3f9a0ec3.webp",
+        "width": 2000,
+        "height": 1554
+      }
+    },
+    "img-20190612-195453-original": {
+      "source": "IMG_20190612_195453_Original.JPG",
+      "sourceHash": "cba2b4c5c5579dc9273946f95c770d2be2fbc40ac60184838bd336fe624e68fe",
+      "thumb": {
+        "src": "/media/artworks/img-20190612-195453-original.thumb.c98dadc7.webp",
+        "width": 600,
+        "height": 802
+      },
+      "large": {
+        "src": "/media/artworks/img-20190612-195453-original.large.cb5eee71.webp",
+        "width": 1496,
+        "height": 2000
+      }
+    },
+    "acrylic-abstract-face": {
+      "source": "acrylic-abstract-face.webp",
+      "sourceHash": "6eb14447e3fb689b6c08cde5c416bb191188e92825a501697239fac453571d3b",
+      "thumb": {
+        "src": "/media/artworks/acrylic-abstract-face.thumb.b9a3b4e0.webp",
+        "width": 600,
+        "height": 514
+      },
+      "large": {
+        "src": "/media/artworks/acrylic-abstract-face.large.2bd5d9ca.webp",
+        "width": 1440,
+        "height": 1233
+      }
+    },
+    "acrylic-and-henna-mixed-media": {
+      "source": "acrylic-and-henna-mixed-media.jpeg",
+      "sourceHash": "5d2d96ae50cec6b032fc63aa79961268c02d1aaa13f018a89d6be5108bcc7048",
+      "thumb": {
+        "src": "/media/artworks/acrylic-and-henna-mixed-media.thumb.2bfe2fb2.webp",
+        "width": 600,
+        "height": 737
+      },
+      "large": {
+        "src": "/media/artworks/acrylic-and-henna-mixed-media.large.9c19656b.webp",
+        "width": 1206,
+        "height": 1482
+      }
+    },
+    "acrylic-painted-bench": {
+      "source": "acrylic-painted-bench.jpg",
+      "sourceHash": "d5e22e6173f0724eae8243347bac11c5c6fe01226cbc06cad6faac06e0a1fa31",
+      "thumb": {
+        "src": "/media/artworks/acrylic-painted-bench.thumb.b2040cc8.webp",
+        "width": 600,
+        "height": 384
+      },
+      "large": {
+        "src": "/media/artworks/acrylic-painted-bench.large.c3c2800e.webp",
+        "width": 2000,
+        "height": 1279
+      }
+    },
+    "acrylic-painted-door": {
+      "source": "acrylic-painted-door.jpg",
+      "sourceHash": "57140732d2902020dd209981d6fdef9bb0786e37389a030df883709773d52300",
+      "thumb": {
+        "src": "/media/artworks/acrylic-painted-door.thumb.0cb02533.webp",
+        "width": 600,
+        "height": 838
+      },
+      "large": {
+        "src": "/media/artworks/acrylic-painted-door.large.9a0bc3bb.webp",
+        "width": 1432,
+        "height": 2000
+      }
+    },
+    "acrylic-painting": {
+      "source": "acrylic-painting.heic",
+      "sourceHash": "1d858b6728f695d92c18a94cb90189436d692ee3fbd859204df9a46db6e998e0",
+      "thumb": {
+        "src": "/media/artworks/acrylic-painting.thumb.befbdef2.webp",
+        "width": 600,
+        "height": 527
+      },
+      "large": {
+        "src": "/media/artworks/acrylic-painting.large.21dc9a7f.webp",
+        "width": 2000,
+        "height": 1756
+      }
+    },
+    "acrylic-panel-of-portraits": {
+      "source": "acrylic-panel-of-portraits.jpg",
+      "sourceHash": "42d1916d77e7f8f27c1596fb664755bb49d7da3afbff171a6cabf2023562bc5c",
+      "thumb": {
+        "src": "/media/artworks/acrylic-panel-of-portraits.thumb.3c4979d4.webp",
+        "width": 600,
+        "height": 450
+      },
+      "large": {
+        "src": "/media/artworks/acrylic-panel-of-portraits.large.01418fbe.webp",
+        "width": 2000,
+        "height": 1500
+      }
+    },
+    "clay-2": {
+      "source": "clay-2.jpg",
+      "sourceHash": "d1c639802ec59df6f5a0afb8d6191e061cfb022e093d12f6bd8744601f96ea28",
+      "thumb": {
+        "src": "/media/artworks/clay-2.thumb.af3f86a7.webp",
+        "width": 600,
+        "height": 765
+      },
+      "large": {
+        "src": "/media/artworks/clay-2.large.fffd22df.webp",
+        "width": 719,
+        "height": 917
+      }
+    },
+    "clay-book": {
+      "source": "clay-book.jpg",
+      "sourceHash": "f170df8f41c052460e9b8c217b54f70e7a3e65cbcca0ee1f29837ca2d5fa36ac",
+      "thumb": {
+        "src": "/media/artworks/clay-book.thumb.1835d66c.webp",
+        "width": 600,
+        "height": 403
+      },
+      "large": {
+        "src": "/media/artworks/clay-book.large.923fa667.webp",
+        "width": 1440,
+        "height": 967
+      }
+    },
+    "clay-mask-with-henna-mixed-media": {
+      "source": "clay-mask-with-henna-mixed-media.jpg",
+      "sourceHash": "78af6d8751fb4d8313a67c2780f23dbc99724d68396c48e2869d0133276b6195",
+      "thumb": {
+        "src": "/media/artworks/clay-mask-with-henna-mixed-media.thumb.7d3c4bf6.webp",
+        "width": 600,
+        "height": 702
+      },
+      "large": {
+        "src": "/media/artworks/clay-mask-with-henna-mixed-media.large.095eeecb.webp",
+        "width": 1440,
+        "height": 1684
+      }
+    },
+    "deck-mandala": {
+      "source": "deck-mandala.jpeg",
+      "sourceHash": "6ed074f29d721cdc3fb32663d43e35f012e7541627b3a87d4914a0361428a9e3",
+      "thumb": {
+        "src": "/media/artworks/deck-mandala.thumb.f540c923.webp",
+        "width": 600,
+        "height": 434
+      },
+      "large": {
+        "src": "/media/artworks/deck-mandala.large.e427bace.webp",
+        "width": 1065,
+        "height": 771
+      }
+    },
+    "digital-abstract-goddess": {
+      "source": "digital-abstract-goddess.jpg",
+      "sourceHash": "d24a72d0813fefac1a164c3240bcd0974ec6363ebfb1e8fe37aac4b358bc6016",
+      "thumb": {
+        "src": "/media/artworks/digital-abstract-goddess.thumb.9b2d0b4a.webp",
+        "width": 600,
+        "height": 415
+      },
+      "large": {
+        "src": "/media/artworks/digital-abstract-goddess.large.cafba590.webp",
+        "width": 952,
+        "height": 658
+      }
+    },
+    "digital-portrait-example-2": {
+      "source": "digital-portrait-example-2.jpeg",
+      "sourceHash": "7a0f98336a86430f214bd5f8ce07a2845435aa0d2f2b3f2243bebafe1cbb3b11",
+      "thumb": {
+        "src": "/media/artworks/digital-portrait-example-2.thumb.530e22c9.webp",
+        "width": 600,
+        "height": 740
+      },
+      "large": {
+        "src": "/media/artworks/digital-portrait-example-2.large.8395ebbd.webp",
+        "width": 1206,
+        "height": 1487
+      }
+    },
+    "digital-portrait-example": {
+      "source": "digital-portrait-example.jpeg",
+      "sourceHash": "64e9d467f9e979ed785bf328056a77b4f79ce9e0a3430913629a34147328f33e",
+      "thumb": {
+        "src": "/media/artworks/digital-portrait-example.thumb.5852fb68.webp",
+        "width": 600,
+        "height": 751
+      },
+      "large": {
+        "src": "/media/artworks/digital-portrait-example.large.e304df73.webp",
+        "width": 1206,
+        "height": 1509
+      }
+    },
+    "greeting-card-with-dried-flowers-and-recycled-tea-bag": {
+      "source": "greeting-card-with-dried-flowers-and-recycled-tea-bag.jpg",
+      "sourceHash": "b04612570b077b425d3a28700dc38bda560ae3a7d90df8035ac376e578b82e38",
+      "thumb": {
+        "src": "/media/artworks/greeting-card-with-dried-flowers-and-recycled-tea-bag.thumb.342adccb.webp",
+        "width": 600,
+        "height": 800
+      },
+      "large": {
+        "src": "/media/artworks/greeting-card-with-dried-flowers-and-recycled-tea-bag.large.1c44c45a.webp",
+        "width": 1500,
+        "height": 2000
+      }
+    },
+    "guayasamin-embrace-replica-with-charcoal": {
+      "source": "guayasamin-embrace-replica-with-charcoal.jpg",
+      "sourceHash": "c7fdcdfc1a1c728056a48244b384bb3e96eef9c4e19982c755dc34b02e2b1a3b",
+      "thumb": {
+        "src": "/media/artworks/guayasamin-embrace-replica-with-charcoal.thumb.6982a207.webp",
+        "width": 600,
+        "height": 755
+      },
+      "large": {
+        "src": "/media/artworks/guayasamin-embrace-replica-with-charcoal.large.307536ac.webp",
+        "width": 1589,
+        "height": 2000
+      }
+    },
+    "guayasamin-replica-colored-version": {
+      "source": "guayasamin-replica-colored-version.HEIC",
+      "sourceHash": "4f87876a8b098691ce2341f9355d65088ef1ff32ac19f209793585fa6103ca66",
+      "thumb": {
+        "src": "/media/artworks/guayasamin-replica-colored-version.thumb.0cfbe19f.webp",
+        "width": 600,
+        "height": 800
+      },
+      "large": {
+        "src": "/media/artworks/guayasamin-replica-colored-version.large.f6ff1775.webp",
+        "width": 1500,
+        "height": 2000
+      }
+    },
+    "handmade-dolls-acrylic-handpainted-stand": {
+      "source": "handmade-dolls-acrylic-handpainted-stand.jpg",
+      "sourceHash": "3e71e9c8225052176d066cdfa3d5388882b3c7d65969dade5855a043cfb66461",
+      "thumb": {
+        "src": "/media/artworks/handmade-dolls-acrylic-handpainted-stand.thumb.9651cae9.webp",
+        "width": 600,
+        "height": 704
+      },
+      "large": {
+        "src": "/media/artworks/handmade-dolls-acrylic-handpainted-stand.large.e18d1948.webp",
+        "width": 1440,
+        "height": 1689
+      }
+    },
+    "handpainted-heels-and-vase": {
+      "source": "handpainted-heels-and-vase.jpg",
+      "sourceHash": "88c2dc793bd713f5190b4725267942ff257644ab1639fb2c1bcee42c4deb7128",
+      "thumb": {
+        "src": "/media/artworks/handpainted-heels-and-vase.thumb.564197af.webp",
+        "width": 600,
+        "height": 527
+      },
+      "large": {
+        "src": "/media/artworks/handpainted-heels-and-vase.large.02fa6e99.webp",
+        "width": 2000,
+        "height": 1759
+      }
+    },
+    "john-wilson-replica": {
+      "source": "john-wilson-replica.heic",
+      "sourceHash": "13d68aa1f8335947573018155324fa988147ca1d280493abba033970f3f84c6d",
+      "thumb": {
+        "src": "/media/artworks/john-wilson-replica.thumb.028833d7.webp",
+        "width": 600,
+        "height": 862
+      },
+      "large": {
+        "src": "/media/artworks/john-wilson-replica.large.07638b0f.webp",
+        "width": 1393,
+        "height": 2000
+      }
+    },
+    "masked-woman-sketch": {
+      "source": "masked-woman-sketch.jpg",
+      "sourceHash": "2dbf3b57e11ef039ef178346f1edfc887dead965e9d5e49f6170d6a245d7b2a4",
+      "thumb": {
+        "src": "/media/artworks/masked-woman-sketch.thumb.fec84ef4.webp",
+        "width": 600,
+        "height": 318
+      },
+      "large": {
+        "src": "/media/artworks/masked-woman-sketch.large.13185939.webp",
+        "width": 1080,
+        "height": 572
+      }
+    },
+    "old-work-1": {
+      "source": "old-work-1.heic",
+      "sourceHash": "9b537edc8c723819a0d36bc1a90ccea01e5afb8cd8ecf69e51f9b453152dccd6",
+      "thumb": {
+        "src": "/media/artworks/old-work-1.thumb.3def5166.webp",
+        "width": 600,
+        "height": 635
+      },
+      "large": {
+        "src": "/media/artworks/old-work-1.large.17d1b654.webp",
+        "width": 1890,
+        "height": 2000
+      }
+    },
+    "old-work-2": {
+      "source": "old-work-2.heic",
+      "sourceHash": "3b8f13bd5a214eb0b480a25299dbcbfbee4eb8cbeee7d0a3a267daf482d9a0bd",
+      "thumb": {
+        "src": "/media/artworks/old-work-2.thumb.943f8cf6.webp",
+        "width": 600,
+        "height": 858
+      },
+      "large": {
+        "src": "/media/artworks/old-work-2.large.7b84e20b.webp",
+        "width": 1399,
+        "height": 2000
+      }
+    },
+    "old-work-3-frida": {
+      "source": "old-work-3-frida.heic",
+      "sourceHash": "2e5e7a8ed6a8a14a3bb606fd21207158d8ca8cb521507884564ea90bf3bd3b37",
+      "thumb": {
+        "src": "/media/artworks/old-work-3-frida.thumb.2d5ca715.webp",
+        "width": 600,
+        "height": 881
+      },
+      "large": {
+        "src": "/media/artworks/old-work-3-frida.large.61eca099.webp",
+        "width": 1362,
+        "height": 2000
+      }
+    },
+    "old-work-4": {
+      "source": "old-work-4.heic",
+      "sourceHash": "1836883c915bef2846e104ec39f021d05dbef721f62ddd1a86607d336439156e",
+      "thumb": {
+        "src": "/media/artworks/old-work-4.thumb.f73473b6.webp",
+        "width": 600,
+        "height": 800
+      },
+      "large": {
+        "src": "/media/artworks/old-work-4.large.00df28d0.webp",
+        "width": 1500,
+        "height": 2000
+      }
+    },
+    "old-work-5": {
+      "source": "old-work-5.heic",
+      "sourceHash": "63f0263d029451d390aba03ce43c1697671bb500eca4ffc9d451cf337407c02a",
+      "thumb": {
+        "src": "/media/artworks/old-work-5.thumb.83e43b56.webp",
+        "width": 600,
+        "height": 835
+      },
+      "large": {
+        "src": "/media/artworks/old-work-5.large.afb1d387.webp",
+        "width": 1437,
+        "height": 2000
+      }
+    },
+    "old-work-6": {
+      "source": "old-work-6.heic",
+      "sourceHash": "9deb275c49e0cf1ff3c5453c0d16f8887e9f53634cb59dc4c8ffa550adf78b38",
+      "thumb": {
+        "src": "/media/artworks/old-work-6.thumb.7e993030.webp",
+        "width": 600,
+        "height": 825
+      },
+      "large": {
+        "src": "/media/artworks/old-work-6.large.4a34b5c6.webp",
+        "width": 1455,
+        "height": 2000
+      }
+    },
+    "old-work-7": {
+      "source": "old-work-7.heic",
+      "sourceHash": "02c0c763ae7f057b3b629ad0a80a9fe2dac00ab0c835c84e48ccad8617e889ed",
+      "thumb": {
+        "src": "/media/artworks/old-work-7.thumb.3b92fd87.webp",
+        "width": 600,
+        "height": 807
+      },
+      "large": {
+        "src": "/media/artworks/old-work-7.large.40c78063.webp",
+        "width": 1487,
+        "height": 2000
+      }
+    },
+    "pet-portrait-2": {
+      "source": "pet-portrait-2.jpeg",
+      "sourceHash": "ebe488fc425233b2302c55dea1b2e20e7ced00bc68aa3bdb4608fbde79c4b904",
+      "thumb": {
+        "src": "/media/artworks/pet-portrait-2.thumb.6e7996fb.webp",
+        "width": 600,
+        "height": 925
+      },
+      "large": {
+        "src": "/media/artworks/pet-portrait-2.large.bec86473.webp",
+        "width": 923,
+        "height": 1423
+      }
+    },
+    "pet-portrait-in-ink": {
+      "source": "pet-portrait-in-ink.HEIC",
+      "sourceHash": "ba9918d2cc1cc35a235fbea8fbf5f7d7191baca01b5f384f3cdb59b2bd7a2455",
+      "thumb": {
+        "src": "/media/artworks/pet-portrait-in-ink.thumb.cea26fe1.webp",
+        "width": 600,
+        "height": 450
+      },
+      "large": {
+        "src": "/media/artworks/pet-portrait-in-ink.large.43165d12.webp",
+        "width": 2000,
+        "height": 1500
+      }
+    },
+    "portrait-example-2": {
+      "source": "portrait-example-2.heic",
+      "sourceHash": "2dcaa96ea78a22ccb30387d117e90c7193b9db40206facf89e344e21f89d77c5",
+      "thumb": {
+        "src": "/media/artworks/portrait-example-2.thumb.bf624f0b.webp",
+        "width": 600,
+        "height": 872
+      },
+      "large": {
+        "src": "/media/artworks/portrait-example-2.large.1c428361.webp",
+        "width": 1376,
+        "height": 2000
+      }
+    },
+    "portrait-example": {
+      "source": "portrait-example.jpg",
+      "sourceHash": "ba0cd980c05251b5dd3bb36ffbf4e997429e8aab3c3d03398600696158473ab8",
+      "thumb": {
+        "src": "/media/artworks/portrait-example.thumb.898da325.webp",
+        "width": 600,
+        "height": 875
+      },
+      "large": {
+        "src": "/media/artworks/portrait-example.large.1ae40c18.webp",
+        "width": 1371,
+        "height": 2000
+      }
+    },
+    "portrait-sewn": {
+      "source": "portrait-sewn.jpg",
+      "sourceHash": "d298da81fe521e2b847dfac91c73347687a1f479961f545a22d0c791c7da622a",
+      "thumb": {
+        "src": "/media/artworks/portrait-sewn.thumb.39160444.webp",
+        "width": 600,
+        "height": 600
+      },
+      "large": {
+        "src": "/media/artworks/portrait-sewn.large.20e50a6c.webp",
+        "width": 2000,
+        "height": 2000
+      }
+    },
+    "scratch-painting-starry-night": {
+      "source": "scratch-painting-starry-night.jpeg",
+      "sourceHash": "22e1ad4d35dd4c26b6390ba43597aae75a8d4b1f061a04540b4bb16319ebc744",
+      "thumb": {
+        "src": "/media/artworks/scratch-painting-starry-night.thumb.e79263b8.webp",
+        "width": 600,
+        "height": 480
+      },
+      "large": {
+        "src": "/media/artworks/scratch-painting-starry-night.large.17d218f2.webp",
+        "width": 983,
+        "height": 787
+      }
+    },
+    "sketch1": {
+      "source": "sketch1.jpg",
+      "sourceHash": "22693f9768f25bb0fbb3c61c15b958e8096f35af757404581d36d9420b87bb89",
+      "thumb": {
+        "src": "/media/artworks/sketch1.thumb.d83e6cf4.webp",
+        "width": 600,
+        "height": 528
+      },
+      "large": {
+        "src": "/media/artworks/sketch1.large.47140b63.webp",
+        "width": 2000,
+        "height": 1762
+      }
+    },
+    "unfinished-work": {
+      "source": "unfinished-work.heic",
+      "sourceHash": "9dc348518b66083b41ed1efb3df9d4f54dd582a7a43596ee622c7ff734b77f59",
+      "thumb": {
+        "src": "/media/artworks/unfinished-work.thumb.35fa9886.webp",
+        "width": 600,
+        "height": 656
+      },
+      "large": {
+        "src": "/media/artworks/unfinished-work.large.11f37726.webp",
+        "width": 1830,
+        "height": 2000
+      }
+    }
+  },
+  "about": {
+    "d3e6a95e-7f6e-44d6-a454-d4627588395d": {
+      "source": "D3E6A95E-7F6E-44D6-A454-D4627588395D.jpg",
+      "sourceHash": "f825bd770462d2010a6be09aabdb754b1991bb9edb1daf2fbad897b241cbcf3d",
+      "thumb": {
+        "src": "/media/about/d3e6a95e-7f6e-44d6-a454-d4627588395d.thumb.e3aa3aec.webp",
+        "width": 600,
+        "height": 704
+      },
+      "large": {
+        "src": "/media/about/d3e6a95e-7f6e-44d6-a454-d4627588395d.large.6c060748.webp",
+        "width": 1440,
+        "height": 1689
+      }
+    },
+    "pin6": {
+      "source": "pin6.jpg",
+      "sourceHash": "c2981034ee9730d6346172c744e416a32253f8fe0d4d83bb069b927c5c15cdc6",
+      "thumb": {
+        "src": "/media/about/pin6.thumb.ff1aedce.webp",
+        "width": 600,
+        "height": 714
+      },
+      "large": {
+        "src": "/media/about/pin6.large.bb010141.webp",
+        "width": 1080,
+        "height": 1286
+      }
+    }
+  }
+}
