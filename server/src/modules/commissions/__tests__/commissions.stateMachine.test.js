@@ -7,7 +7,7 @@ import {
   canTransition,
   assertTransition,
   availableTransitions,
-} from '../commissions.stateMachine.js';
+} from '../commissions.stateMachine.ts';
 import { BusinessRuleError, ConflictError, ForbiddenError } from '../../../errors/index.js';
 
 // The approved transition table, written out independently of the implementation so the

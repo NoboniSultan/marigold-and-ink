@@ -1,8 +1,8 @@
 import * as quotesRepository from './quotes.repository.js';
 import * as commissionsService from '../commissions/commissions.service.js';
 import * as pricingService from '../pricing/pricing.service.js';
-import { calculateQuote } from '../pricing/pricing.engine.js';
-import { actorFromUser } from '../commissions/commissions.stateMachine.js';
+import { calculateQuote } from '../pricing/pricing.engine.ts';
+import { actorFromUser } from '../commissions/commissions.stateMachine.ts';
 import { withTransaction } from '../../db/transaction.js';
 import { ConflictError, NotFoundError } from '../../errors/index.js';
 import { splitDeposit } from '../../lib/money.js';

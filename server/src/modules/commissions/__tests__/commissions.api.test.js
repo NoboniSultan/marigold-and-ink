@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../../app.js';
 import { pool } from '../../../db/pool.js';
-import { STATUSES } from '../commissions.stateMachine.js';
+import { STATUSES } from '../commissions.stateMachine.ts';
 import { truncateAllTables } from '../../../../tests/setup/database.js';
 import {
   createUser,

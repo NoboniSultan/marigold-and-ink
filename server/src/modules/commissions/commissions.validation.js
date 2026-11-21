@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginationQuery } from '../../lib/pagination.js';
-import { STATUSES } from './commissions.stateMachine.js';
+import { STATUSES } from './commissions.stateMachine.ts';
 
 export const commissionIdParams = z.object({
   id: z.coerce.number().int().positive(),

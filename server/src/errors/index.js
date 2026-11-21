@@ -8,4 +8,4 @@ export {
   BusinessRuleError,
   RateLimitError,
   ServiceUnavailableError,
-} from './AppError.js';
+} from './AppError.ts';

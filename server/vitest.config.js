@@ -11,7 +11,7 @@ try {
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/__tests__/**/*.test.js', 'tests/**/*.test.js'],
+    include: ['src/**/__tests__/**/*.test.{js,ts}', 'tests/**/*.test.{js,ts}'],
     globalSetup: ['tests/setup/globalSetup.js'],
     setupFiles: ['tests/setup/setupFile.js'],
     env: {
@@ -31,7 +31,7 @@ export default defineConfig({
     fileParallelism: false,
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.js'],
+      include: ['src/**/*.{js,ts}'],
       // CLI entry points: their logic lives in tested modules (app.js, migrator.js, seeds/).
       exclude: ['src/server.js', 'src/db/migrate.js', 'src/db/seed.js', 'src/**/__tests__/**'],
       reporter: ['text', 'html', 'lcov'],
@@ -41,13 +41,13 @@ export default defineConfig({
       thresholds: {
         lines: 90,
         branches: 85,
-        'src/modules/commissions/commissions.stateMachine.js': {
+        'src/modules/commissions/commissions.stateMachine.ts': {
           statements: 100,
           branches: 100,
           functions: 100,
           lines: 100,
         },
-        'src/modules/pricing/pricing.engine.js': {
+        'src/modules/pricing/pricing.engine.ts': {
           statements: 100,
           branches: 100,
           functions: 100,

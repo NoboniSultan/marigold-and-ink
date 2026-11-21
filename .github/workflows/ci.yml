@@ -68,6 +68,11 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      # Node runs .ts files by stripping types without checking them, so this is the
+      # step that actually enforces the types.
+      - name: Type check
+        run: npm run typecheck
+
       - name: Run migrations
         run: npm run migrate:up
 

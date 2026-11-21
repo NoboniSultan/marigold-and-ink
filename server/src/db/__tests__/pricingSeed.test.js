@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { pool } from '../pool.js';
 import { seedPlaceholderPricing, PLACEHOLDER_RULES } from '../seeds/pricing.placeholder.js';
 import { getActiveRules } from '../../modules/pricing/pricing.service.js';
-import { calculateQuote } from '../../modules/pricing/pricing.engine.js';
+import { calculateQuote } from '../../modules/pricing/pricing.engine.ts';
 import { truncateAllTables } from '../../../tests/setup/database.js';
 import { createPricingRule } from '../../../tests/factories/index.js';
 

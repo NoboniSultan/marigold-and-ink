@@ -4,7 +4,7 @@ import {
   actorFromUser,
   assertTransition,
   availableTransitions,
-} from './commissions.stateMachine.js';
+} from './commissions.stateMachine.ts';
 import { withTransaction } from '../../db/transaction.js';
 import { NotFoundError } from '../../errors/index.js';
 import { assertCanAccessOwnedResource } from '../../lib/authorization.js';
