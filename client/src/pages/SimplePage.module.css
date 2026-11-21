@@ -1,0 +1,102 @@
+/* Narrow, centred pages: 404, forms. */
+.page {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-4) 0;
+}
+
+.wide {
+  max-width: var(--reading-width);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field label,
+.legend {
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-gray);
+  border-radius: var(--radius);
+  background: var(--color-white);
+}
+
+.field textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.field input[aria-invalid='true'],
+.field select[aria-invalid='true'],
+.field textarea[aria-invalid='true'] {
+  border-color: var(--color-ink);
+  border-width: 2px;
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-gray);
+}
+
+/* Errors use Ink text with a Marigold rule, never Marigold text (contrast). */
+.fieldError {
+  font-size: var(--text-sm);
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--color-marigold);
+}
+
+.formError {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-ink);
+  border-left: 6px solid var(--color-marigold);
+  border-radius: var(--radius);
+}
+
+.fieldset {
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+}
+
+.choice input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--color-ink);
+}
+
+.success {
+  padding: var(--space-6);
+  border: 1px solid var(--color-ink);
+  border-top: 6px solid var(--color-marigold);
+  border-radius: var(--radius);
+}
+
+.switch {
+  margin-top: var(--space-6);
+  color: var(--color-gray);
+}

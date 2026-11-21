@@ -98,3 +98,41 @@ jobs:
           name: coverage
           path: server/coverage/
           retention-days: 14
+
+  client:
+    # Also a required status check for merging to main.
+    name: 'Client: lint, typecheck, test, build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # The same build Render runs; fails on type errors too (`tsc --noEmit && vite build`).
+      - name: Build
+        run: npm run build

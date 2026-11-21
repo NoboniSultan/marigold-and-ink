@@ -46,6 +46,7 @@ Global middleware runs in this order (see `server/src/app.js`):
 3. **helmet**: security headers.
 4. **cors**: only origins listed in `CORS_ORIGINS` get CORS headers, with credentials (cookies) allowed.
 5. **/media/artworks, /media/about**: processed images (`express.static`), served before sessions so an image never costs a session lookup. Names contain a content hash, so they're cached as `immutable` for a year. `media/manifest.json` is not exposed. See [ADR 0007](decisions/0007-content-files-and-media-pipeline.md).
+   Then **the React site** (`lib/clientSite.ts`): files from `client/dist` (hashed `/assets` cached for a year), and `index.html` for any other GET that wants HTML, so page URLs such as `/gallery/fawn` work on reload. `/api` and `/media` are never answered with the page.
 6. **express.json**: parses JSON bodies up to 100 KB.
 7. **session**: loads the Postgres-backed session from the signed `httpOnly` cookie.
 8. **requireTrustedOrigin**: CSRF check. A POST, PUT, PATCH, or DELETE whose `Origin`/`Referer` is outside `CORS_ORIGINS` gets `403 CSRF_ORIGIN_MISMATCH`.
@@ -140,6 +141,24 @@ flowchart LR
 
 New code is TypeScript, run by Node directly (type stripping) and checked by `npm run typecheck` in CI. API types shared with the client live in `shared/types/`. See [ADR 0008](decisions/0008-typescript-with-node-type-stripping.md) and the [TypeScript guide](typescript-guide.md).
 
+## Client
+
+The React site (`client/`, TypeScript) is served by the same Express app, so the site and API share one origin. See [ADR 0009](decisions/0009-react-client-stack.md).
+
+```mermaid
+flowchart LR
+    Page[pages/ + features/] --> Hooks[api/queries.ts<br/>TanStack Query cache]
+    Page --> Auth[auth/AuthContext<br/>current user]
+    Auth --> Hooks
+    Hooks --> Endpoints[api/endpoints.ts<br/>typed with shared/types]
+    Endpoints --> Client[api/client.ts<br/>the only fetch call]
+    Client -- same origin, httpOnly cookie --> API[/api/v1/]
+```
+
+- **Data:** components never call `fetch`. They use query hooks, which cache results and handle loading, errors, and retries.
+- **Auth:** `GET /auth/session` answers "who is logged in" (always 200). `RequireAuth` sends logged-out visitors to `/login?next=…`. That is a convenience; the API enforces access on every request.
+- **Animation:** see [motion.md](motion.md). The 3D Explore mode is code-split, so three.js downloads only when opened.
+
 ## Module map
 
 | Module | Responsibility | Milestone |
@@ -148,7 +167,7 @@ New code is TypeScript, run by Node directly (type stripping) and checked by `np
 | auth | register, login, logout; password hashing; session start and end | 3 |
 | users | user records: `GET /users/me`, `GET /users/:id`, admin `GET /users` | 3 |
 | commissions | requests, state machine, status changes with event history | 4 |
-| pricing | pricing rules and the pure `calculateQuote` engine | 4 |
+| pricing | pricing rules, the pure `calculateQuote` engine, and the public form options (`GET /pricing/options`, no prices) | 4, 5 |
 | quotes | generate, adjust, send, and view quotes (uses commissions + pricing) | 4 |
 | gallery | artworks and tags: public listing, search, admin CRUD, syncing `content/artworks.json` | 5 |
 | about | the About page content from `content/about.json` | 5 |

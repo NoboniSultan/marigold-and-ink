@@ -15,20 +15,6 @@
         "height": 1554
       }
     },
-    "img-20190612-195453-original": {
-      "source": "IMG_20190612_195453_Original.JPG",
-      "sourceHash": "cba2b4c5c5579dc9273946f95c770d2be2fbc40ac60184838bd336fe624e68fe",
-      "thumb": {
-        "src": "/media/artworks/img-20190612-195453-original.thumb.c98dadc7.webp",
-        "width": 600,
-        "height": 802
-      },
-      "large": {
-        "src": "/media/artworks/img-20190612-195453-original.large.cb5eee71.webp",
-        "width": 1496,
-        "height": 2000
-      }
-    },
     "acrylic-abstract-face": {
       "source": "acrylic-abstract-face.webp",
       "sourceHash": "6eb14447e3fb689b6c08cde5c416bb191188e92825a501697239fac453571d3b",
@@ -83,20 +69,6 @@
         "src": "/media/artworks/acrylic-painted-door.large.9a0bc3bb.webp",
         "width": 1432,
         "height": 2000
-      }
-    },
-    "acrylic-painting": {
-      "source": "acrylic-painting.heic",
-      "sourceHash": "1d858b6728f695d92c18a94cb90189436d692ee3fbd859204df9a46db6e998e0",
-      "thumb": {
-        "src": "/media/artworks/acrylic-painting.thumb.befbdef2.webp",
-        "width": 600,
-        "height": 527
-      },
-      "large": {
-        "src": "/media/artworks/acrylic-painting.large.21dc9a7f.webp",
-        "width": 2000,
-        "height": 1756
       }
     },
     "acrylic-panel-of-portraits": {
@@ -169,46 +141,46 @@
         "height": 771
       }
     },
-    "digital-abstract-goddess": {
-      "source": "digital-abstract-goddess.jpg",
+    "embrace": {
+      "source": "embrace.jpg",
+      "sourceHash": "c7fdcdfc1a1c728056a48244b384bb3e96eef9c4e19982c755dc34b02e2b1a3b",
+      "thumb": {
+        "src": "/media/artworks/embrace.thumb.6982a207.webp",
+        "width": 600,
+        "height": 755
+      },
+      "large": {
+        "src": "/media/artworks/embrace.large.307536ac.webp",
+        "width": 1589,
+        "height": 2000
+      }
+    },
+    "fawn": {
+      "source": "fawn.jpg",
+      "sourceHash": "cba2b4c5c5579dc9273946f95c770d2be2fbc40ac60184838bd336fe624e68fe",
+      "thumb": {
+        "src": "/media/artworks/fawn.thumb.c98dadc7.webp",
+        "width": 600,
+        "height": 802
+      },
+      "large": {
+        "src": "/media/artworks/fawn.large.cb5eee71.webp",
+        "width": 1496,
+        "height": 2000
+      }
+    },
+    "goddess": {
+      "source": "goddess.jpg",
       "sourceHash": "d24a72d0813fefac1a164c3240bcd0974ec6363ebfb1e8fe37aac4b358bc6016",
       "thumb": {
-        "src": "/media/artworks/digital-abstract-goddess.thumb.9b2d0b4a.webp",
+        "src": "/media/artworks/goddess.thumb.9b2d0b4a.webp",
         "width": 600,
         "height": 415
       },
       "large": {
-        "src": "/media/artworks/digital-abstract-goddess.large.cafba590.webp",
+        "src": "/media/artworks/goddess.large.cafba590.webp",
         "width": 952,
         "height": 658
-      }
-    },
-    "digital-portrait-example-2": {
-      "source": "digital-portrait-example-2.jpeg",
-      "sourceHash": "7a0f98336a86430f214bd5f8ce07a2845435aa0d2f2b3f2243bebafe1cbb3b11",
-      "thumb": {
-        "src": "/media/artworks/digital-portrait-example-2.thumb.530e22c9.webp",
-        "width": 600,
-        "height": 740
-      },
-      "large": {
-        "src": "/media/artworks/digital-portrait-example-2.large.8395ebbd.webp",
-        "width": 1206,
-        "height": 1487
-      }
-    },
-    "digital-portrait-example": {
-      "source": "digital-portrait-example.jpeg",
-      "sourceHash": "64e9d467f9e979ed785bf328056a77b4f79ce9e0a3430913629a34147328f33e",
-      "thumb": {
-        "src": "/media/artworks/digital-portrait-example.thumb.5852fb68.webp",
-        "width": 600,
-        "height": 751
-      },
-      "large": {
-        "src": "/media/artworks/digital-portrait-example.large.e304df73.webp",
-        "width": 1206,
-        "height": 1509
       }
     },
     "greeting-card-with-dried-flowers-and-recycled-tea-bag": {
@@ -222,20 +194,6 @@
       "large": {
         "src": "/media/artworks/greeting-card-with-dried-flowers-and-recycled-tea-bag.large.1c44c45a.webp",
         "width": 1500,
-        "height": 2000
-      }
-    },
-    "guayasamin-embrace-replica-with-charcoal": {
-      "source": "guayasamin-embrace-replica-with-charcoal.jpg",
-      "sourceHash": "c7fdcdfc1a1c728056a48244b384bb3e96eef9c4e19982c755dc34b02e2b1a3b",
-      "thumb": {
-        "src": "/media/artworks/guayasamin-embrace-replica-with-charcoal.thumb.6982a207.webp",
-        "width": 600,
-        "height": 755
-      },
-      "large": {
-        "src": "/media/artworks/guayasamin-embrace-replica-with-charcoal.large.307536ac.webp",
-        "width": 1589,
         "height": 2000
       }
     },
@@ -279,6 +237,20 @@
         "src": "/media/artworks/handpainted-heels-and-vase.large.02fa6e99.webp",
         "width": 2000,
         "height": 1759
+      }
+    },
+    "i-stay-i-pray": {
+      "source": "i-stay-i-pray.jpeg",
+      "sourceHash": "64e9d467f9e979ed785bf328056a77b4f79ce9e0a3430913629a34147328f33e",
+      "thumb": {
+        "src": "/media/artworks/i-stay-i-pray.thumb.5852fb68.webp",
+        "width": 600,
+        "height": 751
+      },
+      "large": {
+        "src": "/media/artworks/i-stay-i-pray.large.e304df73.webp",
+        "width": 1206,
+        "height": 1509
       }
     },
     "john-wilson-replica": {
@@ -477,20 +449,6 @@
         "height": 2000
       }
     },
-    "scratch-painting-starry-night": {
-      "source": "scratch-painting-starry-night.jpeg",
-      "sourceHash": "22e1ad4d35dd4c26b6390ba43597aae75a8d4b1f061a04540b4bb16319ebc744",
-      "thumb": {
-        "src": "/media/artworks/scratch-painting-starry-night.thumb.e79263b8.webp",
-        "width": 600,
-        "height": 480
-      },
-      "large": {
-        "src": "/media/artworks/scratch-painting-starry-night.large.17d218f2.webp",
-        "width": 983,
-        "height": 787
-      }
-    },
     "sketch1": {
       "source": "sketch1.jpg",
       "sourceHash": "22693f9768f25bb0fbb3c61c15b958e8096f35af757404581d36d9420b87bb89",
@@ -503,6 +461,48 @@
         "src": "/media/artworks/sketch1.large.47140b63.webp",
         "width": 2000,
         "height": 1762
+      }
+    },
+    "stargazer": {
+      "source": "stargazer.jpeg",
+      "sourceHash": "7a0f98336a86430f214bd5f8ce07a2845435aa0d2f2b3f2243bebafe1cbb3b11",
+      "thumb": {
+        "src": "/media/artworks/stargazer.thumb.530e22c9.webp",
+        "width": 600,
+        "height": 740
+      },
+      "large": {
+        "src": "/media/artworks/stargazer.large.8395ebbd.webp",
+        "width": 1206,
+        "height": 1487
+      }
+    },
+    "starry-night": {
+      "source": "starry-night.jpeg",
+      "sourceHash": "22e1ad4d35dd4c26b6390ba43597aae75a8d4b1f061a04540b4bb16319ebc744",
+      "thumb": {
+        "src": "/media/artworks/starry-night.thumb.e79263b8.webp",
+        "width": 600,
+        "height": 480
+      },
+      "large": {
+        "src": "/media/artworks/starry-night.large.17d218f2.webp",
+        "width": 983,
+        "height": 787
+      }
+    },
+    "two-faces": {
+      "source": "two-faces.heic",
+      "sourceHash": "1d858b6728f695d92c18a94cb90189436d692ee3fbd859204df9a46db6e998e0",
+      "thumb": {
+        "src": "/media/artworks/two-faces.thumb.befbdef2.webp",
+        "width": 600,
+        "height": 527
+      },
+      "large": {
+        "src": "/media/artworks/two-faces.large.21dc9a7f.webp",
+        "width": 2000,
+        "height": 1756
       }
     },
     "unfinished-work": {
@@ -521,30 +521,30 @@
     }
   },
   "about": {
-    "d3e6a95e-7f6e-44d6-a454-d4627588395d": {
-      "source": "D3E6A95E-7F6E-44D6-A454-D4627588395D.jpg",
+    "artist-at-painted-bench": {
+      "source": "artist-at-painted-bench.jpg",
       "sourceHash": "f825bd770462d2010a6be09aabdb754b1991bb9edb1daf2fbad897b241cbcf3d",
       "thumb": {
-        "src": "/media/about/d3e6a95e-7f6e-44d6-a454-d4627588395d.thumb.e3aa3aec.webp",
+        "src": "/media/about/artist-at-painted-bench.thumb.e3aa3aec.webp",
         "width": 600,
         "height": 704
       },
       "large": {
-        "src": "/media/about/d3e6a95e-7f6e-44d6-a454-d4627588395d.large.6c060748.webp",
+        "src": "/media/about/artist-at-painted-bench.large.6c060748.webp",
         "width": 1440,
         "height": 1689
       }
     },
-    "pin6": {
-      "source": "pin6.jpg",
+    "artist-with-flowers": {
+      "source": "artist-with-flowers.jpg",
       "sourceHash": "c2981034ee9730d6346172c744e416a32253f8fe0d4d83bb069b927c5c15cdc6",
       "thumb": {
-        "src": "/media/about/pin6.thumb.ff1aedce.webp",
+        "src": "/media/about/artist-with-flowers.thumb.ff1aedce.webp",
         "width": 600,
         "height": 714
       },
       "large": {
-        "src": "/media/about/pin6.large.bb010141.webp",
+        "src": "/media/about/artist-with-flowers.large.bb010141.webp",
         "width": 1080,
         "height": 1286
       }

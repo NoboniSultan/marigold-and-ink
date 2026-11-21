@@ -15,3 +15,4 @@ authRouter.post(
 );
 authRouter.post('/login', loginRateLimiter, validate({ body: loginBody }), authController.login);
 authRouter.post('/logout', authController.logout);
+authRouter.get('/session', authController.session);

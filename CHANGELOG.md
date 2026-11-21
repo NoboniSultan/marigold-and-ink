@@ -5,6 +5,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-21 (Milestone 5b: the website)
+
+### Added
+
+- **The React site** (`client/`, TypeScript): Vite, React 19, React Router 8, TanStack Query, CSS Modules on the brand tokens, self-hosted fonts, and the square logo with a thin Ink border.
+  - **Home:**
+    - the typewriter hero on CSS-only notebook paper (custom `useTypewriter`);
+    - a user-controlled featured carousel with three layered, direction-aware transitions, custom arrows, a progress bar, keyboard and swipe.
+  - **Gallery:**
+    - Grid mode with category, tag, search and pages, all in the URL, and a shared-layout morph into a full-screen detail view (Escape, backdrop, and close button; scroll lock);
+    - a 3D Explore mode (React Three Fiber cylinder with eased rotation, hover tilt, and subtle depth of field), code-split so three.js loads only when opened.
+  - **About:** an ink-spread photo reveal, the bio, and a closing photo. Each artwork also has its own page.
+  - **Accounts and commissions:** login and register; a protected commission form built from the priced options, showing the server's errors.
+  - **Throughout:** reduced-motion fallbacks everywhere, accessible focus rings, skip link, and live regions.
+- `GET /auth/session` (always 200: the user or `null`) and `GET /pricing/options` (what can be requested, without prices).
+- **Express serves the built site** (same origin): hashed assets are cached for a year, and page URLs fall back to `index.html`; the strict CSP is unchanged.
+- **Content:**
+  - descriptive photo names (e.g. `embrace.jpg`, `artist-with-flowers.jpg`);
+  - *Embrace* credited "after Oswaldo Guayasamín";
+  - an optional closing photo on the About page.
+- Accent-insensitive search ("guayasamin" finds "Guayasamín").
+- **CI:** a "Client: lint, typecheck, test, build" job. Render builds the client before starting the API.
+- **Docs:** `docs/motion.md` (the full animation map, including later milestones) and ADR 0009 (client stack).
+- **Tests:** 14 new server tests (652 total) and 43 client tests. The site was also checked in headless Chrome against both the dev server and the production build: register → submit a commission, the morph, Escape, 3D, phone layout, reduced motion, and no console errors.
+
+### Changed
+
+- **Route changes fade the new page in** instead of crossfading. Keeping the old page mounted during a fade-out made it re-render against the new URL and caused a login redirect loop (see `docs/motion.md`).
+
 ## [0.5.0] - 2026-11-21 (Milestone 5a: gallery API, content, and images)
 
 ### Added

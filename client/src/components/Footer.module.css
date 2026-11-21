@@ -1,0 +1,45 @@
+/* A dark Ink section: White text on Ink is ≈ 17:1. */
+.footer {
+  margin-top: var(--space-16);
+  background: var(--color-ink);
+  color: var(--color-white);
+}
+
+.inner {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  align-items: flex-start;
+}
+
+.logo {
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--color-white);
+}
+
+.charity {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-synthesis: none;
+  max-width: var(--reading-width);
+}
+
+.links {
+  display: flex;
+  gap: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.legal {
+  font-size: var(--text-sm);
+  color: color-mix(in srgb, var(--color-white) 75%, var(--color-ink));
+}
+
+/* Focus on a dark background: the Marigold ring stays; the inner outline turns white. */
+.footer :focus-visible {
+  outline-color: var(--color-white);
+}

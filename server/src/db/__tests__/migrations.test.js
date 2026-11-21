@@ -41,6 +41,10 @@ async function schemaObjects() {
         AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
     UNION ALL
     SELECT 'extension', extname FROM pg_extension WHERE extname <> 'plpgsql'
+    UNION ALL
+    SELECT 'text_search_config', c.cfgname FROM pg_ts_config c
+      JOIN pg_namespace n ON n.oid = c.cfgnamespace
+      WHERE n.nspname = 'public'
     ORDER BY 1, 2
   `);
   return rows.map((r) => `${r.kind}:${r.name}`);

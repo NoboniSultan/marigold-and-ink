@@ -34,6 +34,7 @@ export default defineConfig({
       // owner's real photos. content.real.test.ts validates the real files separately.
       CONTENT_DIR: path.join(import.meta.dirname, 'tests/fixtures/content'),
       MEDIA_DIR: path.join(import.meta.dirname, 'tests/fixtures/media'),
+      CLIENT_DIST_DIR: path.join(import.meta.dirname, 'tests/fixtures/client-dist'),
     },
     // Integration tests share one test database and truncate it between tests,
     // so test files run one at a time to avoid wiping each other's data.
