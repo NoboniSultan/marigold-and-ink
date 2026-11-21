@@ -92,6 +92,88 @@ describe('artworks', () => {
 
     await expectViolation(createArtwork({ slug: 'sunset' }), UNIQUE_VIOLATION, 'artworks_slug_key');
   });
+
+  it('rejects two artworks sharing one image', async () => {
+    await createArtwork({ imageKey: 'fawn' });
+
+    await expectViolation(
+      createArtwork({ imageKey: 'fawn' }),
+      UNIQUE_VIOLATION,
+      'artworks_image_key_key',
+    );
+  });
+
+  it.each([
+    ['an external URL', 'https://example.com/a.webp'],
+    ['a non-WebP file', '/media/artworks/a.jpg'],
+    ['path traversal', '/media/a/../../server/x.webp'],
+    ['a path outside /media', '/etc/passwd.webp'],
+  ])('rejects %s as an image path', async (_label, path) => {
+    await expectViolation(
+      createArtwork({ thumbPath: path }),
+      CHECK_VIOLATION,
+      'artworks_thumb_path_check',
+    );
+    await expectViolation(
+      createArtwork({ largePath: path }),
+      CHECK_VIOLATION,
+      'artworks_large_path_check',
+    );
+  });
+
+  it('rejects zero or negative image dimensions', async () => {
+    await expectViolation(
+      createArtwork({ largeHeight: 0 }),
+      CHECK_VIOLATION,
+      'artworks_image_dimensions_check',
+    );
+  });
+
+  it('rejects publishing an artwork without alt text', async () => {
+    await expectViolation(
+      createArtwork({ isPublished: true, altText: null }),
+      CHECK_VIOLATION,
+      'artworks_published_alt_text_check',
+    );
+  });
+
+  it('allows an unpublished draft without alt text', async () => {
+    const draft = await createArtwork({ altText: null });
+
+    expect(draft.alt_text).toBeNull();
+  });
+
+  it('rejects a content hash that is not a SHA-256 hex digest', async () => {
+    await expectViolation(
+      createArtwork({ contentHash: 'abc' }),
+      CHECK_VIOLATION,
+      'artworks_content_hash_check',
+    );
+  });
+
+  it('rejects a year outside the sanity range', async () => {
+    await expectViolation(createArtwork({ year: 20219 }), CHECK_VIOLATION, 'artworks_year_check');
+  });
+
+  it('keeps the search vector in sync with the row, weighting the title highest', async () => {
+    const artwork = await createArtwork({
+      title: 'Starry Night',
+      credit: 'after Vincent van Gogh',
+      medium: 'scratchboard',
+    });
+    await pool.query('UPDATE artworks SET medium = $1 WHERE id = $2', ['ink', artwork.id]);
+
+    const { rows } = await pool.query(
+      `SELECT search_vector @@ websearch_to_tsquery('english', 'gogh') AS by_credit,
+              search_vector @@ websearch_to_tsquery('english', 'ink') AS by_new_medium,
+              search_vector @@ websearch_to_tsquery('english', 'scratchboard') AS by_old_medium,
+              search_vector::text AS vector
+         FROM artworks WHERE id = $1`,
+      [artwork.id],
+    );
+    expect(rows[0]).toMatchObject({ by_credit: true, by_new_medium: true, by_old_medium: false });
+    expect(rows[0].vector).toContain("'night':2A");
+  });
 });
 
 describe('pricing_rules', () => {
