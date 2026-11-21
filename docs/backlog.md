@@ -28,9 +28,13 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Currency** (milestone 7): `payments.currency` is required. Confirm the shop's currency with the owner and put it in config.
 - **Replace placeholder prices and settings** before taking real orders: `server/src/db/seeds/pricing.placeholder.js`, `DEPOSIT_PERCENT=50`, and `COMMISSION_REVISION_LIMIT=2` (in `render.yaml` and `.env`) are placeholders. Deactivate the placeholder rules and insert real ones.
 - **Admin pricing management**: endpoints to list, create, and deactivate pricing rules, so prices change without a migration.
-- **Rush fee shape**: `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column and a branch in `pricing.engine.js`.
+- **Rush fee shape**: `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column and a branch in `pricing.engine.ts`.
 - **Re-quote after sending**: a sent quote can't change. If the price must change after sending, add a "revise quote" flow (supersede the sent quote, and move the commission back to inquiry or keep it quoted, as the owner decides).
 - **Refund flow** (milestone 7): `→ refunded` is reserved for the refund flow (`via: 'refund'`), so the status can never claim a refund that didn't move money.
 - **Adjustment note visibility**: clients currently see the quote's `adjustmentNote`. Decide whether it is client-facing ("returning client discount") or internal-only.
 - **Donation adjustment history** (milestone 8): partial refunds need an auditable adjustment record; design it with the refund-after-payout rule.
-- **Artwork full-text search index** (milestone 5).
+- **Artwork uploads** (with file handling): an upload flow that produces processed images like `npm run media` does. Until then, `POST /admin/artworks` can only use a processed image that no content entry claims. See ADR 0007.
+- **Revisit the content source of truth** when the admin UI exists: probably make the database the source after a final import from `content/artworks.json` (ADR 0007, "option B").
+- **Move `media/` to object storage** if the gallery grows past a few hundred images. Keep the `/media/...` URLs.
+- **"Featured" flag for the home carousel**: for now the carousel can show the first published artworks in gallery order. Add a `featured` field if the owner wants to choose them separately.
+- **Owner content to fill in:** the 30 "to fill in" drafts in `content/artworks.json`, written alt text for the published pieces (currently "title, medium"), years, the About bio and photo description (`content/about.json`), and which photo is *Floral*.

@@ -51,9 +51,20 @@ erDiagram
         text description
         text medium
         text category
-        text image_url
+        smallint year
+        text credit
+        text alt_text
+        text image_key UK
+        text thumb_path
+        int thumb_width
+        int thumb_height
+        text large_path
+        int large_width
+        int large_height
         boolean is_published
         int sort_order
+        text content_hash
+        tsvector search_vector "generated"
     }
     tags {
         bigint id PK
@@ -190,13 +201,23 @@ erDiagram
 | `artworks_slug_key`, `tags_slug_key` | UNIQUE | Slugs are public URLs (`/artworks/:slug`), so they must identify exactly one row. |
 | `*_slug_format_check` | CHECK | Lowercase words joined by single hyphens; always URL-safe. |
 | `artworks_title_check`, `artworks_category_check`, `tags_name_check` | CHECK | No blank names. |
-| `artworks_image_url_check` | CHECK | Must be an http(s) URL. |
+| `artworks_image_key_key` | UNIQUE | One artwork per processed image. The key links the row to `media/manifest.json` and to its entry in `content/artworks.json`. |
+| `artworks_image_key_format_check` | CHECK | Slug format, like every other key. |
+| `artworks_thumb_path_check`, `artworks_large_path_check` | CHECK | Only app-served WebP files under `/media/`, and never `..`: no external URLs, no path traversal. |
+| `artworks_image_dimensions_check` | CHECK | Widths and heights are positive. The client uses them to reserve space, so pages don't jump while images load. |
+| `artworks_alt_text_check` | CHECK | Alt text, when present, is 1–300 characters. |
+| `artworks_published_alt_text_check` | CHECK | `NOT is_published OR alt_text IS NOT NULL`: anything the public can see has a description for screen readers. Drafts may lack one. |
+| `artworks_year_check` | CHECK | 1900–2100: a sanity range that catches typos, not a business rule. |
+| `artworks_credit_check` | CHECK | Credit (e.g. "after Vincent van Gogh"), when present, is 1–200 characters. |
+| `artworks_content_hash_check` | CHECK | A SHA-256 hex digest. Set on rows owned by `content/artworks.json`; NULL for rows created through the admin API. The seed rewrites a row only when this hash changes (see [ADR 0007](decisions/0007-content-files-and-media-pipeline.md)). |
+| `search_vector` | Generated column (`STORED`) | `setweight(title, A) ‖ setweight(credit + medium + category, B) ‖ setweight(description, C)` in the `english` configuration. Postgres recomputes it on every write, so search can never go stale. |
+| `artworks_search_idx` | GIN index on `search_vector` | A **GIN** (generalized inverted) index maps each word stem to the rows containing it, so `search_vector @@ websearch_to_tsquery(...)` doesn't scan the table. |
 | `artworks_published_sort_idx` | Partial index `(sort_order, id) WHERE is_published` | The public gallery lists only published artworks in sort order. A **partial index** contains only the rows matching its `WHERE`, so it stays small. |
 | `artworks_published_category_idx` | Partial index `(category) WHERE is_published` | The gallery's category filter. |
 | `artwork_tags` primary key | `(artwork_id, tag_id)` | Prevents tagging the same artwork twice, and serves "tags of this artwork" lookups. |
 | `artwork_tags_tag_id_idx` | Index | "Artworks with this tag": the primary key can't serve this because `tag_id` is its second column. |
 
-Full-text search indexing is added in milestone 5, together with the search endpoint that uses it.
+Images are not stored in the database. `npm run media` writes WebP files to `media/` and the row stores their paths and sizes; see [ADR 0007](decisions/0007-content-files-and-media-pipeline.md).
 
 ### pricing_rules
 
@@ -313,5 +334,4 @@ Server-side login sessions (milestone 3, [ADR 0004](decisions/0004-server-sessio
 ## Deliberately deferred
 
 - **Donation adjustment history** for partial refunds is designed in milestone 8, where the audit rules are decided.
-- **Full-text search index** on artworks comes in milestone 5, with the search endpoint.
 - **Shop tables** (`products`, `orders`, ...) come in a later phase. `donations.payment_id` and `commission_id` will be revisited then.

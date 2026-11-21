@@ -17,6 +17,8 @@ Guidance for Claude Code sessions working on Marigold & Ink. Read `docs/proposal
 
 Node.js 26 LTS with **ES modules** (`"type": "module"`), Express, PostgreSQL via `pg` with raw parameterized SQL, zod, pino, Redis, Stripe (test mode), **Vitest** and Supertest, ESLint and Prettier, React with Vite and React Router. See ADR 0002 for why ESM and Vitest.
 
+**TypeScript** (ADR 0008, `docs/typescript-guide.md`): new code is `.ts`, run directly by Node's type stripping (no build) and checked by `npm run typecheck` (CI). Import with the real extension (`./x.ts`), write type-only imports as `import type`, and use no `enum`/`namespace`/parameter properties. API types shared with the client live in `shared/types/` and are imported only as `import type ... from '@shared/...'`. Check responses with `satisfies ApiResponse<T>`. Leave the four conversions listed in the TypeScript guide for the owner.
+
 ## Layer rules (enforce these and flag any violation)
 
 - **Routes** wire URLs to middleware and controller methods. No logic.
@@ -38,7 +40,7 @@ Node.js 26 LTS with **ES modules** (`"type": "module"`), Express, PostgreSQL via
 
 ## Naming and Git
 
-- Files: camelCase with a layer suffix, such as `pricing.service.js` or `commissions.stateMachine.js`. Tests go in the module's `__tests__/` as `*.test.js`.
+- Files: camelCase with a layer suffix, such as `gallery.service.ts` or `commissions.stateMachine.ts`. Tests go in the module's `__tests__/` as `*.test.ts` (older ones are `*.test.js`).
 - Database: snake_case plural tables, `id` primary keys, `created_at`/`updated_at` as `timestamptz`.
 - Branches: `feature/m<N>-<short-name>`. Commits: Conventional Commits (`feat:`, `fix:`, `test:`, `chore:`, `docs:`, `refactor:`). One PR per milestone, using the template.
 - ADRs: `docs/decisions/NNNN-title.md` in Nygard format (Context, Decision, Consequences).
@@ -66,7 +68,9 @@ npm run format                # or format:check
 npm run migrate:up            # dev database (NODE_ENV=test targets the test database)
 npm run migrate:down          # revert last; `-- 3` or `-- all`
 npm run migrate:create -- name
-npm run seed                  # idempotent; creates/promotes the admin from ADMIN_EMAIL/ADMIN_PASSWORD
+npm run seed                  # idempotent; admin from ADMIN_EMAIL/ADMIN_PASSWORD, placeholder prices, content sync
+npm run typecheck             # tsc, no output
+npm run media                 # process media-source/ into media/ (macOS for HEIC); add -- --force to redo all
 ```
 
 ## Git and GitHub rules
@@ -87,10 +91,18 @@ npm run seed                  # idempotent; creates/promotes the admin from ADMI
 
 - Change a commission's status **only** through `commissionsService.applyTransition(...)`. It locks the row, checks the state machine, updates, and writes the event in one transaction. Pass `{ client }` to join an existing transaction. Never `UPDATE commissions SET status` anywhere else.
 - Transitions with `via` (`quote`, `refund`) belong to a dedicated flow; the generic status endpoint can't trigger them.
-- To change the lifecycle, edit `TRANSITIONS` in `commissions.stateMachine.js` **and** the independent `EXPECTED` table in its test, then update `docs/state-machine.md`.
-- Prices come only from `pricing.engine.js` + active `pricing_rules`; never trust amounts from a request. Use `lib/money.js` for all arithmetic (`percentOfCents`, `splitDeposit`, `sumCents`).
+- To change the lifecycle, edit `TRANSITIONS` in `commissions.stateMachine.ts` **and** the independent `EXPECTED` table in its test, then update `docs/state-machine.md`.
+- Prices come only from `pricing.engine.ts` + active `pricing_rules`; never trust amounts from a request. Use `lib/money.js` for all arithmetic (`percentOfCents`, `splitDeposit`, `sumCents`).
 - `DEPOSIT_PERCENT` and `COMMISSION_REVISION_LIMIT` are owner-set business values with no code defaults. The current values (50, 2) and the seeded prices are **placeholders**.
 - The state machine, pricing engine, and money helpers have 100% coverage thresholds; `npm run test:coverage` fails below them.
+
+## Gallery, content, and media rules (ADR 0007)
+
+- `content/artworks.json` is the source of truth for the artworks it lists. The seed syncs them by per-row `content_hash`: changed entries overwrite, unchanged ones keep admin edits. Never write artwork rows from the file any other way.
+- Images come only from `npm run media` (originals in the gitignored `media-source/`; output in the committed `media/`). Never commit originals, and never add metadata-preserving options to the pipeline (it strips GPS).
+- Never invent artwork titles, mediums, years, credits, alt text, or bio text. Unknown values stay `"to fill in"` (unpublished) or `PLACEHOLDER:`.
+- Admin routes go on the `/api/v1/admin` router, which is guarded once at the router level (`routes.js`).
+- Tests use `tests/fixtures/content` and `tests/fixtures/media` (set via `CONTENT_DIR` / `MEDIA_DIR` in `vitest.config.js`); `content.real.test.ts` checks the real files.
 
 ## Database rules
 

@@ -5,6 +5,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-21 (Milestone 5a: gallery API, content, and images)
+
+### Added
+
+- **Gallery API:**
+  - Public `GET /artworks` with pagination, category and tag filters, and full-text search ranked by relevance; `/artworks/:slug`, `/artworks/categories`, `/tags`.
+  - Drafts are never returned publicly, and answer exactly like missing artworks.
+- **Admin API** under `/api/v1/admin` (one router-level admin guard): artworks list (with drafts) / get / create / update / delete, and tags list / create / rename / delete.
+- **About:** `GET /about` from `content/about.json` (photo, alt text, bio; placeholder text flagged).
+- **`npm run media`:** turns originals in the gitignored `media-source/` into a 600px and a 2000px WebP per image in `media/`, plus `manifest.json`.
+  - Auto-rotates, converts to sRGB, and **strips all metadata, including GPS**.
+  - Content-hashed file names; unchanged originals are skipped.
+  - HEIC is decoded through macOS `sips`.
+- **`content/artworks.json`:** the owner-edited source of truth, with a strict schema. New photos get an unpublished "to fill in" entry. It holds 7 described artworks and 30 drafts.
+- **Content seed:**
+  - Syncs the file into the database by per-row hash. A changed entry overwrites; an unchanged one keeps admin edits; a removed one is deleted.
+  - Refuses to change anything, failing the deploy, if content and images disagree.
+- `/media/artworks` and `/media/about` are served with year-long `immutable` caching, before sessions. The manifest is not exposed.
+- **Migration:** image paths and sizes, `alt_text` (required once published), `year`, `credit`, `content_hash`, and a weighted, generated `search_vector` with a GIN index.
+- **TypeScript:**
+  - Node runs `.ts` directly (type stripping); `npm run typecheck` runs in CI.
+  - The state machine, pricing engine, `AppError`, and `withTransaction` were converted.
+  - Shared API types are in `shared/types/` (`Artwork`, `AdminArtwork`, `Tag`, `AboutContent`, response envelopes), checked with `satisfies`.
+- **CI:**
+  - a type-check step;
+  - a step that seeds the real content and boots the server under plain Node, as Render does;
+  - a test that validates the real `content/` and `media/`.
+- ADR 0007 (content files and media pipeline), ADR 0008 (TypeScript via type stripping), and `docs/typescript-guide.md` (with four conversions left for the owner).
+- 128 new tests (634 total), including:
+  - a test proving GPS/EXIF data is removed;
+  - the seed's sync rules;
+  - admin auth on every admin route;
+  - search edge cases.
+
+### Changed
+
+- `render.yaml` no longer sets `rootDir`. Render hides files outside it, and the server reads `content/` and `media/` at the repo root. Build and start commands now `cd server`.
+- `artworks.image_url` was replaced by processed image paths.
+
 ## [0.4.0] - 2026-11-20 (Milestone 4: commission state machine and pricing engine)
 
 ### Added

@@ -21,7 +21,9 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | CI (GitHub Actions) and deployment (API on Render, Postgres on Neon) | Built, live |
 | Commission requests and state machine (audit trail, actor permissions, revision limit) | Built |
 | Pricing engine and quotes (generate, admin adjustment, send) | Built, with **placeholder prices** |
-| Public gallery API and React client | Planned |
+| Public gallery API (search, filters, admin CRUD), image pipeline, About content | Built |
+| React client (milestone 5b) | Planned |
+| Google sign-in (milestone 5c) | Planned |
 | Stripe deposit and final payments, webhooks, refunds | Planned |
 | Donation ledger and transparency totals | Planned |
 | File uploads, messaging, shipping, shop, slots | Later (see backlog) |
@@ -30,7 +32,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 
 | Area | Choice |
 | --- | --- |
-| Runtime | Node.js 26 LTS (ES modules) |
+| Runtime | Node.js 26 LTS (ES modules); TypeScript run directly by Node (type stripping), checked by `tsc` |
+| Images | Sharp, run locally by `npm run media` (WebP, metadata stripped) |
 | API | Express 5 |
 | Database | PostgreSQL 17 with the `pg` driver and raw parameterized SQL |
 | Migrations | node-pg-migrate with plain `.sql` files |
@@ -59,7 +62,12 @@ The database enforces the money rules as a backstop to the application. For exam
 
 ```
 .github/          CI workflow and pull request template
-docs/             proposal, architecture, data model, state machine, ADRs, backlog
+docs/             proposal, architecture, data model, state machine, ADRs, backlog, TypeScript guide
+content/          artworks.json and about.json: the owner-edited gallery and About content
+media/            processed WebP images + manifest.json (written by npm run media; committed)
+media-source/     original photos (gitignored; only on the owner's machine)
+shared/types/     API types shared by the server and the client (type-only)
+server/scripts/   npm run media (image pipeline)
 server/src/       Express API
   config/         validated environment config
   db/             pg pool, transaction helper, migrations, seeds
@@ -93,7 +101,7 @@ docker compose up -d --wait
 cd server
 npm install
 npm run migrate:up             # create the schema in the dev database
-npm run seed                   # admin account (ADMIN_EMAIL / ADMIN_PASSWORD) + placeholder prices if none exist
+npm run seed                   # admin account, placeholder prices if none exist, gallery content
 npm run dev                    # http://localhost:3000/api/v1/health
 ```
 
@@ -114,7 +122,22 @@ The server validates its environment at startup. If a variable is missing or inv
 
 The dev database uses host port **5434**, not the default 5432, so it does not clash with a Postgres already installed on your machine (Postgres.app, Homebrew).
 
-`npm run seed` is idempotent: it creates the admin, or promotes an existing account with that email, and never overwrites an existing password. The client is added in milestone 5.
+`npm run seed` is idempotent: it creates the admin, or promotes an existing account with that email, and never overwrites an existing password. It also syncs `content/artworks.json` into the database (see below). The React client is added in milestone 5b.
+
+## Adding and editing artwork
+
+Originals stay on your machine; only processed images and the text are committed.
+
+1. Copy photos into `media-source/artworks/` (or `media-source/about/` for the About photo). JPEG, PNG, WebP, and HEIC all work; HEIC needs macOS.
+2. From `server/`, run `npm run media`. It writes two WebP sizes per photo to `media/` (600px thumbnail, 2000px large), removes all photo metadata (including GPS location), and skips photos that haven't changed. Each new photo gets an entry in `content/artworks.json` with `"published": false` and `"to fill in"` placeholders.
+3. Edit `content/artworks.json`: set `title`, `slug` (the URL), `category`, `medium`, and optionally `year`, `credit`, `description`, `altText`, and `tags`. Set `"published": true` when it's ready. The order of entries is the gallery order.
+4. Run `npm run seed` to check it locally, then commit `media/` and `content/` and open a PR.
+
+The seed refuses to run, and the deploy with it, if anything doesn't add up: a photo without an entry, an entry without a photo, a published entry still saying "to fill in", or a duplicate slug. It prints every problem at once. CI runs the same checks.
+
+Editing an entry in the file always wins on the next deploy. Edits made through the admin API stay until you change that artwork in the file. To remove an artwork, delete its photo from `media-source/`, run `npm run media`, and delete its entry. See [ADR 0007](docs/decisions/0007-content-files-and-media-pipeline.md).
+
+The About page reads `content/about.json`: `photo` (an image key from `media-source/about`, e.g. `pin6`), `photoAlt`, and `bio` paragraphs. Lines starting with `PLACEHOLDER:` are still to be written.
 
 ## Running tests
 
@@ -127,9 +150,12 @@ npm run test:watch      # re-run on change
 npm run test:coverage   # coverage summary in the terminal; HTML report in server/coverage/index.html
 npm run lint            # ESLint
 npm run format:check    # Prettier
+npm run typecheck       # TypeScript (tsc, no output files)
 ```
 
-CI runs the same steps on every pull request (lint, format check, migrations, tests with coverage) against a throwaway Postgres 17 service. `main` is protected: changes land only through a pull request, and the CI check must pass first.
+Tests use small fixture content and images in `server/tests/fixtures/`, so they never depend on the real photos; one test validates the real `content/` and `media/` separately.
+
+CI runs the same steps on every pull request (lint, format check, type check, migrations, tests with coverage), then seeds and boots the server under plain Node as Render does, against a throwaway Postgres 17 service. `main` is protected: changes land only through a pull request, and the CI check must pass first.
 
 ## Testing Stripe webhooks locally
 
@@ -159,16 +185,30 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | PATCH | `/api/v1/commissions/:id/quote` | Admin | Adjust the draft: `{ adjustedAmountCents, adjustmentNote }` (note required). |
 | POST | `/api/v1/commissions/:id/quote/send` | Admin | Send the draft: stores total, deposit, and balance on the commission and moves it to `quoted`, all in one transaction. |
 | GET | `/api/v1/commissions/:id/quote` | Owner or admin | The current quote. Clients only see it once it has been sent. |
+| GET | `/api/v1/artworks` | Public | Published artworks in gallery order. `?page=&pageSize=&category=&tag=&q=`. `q` is full-text search (`"exact phrase"`, `-exclude`), ranked by relevance. |
+| GET | `/api/v1/artworks/categories` | Public | Categories with their published-artwork counts. |
+| GET | `/api/v1/artworks/:slug` | Public | One published artwork. Drafts answer 404, like missing artworks. |
+| GET | `/api/v1/tags` | Public | Tags used by published artworks, with counts. |
+| GET | `/api/v1/about` | Public | The About page photo and bio. |
+| GET | `/api/v1/admin/artworks` | Admin | All artworks, including drafts. `?status=all\|published\|draft` plus the public filters. |
+| GET | `/api/v1/admin/artworks/:id` | Admin | One artwork with admin fields (`isPublished`, `contentManaged`, ...). |
+| POST | `/api/v1/admin/artworks` | Admin | Create from a processed image: `imageKey`, `slug`, `title`, `category`, optional fields, `tags` (names). |
+| PATCH | `/api/v1/admin/artworks/:id` | Admin | Edit any field; `tags` replaces the list. Publishing requires alt text. |
+| DELETE | `/api/v1/admin/artworks/:id` | Admin | Delete. 409 for artworks owned by `content/artworks.json`. |
+| GET / POST | `/api/v1/admin/tags` | Admin | List all tags with counts / create (`name`, optional `slug`). |
+| PATCH / DELETE | `/api/v1/admin/tags/:id` | Admin | Rename / delete a tag. |
+
+Images are served from `/media/artworks/...` and `/media/about/...` (paths come from the API), cached by browsers for a year.
 
 **Commissions:** every status change goes through the state machine and is written together with an audit event in one transaction, with the commission row locked against concurrent changes. Who may make which change is documented in [docs/state-machine.md](docs/state-machine.md).
 
-**Pricing:** quotes are computed on the server by a pure engine (`pricing.engine.js`) from active `pricing_rules`: base price by size and medium, plus extra subjects, a fulfillment surcharge, and an optional flat rush fee, all in integer cents. The deposit is `DEPOSIT_PERCENT` of the total, rounded half up to the cent; the balance is the exact remainder.
+**Pricing:** quotes are computed on the server by a pure engine (`pricing.engine.ts`) from active `pricing_rules`: base price by size and medium, plus extra subjects, a fulfillment surcharge, and an optional flat rush fee, all in integer cents. The deposit is `DEPOSIT_PERCENT` of the total, rounded half up to the cent; the balance is the exact remainder.
 
 > ⚠️ **Placeholder prices.** The current price list, `DEPOSIT_PERCENT=50`, and `COMMISSION_REVISION_LIMIT=2` are placeholders (see `server/src/db/seeds/pricing.placeholder.js`). The seed only inserts prices into an empty table, so real prices are never overwritten.
 
 **Auth model:** server-side sessions stored in Postgres. The browser holds only a signed session ID in an `httpOnly`, `SameSite=Lax` cookie (`Secure` with the `__Host-` prefix in production). Sessions last 7 days from the last request. State-changing requests from an `Origin` outside `CORS_ORIGINS` are rejected as CSRF. Passwords are hashed with bcrypt (cost 12). See [ADR 0004](docs/decisions/0004-server-sessions-in-postgres.md).
 
-Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` (422), `RATE_LIMITED` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` (503).
+Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` (422), `RATE_LIMITED` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` (503).
 
 ## Deployment
 
@@ -177,7 +217,8 @@ Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTH
 The API runs on [Render](https://render.com), defined in [`render.yaml`](render.yaml) (a Render Blueprint). The Postgres 17 database runs on [Neon](https://neon.com)'s free plan, in the same region (Oregon). See [ADR 0005](docs/decisions/0005-hosting-on-render.md) and [ADR 0006](docs/decisions/0006-neon-for-production-postgres.md).
 
 - **Deploys:** Render deploys `main` automatically, but only after GitHub Actions CI passes (`autoDeployTrigger: checksPass`).
-- **On start:** `npm run migrate:up && npm run seed && npm start`. A failed migration means the new instance never passes its health check (`/api/v1/health`), so the previous deploy keeps serving.
+- **On start:** `cd server && npm run migrate:up && npm run seed && npm start`. A failed migration, or content that doesn't match its images, means the new instance never passes its health check (`/api/v1/health`), so the previous deploy keeps serving.
+- **No `rootDir`:** Render hides files outside a service's root directory, and the server reads `content/` and `media/` at the repo root, so the commands `cd server` themselves.
 - **Environment variables:**
 
   | Variable | Source |
@@ -205,6 +246,8 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0004: Authentication with server-side sessions stored in Postgres](docs/decisions/0004-server-sessions-in-postgres.md)
 - [0005: Host on Render, defined as a Blueprint](docs/decisions/0005-hosting-on-render.md)
 - [0006: Host the production database on Neon](docs/decisions/0006-neon-for-production-postgres.md)
+- [0007: Artwork content in files, images processed locally and committed](docs/decisions/0007-content-files-and-media-pipeline.md)
+- [0008: TypeScript on the server through Node's type stripping](docs/decisions/0008-typescript-with-node-type-stripping.md)
 
 ## Roadmap
 
