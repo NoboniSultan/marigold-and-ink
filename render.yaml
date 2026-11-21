@@ -48,6 +48,23 @@ services:
         sync: false
       - key: ADMIN_EMAIL
         sync: false
+      # Accounts (docs/setup-google-and-email.md). Optional: each feature stays off until its
+      # values are set in the Dashboard. Render only asks for sync: false values when a
+      # Blueprint is first created, so on this existing service add them in the Dashboard.
+      - key: PUBLIC_URL
+        value: https://marigold-and-ink-api.onrender.com
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Set EMAIL_TRANSPORT=resend once a domain is verified in Resend. Until then email
+      # sign-up shows "opens soon" (codes are never written to production logs).
+      - key: EMAIL_TRANSPORT
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       - key: ADMIN_PASSWORD
         sync: false
       # Business settings, not secrets. ⚠️ PLACEHOLDERS until the owner sets real values.
