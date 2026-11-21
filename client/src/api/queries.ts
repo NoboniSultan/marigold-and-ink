@@ -19,6 +19,7 @@ export const queryKeys = {
   tags: ['tags'] as const,
   about: ['about'] as const,
   commissionOptions: ['commission-options'] as const,
+  providers: ['auth-providers'] as const,
 };
 
 export function useArtworks(filters: ArtworkFilters) {
@@ -65,4 +66,18 @@ export function useMe() {
     queryFn: ({ signal }) => authApi.me(signal),
     staleTime: 5 * 60_000,
   });
+}
+
+/** Which sign-in methods the server has switched on (Google, email sign-up). */
+export function useProviders() {
+  return useQuery({
+    queryKey: queryKeys.providers,
+    queryFn: ({ signal }) => authApi.providers(signal),
+    staleTime: Infinity,
+  });
+}
+
+/** Where "Continue with Google" goes: a full-page navigation to the server, then Google. */
+export function googleStartUrl(next: string): string {
+  return `/api/v1/auth/google/start?next=${encodeURIComponent(next)}`;
 }

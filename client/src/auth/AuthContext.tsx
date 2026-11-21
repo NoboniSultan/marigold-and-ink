@@ -1,12 +1,12 @@
 /**
  * Who is logged in, for the whole app. The session lives in an httpOnly cookie that
  * JavaScript can't read, so "am I logged in?" is answered by GET /users/me, cached by
- * TanStack Query under queryKeys.me. Login, register, and logout update that cache entry,
+ * TanStack Query under queryKeys.me. Login, sign-up, and logout update that cache entry,
  * so every component using useAuth() re-renders at once.
  */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { LoginRequest, RegisterRequest, User } from '@shared/types/user.ts';
+import type { LoginRequest, SignupCompleteRequest, User } from '@shared/types/user.ts';
 import { authApi } from '../api/endpoints.ts';
 import { queryKeys, useMe } from '../api/queries.ts';
 
@@ -15,7 +15,8 @@ interface AuthValue {
   /** True until the first /users/me answer arrives. */
   isLoading: boolean;
   login: (body: LoginRequest) => Promise<User>;
-  register: (body: RegisterRequest) => Promise<User>;
+  /** Sign-up step 2 (step 1, sending the code, needs no auth state: authApi.signupStart). */
+  completeSignup: (body: SignupCompleteRequest) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: me.data ?? null,
       isLoading: me.isPending,
       login: async (body) => signedIn(await authApi.login(body)),
-      register: async (body) => signedIn(await authApi.register(body)),
+      completeSignup: async (body) => signedIn(await authApi.signupComplete(body)),
       logout: async () => {
         await authApi.logout();
         queryClient.setQueryData(queryKeys.me, null);

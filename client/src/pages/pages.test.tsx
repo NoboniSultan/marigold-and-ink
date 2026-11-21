@@ -25,6 +25,7 @@ const OPTIONS = {
 /** A fake API with the common read endpoints; `extra` can answer anything first. */
 function api({
   user = null as typeof USER | null,
+  providers = { google: true, emailSignup: true },
   extra = (_call: Call): MockResponse | undefined => undefined,
 } = {}) {
   return mockApi((call) => {
@@ -50,6 +51,7 @@ function api({
     const artwork = ARTWORKS.find((a) => a.slug === slug);
     if (artwork) return { body: { data: artwork } };
     if (call.path === '/pricing/options') return { body: { data: OPTIONS } };
+    if (call.path === '/auth/providers') return { body: { data: providers } };
     return undefined;
   });
 }
@@ -293,38 +295,144 @@ describe('Login and register', () => {
     expect(await screen.findByRole('button', { name: 'Log out' })).toBeInTheDocument();
   });
 
-  it("shows the server's field errors under the right inputs", async () => {
+  it('signs up in two steps: email, then the code with name and password', async () => {
+    const calls = api({
+      extra: (call) => {
+        if (call.path === '/auth/signup/start') {
+          return {
+            status: 202,
+            body: { data: { email: 'ana@example.com', resendAfterSeconds: 60 } },
+          };
+        }
+        if (call.path === '/auth/signup/complete') return { status: 201, body: { data: USER } };
+        return undefined;
+      },
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoute('/register?next=%2Fcommission');
+
+    await user.type(await screen.findByLabelText('Email'), 'ana@example.com');
+    await user.click(screen.getByRole('button', { name: 'Email me a code' }));
+
+    expect(
+      await screen.findByText(/We sent a 6-digit code to ana@example.com/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send a new code in \d+s/ })).toBeDisabled();
+
+    await user.type(screen.getByLabelText('6-digit code'), '123456');
+    await user.type(screen.getByLabelText('Your name'), 'Ana');
+    await user.type(screen.getByLabelText('Password'), 'a long enough password');
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/commission'));
+    expect(calls.find((c) => c.path === '/auth/signup/complete')!.body).toEqual({
+      email: 'ana@example.com',
+      code: '123456',
+      displayName: 'Ana',
+      password: 'a long enough password',
+    });
+  });
+
+  it("shows a wrong code's message and the server's field errors", async () => {
+    api({
+      extra: (call) => {
+        if (call.path === '/auth/signup/start') {
+          return {
+            status: 202,
+            body: { data: { email: 'ana@example.com', resendAfterSeconds: 60 } },
+          };
+        }
+        if (call.path === '/auth/signup/complete') {
+          return {
+            status: 422,
+            body: {
+              error: { code: 'CODE_INCORRECT', message: "That code isn't right. 4 tries left." },
+            },
+          };
+        }
+        return undefined;
+      },
+    });
+    const user = userEvent.setup();
+    renderRoute('/register');
+
+    await user.type(await screen.findByLabelText('Email'), 'ana@example.com');
+    await user.click(screen.getByRole('button', { name: 'Email me a code' }));
+    await user.type(await screen.findByLabelText('6-digit code'), '000000');
+    await user.type(screen.getByLabelText('Your name'), 'Ana');
+    await user.type(screen.getByLabelText('Password'), 'a long enough password');
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "That code isn't right. 4 tries left.",
+    );
+  });
+
+  it('says email sign-up opens soon when the server cannot send email, and offers Google', async () => {
+    api({ providers: { google: true, emailSignup: false } });
+    renderRoute('/register');
+
+    expect(await screen.findByText('Sign-up by email opens soon.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
+      'href',
+      '/api/v1/auth/google/start?next=%2F',
+    );
+  });
+});
+
+describe('Google sign-in on the login page', () => {
+  it('shows the Google button only when Google is switched on, keeping ?next', async () => {
+    api({ providers: { google: true, emailSignup: true } });
+    renderRoute('/login?next=%2Fcommission');
+
+    expect(await screen.findByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
+      'href',
+      '/api/v1/auth/google/start?next=%2Fcommission',
+    );
+  });
+
+  it('hides it when Google is off', async () => {
+    api({ providers: { google: false, emailSignup: true } });
+    renderRoute('/login');
+
+    await screen.findByRole('heading', { name: 'Log in' });
+    await waitFor(() => expect(screen.queryByText('Continue with Google')).toBeNull());
+  });
+
+  it('explains why a Google sign-in came back', async () => {
+    api();
+    renderRoute('/login?error=google_unverified_email');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("email isn't verified with Google");
+  });
+
+  it('offers a code to an account whose email was never verified', async () => {
     api({
       extra: (call) =>
-        call.path === '/auth/register'
+        call.path === '/auth/login'
           ? {
-              status: 400,
+              status: 403,
               body: {
                 error: {
-                  code: 'VALIDATION_ERROR',
-                  message: 'Request validation failed',
-                  details: [
-                    {
-                      location: 'body',
-                      path: 'password',
-                      message: 'must be at least 12 characters',
-                    },
-                  ],
+                  code: 'EMAIL_NOT_VERIFIED',
+                  message:
+                    'Please verify your email: sign up again with this address to get a code.',
                 },
               },
             }
           : undefined,
     });
     const user = userEvent.setup();
-    renderRoute('/register');
+    renderRoute('/login');
 
-    await user.type(await screen.findByLabelText('Your name'), 'Ana');
-    await user.type(screen.getByLabelText('Email'), 'ana@example.com');
-    await user.type(screen.getByLabelText('Password'), 'short');
-    await user.click(screen.getByRole('button', { name: 'Create account' }));
+    await user.type(await screen.findByLabelText('Email'), 'old@example.com');
+    await user.type(screen.getByLabelText('Password'), 'the right password');
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
 
-    expect(await screen.findByText('must be at least 12 characters')).toBeInTheDocument();
-    expect(screen.getByLabelText('Password')).toHaveAttribute('aria-invalid', 'true');
+    expect(await screen.findByRole('link', { name: 'Get a code' })).toHaveAttribute(
+      'href',
+      '/register?email=old%40example.com',
+    );
   });
 });
 

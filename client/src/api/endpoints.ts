@@ -3,7 +3,14 @@ import type { AboutContent } from '@shared/types/about.ts';
 import type { ApiResponse, PaginatedResponse } from '@shared/types/api.ts';
 import type { Artwork, CategoryCount, Tag } from '@shared/types/artwork.ts';
 import type { Commission, CommissionOptions, CommissionRequest } from '@shared/types/commission.ts';
-import type { LoginRequest, RegisterRequest, User } from '@shared/types/user.ts';
+import type {
+  AuthProviders,
+  LoginRequest,
+  SignupCompleteRequest,
+  SignupStartRequest,
+  SignupStartResponse,
+  User,
+} from '@shared/types/user.ts';
 import { request } from './client.ts';
 
 export interface ArtworkFilters {
@@ -40,8 +47,14 @@ export const authApi = {
     data(request<ApiResponse<User | null>>('/auth/session', { signal })),
   login: (body: LoginRequest) =>
     data(request<ApiResponse<User>>('/auth/login', { method: 'POST', body })),
-  register: (body: RegisterRequest) =>
-    data(request<ApiResponse<User>>('/auth/register', { method: 'POST', body })),
+  /** Sign-up step 1: emails a 6-digit code. */
+  signupStart: (body: SignupStartRequest) =>
+    data(request<ApiResponse<SignupStartResponse>>('/auth/signup/start', { method: 'POST', body })),
+  /** Sign-up step 2: the code plus name and password; creates the account and logs in. */
+  signupComplete: (body: SignupCompleteRequest) =>
+    data(request<ApiResponse<User>>('/auth/signup/complete', { method: 'POST', body })),
+  providers: (signal?: AbortSignal) =>
+    data(request<ApiResponse<AuthProviders>>('/auth/providers', { signal })),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
 };
 
