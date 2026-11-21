@@ -79,6 +79,18 @@ jobs:
       - name: Test with coverage
         run: npm run test:coverage
 
+      # What Render does on start, under plain Node (tests compile TypeScript through Vitest,
+      # so this is what proves Node's own type stripping runs the code). The seed reads the
+      # real content/ and media/, so a content file that doesn't match its images fails here.
+      - name: Seed and boot as in production
+        run: |
+          npm run seed
+          PORT=3999 node src/server.js &
+          for i in $(seq 1 30); do curl -fs localhost:3999/api/v1/health > /dev/null && break; sleep 0.5; done
+          curl -fsS localhost:3999/api/v1/health
+          curl -fsS "localhost:3999/api/v1/artworks?pageSize=1" > /dev/null
+          curl -fsS localhost:3999/api/v1/about > /dev/null
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v7
