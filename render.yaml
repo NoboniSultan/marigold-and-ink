@@ -1,0 +1,53 @@
+# Render Blueprint: the production infrastructure, reviewed in PRs like code.
+# Create it once in the Render Dashboard (New > Blueprint > this repo). Render then keeps
+# the services in sync with this file.
+#
+# Secrets are never in this file: `generateValue` creates one on Render, and `sync: false`
+# makes Render ask for the value when the Blueprint is first created.
+
+services:
+  - type: web
+    name: marigold-and-ink-api
+    runtime: node
+    plan: free # spins down after 15 min idle; first request after that is slow
+    region: oregon
+    branch: main
+    # Deploy only after GitHub Actions CI passes on main, so a failing commit never ships.
+    autoDeployTrigger: checksPass
+    rootDir: server
+    buildCommand: npm ci --omit=dev
+    # Free instances don't support preDeployCommand, so migrations and the (idempotent)
+    # admin seed run before the server starts. If a migration fails, the new instance never
+    # becomes healthy and Render keeps serving the previous deploy.
+    # On a paid plan, move `npm run migrate:up && npm run seed` to preDeployCommand.
+    startCommand: npm run migrate:up && npm run seed && npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION # keep in sync with .nvmrc
+        value: 26.13.1
+      - key: TRUST_PROXY # Render's load balancer is one proxy hop
+        value: '1'
+      - key: DATABASE_URL # private-network URL, so no TLS setup is needed
+        fromDatabase:
+          name: marigold-and-ink-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      # Browser origins allowed to call the API (comma-separated). Until the client is
+      # deployed (milestone 5), use this service's own URL.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+
+databases:
+  - name: marigold-and-ink-db
+    plan: free # expires 30 days after creation (14-day grace to upgrade); no backups
+    region: oregon
+    postgresMajorVersion: '17'
+    databaseName: marigold
+    user: marigold

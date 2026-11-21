@@ -44,11 +44,38 @@ Global middleware runs in this order (see `server/src/app.js`):
 1. **requestId**: reuses a safe incoming `X-Request-Id` or generates a UUID, sets the response header, and runs the rest of the request inside an AsyncLocalStorage context.
 2. **requestLogger**: one log line per request when it finishes (method, path, status, duration).
 3. **helmet**: security headers.
-4. **cors**: only origins listed in `CORS_ORIGINS` get CORS headers.
+4. **cors**: only origins listed in `CORS_ORIGINS` get CORS headers, with credentials (cookies) allowed.
 5. **express.json**: parses JSON bodies up to 100 KB.
-6. **/api/v1 routes**: feature modules.
-7. **notFound**: anything unmatched becomes `404 ROUTE_NOT_FOUND`.
-8. **errorHandler**: the only place errors become HTTP responses.
+6. **session**: loads the Postgres-backed session from the signed `httpOnly` cookie.
+7. **requireTrustedOrigin**: CSRF check. A POST, PUT, PATCH, or DELETE whose `Origin`/`Referer` is outside `CORS_ORIGINS` gets `403 CSRF_ORIGIN_MISMATCH`.
+8. **/api/v1 routes**: feature modules. Per route: rate limiter → `requireAuth` → `requireRole` / `requireOwnerOrAdmin` → `validate` → controller.
+9. **notFound**: anything unmatched becomes `404 ROUTE_NOT_FOUND`.
+10. **errorHandler**: the only place errors become HTTP responses.
+
+`app.set('trust proxy', TRUST_PROXY)` makes `req.ip` and `req.secure` correct behind Render's load balancer.
+
+### Authentication and authorization
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as API
+    participant DB as Postgres
+    B->>A: POST /auth/login {email, password}
+    A->>DB: SELECT user + password_hash
+    A->>A: bcrypt.compare (dummy hash if no user)
+    A->>DB: regenerate session, INSERT sessions row {userId}
+    A-->>B: 200 + Set-Cookie sid (httpOnly, SameSite=Lax)
+    B->>A: GET /users/42 (cookie)
+    A->>DB: load session -> userId
+    A->>DB: requireAuth: load user (fresh role)
+    A->>A: requireOwnerOrAdmin: admin or user.id === 42?
+    A-->>B: 200, or 403 FORBIDDEN
+```
+
+- **Authentication** (`requireAuth`): the session holds only `userId`. The user, including their role, is loaded from the database on every request, so a role change or a deleted account takes effect immediately.
+- **Authorization** comes in two flavors. `requireRole('admin')` is for admin-only routes. `requireOwnerOrAdmin(getOwnerId)` is for owned resources and uses the pure `canAccessOwnedResource(user, ownerId)` rule from `lib/authorization.js`. Services can call that rule directly after loading a resource.
+- See [ADR 0004](decisions/0004-server-sessions-in-postgres.md) for the cookie flags, CSRF layers, password policy, and rate limits.
 
 ### Errors
 
@@ -67,8 +94,8 @@ To be expanded in milestone 4. For example, `POST /api/v1/commissions/:id/transi
 | Module | Responsibility | Milestone |
 | --- | --- | --- |
 | health | `GET /health`: app status and a database ping | 1 |
-| auth | register, login, logout, session/token handling | 3 |
-| users | user profile, `GET /me` | 3 |
+| auth | register, login, logout; password hashing; session start and end | 3 |
+| users | user records: `GET /users/me`, `GET /users/:id`, admin `GET /users` | 3 |
 | commissions | requests, state machine, event history | 4 |
 | pricing | pricing rules and the `calculateQuote` engine, quotes | 4 |
 | gallery | artworks and tags, public listing | 5 |

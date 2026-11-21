@@ -17,12 +17,14 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 
 ## Ideas and notes
 
-- **Make `REDIS_URL` required** once a feature (BullMQ jobs, or Redis-backed sessions if chosen in milestone 3) depends on Redis. It is validated but optional for now.
-- **`trust proxy` setting** (milestone 3): behind Render or Railway's proxy, Express must trust `X-Forwarded-For`, or the rate limiter will see every client as the proxy's IP.
-- **Production database TLS** (milestone 3): the hosted Postgres may require `ssl` options on the pool.
+- **Make `REDIS_URL` required** once a feature (BullMQ jobs) depends on Redis. It is validated but optional for now.
+- **Shared rate-limit store**: login and registration counters are in memory, per instance, and reset on restart. Move them to Redis if the API ever runs on more than one instance.
+- **"Log out everywhere"**: add a `user_id` column to `sessions` so all of a user's sessions can be revoked (e.g. after a password change).
+- **Password reset and email verification**: these need the email feature.
+- **Upgrade Render Postgres before real customers use the site**: the free database expires 30 days after creation and has no backups. On a paid web instance, move `migrate:up && seed` to `preDeployCommand`.
+- **Same-site client hosting** (milestone 5): the session cookie requires the React client and the API to be on the same site (Express serves the build, or a rewrite to `/api`).
 - **Dev-dependency audit**: `npm audit` reports a high-severity ReDoS advisory in `picomatch`, which the Vitest toolchain pulls in (dev-only; production dependencies report 0 vulnerabilities). npm's suggested fix downgrades Vitest by two major versions, so it was not applied. Re-check when Vitest or tinyglobby release a fix.
 - **Health check for Redis** once Redis is used.
-- **Map database constraint errors to API errors** (milestone 3): e.g. a `users_email_key` unique violation becomes `409 EMAIL_TAKEN` instead of a 500, in case two registrations race past the service-level check.
 - **Currency** (milestone 7): `payments.currency` is required. Confirm the shop's currency with the owner and put it in config.
 - **Rush fee shape** (milestone 4): `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column then.
 - **Donation adjustment history** (milestone 8): partial refunds need an auditable adjustment record; design it with the refund-after-payout rule.

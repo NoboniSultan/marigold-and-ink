@@ -24,6 +24,18 @@ describe('loadConfig', () => {
     expect(Object.isFrozen(config)).toBe(true);
   });
 
+  it('applies the approved security defaults', () => {
+    const config = loadConfig(validEnv);
+
+    expect(config.trustProxy).toBe(0);
+    expect(config.bcryptRounds).toBe(12);
+    expect(config.sessionMaxAgeMs).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(config.rateLimits).toEqual({
+      login: { limit: 10, windowMs: 15 * 60_000 },
+      register: { limit: 5, windowMs: 60 * 60_000 },
+    });
+  });
+
   it('uses TEST_DATABASE_URL when NODE_ENV is test', () => {
     const config = loadConfig({
       ...validEnv,

@@ -9,6 +9,10 @@
  * Default values here are arbitrary test data, not business prices or limits.
  */
 import { pool } from '../../src/db/pool.js';
+import { hashPassword } from '../../src/lib/password.js';
+
+/** Default password for users created with createUserWithPassword(). */
+export const TEST_PASSWORD = 'correct horse battery staple';
 
 let sequence = 0;
 const next = () => ++sequence;
@@ -34,6 +38,12 @@ export function createUser(overrides = {}) {
     role: 'client',
     ...overrides,
   });
+}
+
+/** A user who can actually log in (real bcrypt hash; tests use the minimum cost for speed). */
+export async function createUserWithPassword({ password = TEST_PASSWORD, ...overrides } = {}) {
+  const user = await createUser({ ...overrides, passwordHash: await hashPassword(password) });
+  return { ...user, password };
 }
 
 export function createArtwork(overrides = {}) {

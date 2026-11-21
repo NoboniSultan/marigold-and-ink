@@ -23,6 +23,17 @@ const envSchema = z
     REDIS_URL: z.url().optional(),
     AUTH_SECRET: z.string().min(32, 'must be at least 32 characters'),
     CORS_ORIGINS: commaSeparatedUrls,
+    // Number of reverse proxies in front of the app (1 on Render). Needed so req.ip is
+    // the real client IP (rate limiting) and req.secure is true behind HTTPS (cookies).
+    TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+    // bcrypt work factor: each +1 doubles hashing time. Tests use the minimum (4) for speed.
+    BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
+    SESSION_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+    // Failed logins allowed per IP + email per window, and registrations per IP per window.
+    RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().min(1).default(10),
+    RATE_LIMIT_LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).default(15),
+    RATE_LIMIT_REGISTER_MAX: z.coerce.number().int().min(1).default(5),
+    RATE_LIMIT_REGISTER_WINDOW_MINUTES: z.coerce.number().int().min(1).default(60),
   })
   .superRefine((env, ctx) => {
     // Tests always use the separate test database; everything else uses DATABASE_URL.
@@ -70,6 +81,19 @@ export function loadConfig(rawEnv) {
     redisUrl: e.REDIS_URL,
     authSecret: e.AUTH_SECRET,
     corsOrigins: Object.freeze(e.CORS_ORIGINS),
+    trustProxy: e.TRUST_PROXY,
+    bcryptRounds: e.BCRYPT_ROUNDS,
+    sessionMaxAgeMs: e.SESSION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
+    rateLimits: Object.freeze({
+      login: {
+        limit: e.RATE_LIMIT_LOGIN_MAX,
+        windowMs: e.RATE_LIMIT_LOGIN_WINDOW_MINUTES * 60_000,
+      },
+      register: {
+        limit: e.RATE_LIMIT_REGISTER_MAX,
+        windowMs: e.RATE_LIMIT_REGISTER_WINDOW_MINUTES * 60_000,
+      },
+    }),
   });
 }
 
