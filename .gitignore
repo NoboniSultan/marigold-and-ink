@@ -31,3 +31,6 @@ Thumbs.db
 
 # Local working folder for original photos (not part of the repo)
 photo-assets/
+
+# Original, full-resolution photos (never committed; `npm run media` builds optimized copies)
+/media-source/
