@@ -22,7 +22,9 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **"Log out everywhere"**: add a `user_id` column to `sessions` so all of a user's sessions can be revoked (e.g. after a password change).
 - **Password reset and email verification**: these need the email feature.
 - **Real backups before real customers use the site**: Neon Free keeps only 6 hours of restore history and 1 GB of storage. Move to a paid Neon or Render Postgres plan; only `DATABASE_URL` changes. On a paid Render web instance, also move `migrate:up && seed` to `preDeployCommand`.
-- **Same-site client hosting** (milestone 5): the session cookie requires the React client and the API to be on the same site (Express serves the build, or a rewrite to `/api`).
+- **Browser tests in CI:** milestone 5b was checked in headless Chrome by hand (Playwright driving the real site: morph, Escape close, 3D, register → commission). Add Playwright to CI so the shared-layout exit and the 3D scene, which jsdom can't run, are tested on every PR.
+- **Trim the main bundle** (about 168 KB gzipped): Motion's `LazyMotion` with `m` components loads only the features in use. `layoutId` needs the `domMax` feature set, so measure before and after.
+- **Client dashboard** ("my commissions", quote acceptance): the commission form shows a confirmation, but there's no page listing a client's requests yet.
 - **Dev-dependency audit**: `npm audit` reports a high-severity ReDoS advisory in `picomatch`, which the Vitest toolchain pulls in (dev-only; production dependencies report 0 vulnerabilities). npm's suggested fix downgrades Vitest by two major versions, so it was not applied. Re-check when Vitest or tinyglobby release a fix.
 - **Health check for Redis** once Redis is used.
 - **Currency** (milestone 7): `payments.currency` is required. Confirm the shop's currency with the owner and put it in config.
@@ -37,4 +39,4 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Revisit the content source of truth** when the admin UI exists: probably make the database the source after a final import from `content/artworks.json` (ADR 0007, "option B").
 - **Move `media/` to object storage** if the gallery grows past a few hundred images. Keep the `/media/...` URLs.
 - **"Featured" flag for the home carousel**: for now the carousel can show the first published artworks in gallery order. Add a `featured` field if the owner wants to choose them separately.
-- **Owner content to fill in:** the 30 "to fill in" drafts in `content/artworks.json`, written alt text for the published pieces (currently "title, medium"), years, the About bio and photo description (`content/about.json`), and which photo is *Floral*.
+- **Owner content to fill in:** the 30 "to fill in" drafts in `content/artworks.json`, written alt text for the published pieces (currently "title, medium"), years, the About bio and both photo descriptions (`content/about.json`), the site text in `client/src/content/copy.ts` (typewriter lines, main button, charity line), and the *Floral* image (a digital flower; not in `media-source` yet).

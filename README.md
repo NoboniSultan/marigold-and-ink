@@ -22,7 +22,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Commission requests and state machine (audit trail, actor permissions, revision limit) | Built |
 | Pricing engine and quotes (generate, admin adjustment, send) | Built, with **placeholder prices** |
 | Public gallery API (search, filters, admin CRUD), image pipeline, About content | Built |
-| React client (milestone 5b) | Planned |
+| Website: Home (typewriter, carousel), Gallery (grid and 3D), About, login, commission form | Built, with **placeholder copy** |
 | Google sign-in (milestone 5c) | Planned |
 | Stripe deposit and final payments, webhooks, refunds | Planned |
 | Donation ledger and transparency totals | Planned |
@@ -45,7 +45,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Payments | Stripe Checkout and webhooks, test mode |
 | Tests | Vitest and Supertest against a separate test database |
 | Lint / format | ESLint and Prettier |
-| Frontend | React, Vite, React Router |
+| Frontend | React 19, Vite, React Router, TanStack Query, CSS Modules, Motion, React Three Fiber (TypeScript) |
 | Local infra | Docker Compose |
 | CI | GitHub Actions |
 | Hosting | API on Render (Blueprint in `render.yaml`); Postgres on Neon |
@@ -77,7 +77,15 @@ server/src/       Express API
   adapters/       wrappers around third-party SDKs (Stripe)
   modules/        one folder per feature: routes, controller, service, repository, validation
 server/tests/     test setup, factories, fixtures
-client/src/       React app: api layer, components, pages, hooks, design tokens
+client/src/       React site (TypeScript)
+  api/            the only place fetch() is called; TanStack Query hooks
+  auth/           AuthContext, RequireAuth
+  components/     Header, Footer, Layout, ArtworkImage, forms
+  content/        copy.ts: site text the owner writes (placeholders for now)
+  features/       home (hero, carousel), gallery (grid, overlay, explore/ 3D), about
+  hooks/          useTypewriter, useMediaQuery, useScrollLock
+  pages/          one component per route
+  styles/         tokens.css (palette, type, motion), global.css
 ```
 
 ## Local setup
@@ -103,7 +111,20 @@ npm install
 npm run migrate:up             # create the schema in the dev database
 npm run seed                   # admin account, placeholder prices if none exist, gallery content
 npm run dev                    # http://localhost:3000/api/v1/health
+
+# 4. Website (second terminal)
+cd client
+npm install
+npm run dev                    # http://localhost:5173 (proxies /api and /media to :3000)
 ```
+
+The site and API share one origin in both development (Vite's proxy) and production (Express serves `client/dist`), so the session cookie works without CORS. `CORS_ORIGINS` in `.env` must include `http://localhost:5173` for logins and forms to pass the CSRF check. Vite uses `strictPort`: if another app already uses 5173, stop it or run `npx vite --port 5174` and add that origin to `CORS_ORIGINS`.
+
+### Site text and design
+
+- Text the owner writes lives in [`client/src/content/copy.ts`](client/src/content/copy.ts): the typewriter lines, the main button, and the footer's charity line. Everything starting with `PLACEHOLDER` is waiting for real copy.
+- The palette, fonts, spacing, and motion timing are CSS variables in [`client/src/styles/tokens.css`](client/src/styles/tokens.css).
+- Every animation, with its reduced-motion fallback, is described in [docs/motion.md](docs/motion.md).
 
 ### Database migrations
 
@@ -137,7 +158,7 @@ The seed refuses to run, and the deploy with it, if anything doesn't add up: a p
 
 Editing an entry in the file always wins on the next deploy. Edits made through the admin API stay until you change that artwork in the file. To remove an artwork, delete its photo from `media-source/`, run `npm run media`, and delete its entry. See [ADR 0007](docs/decisions/0007-content-files-and-media-pipeline.md).
 
-The About page reads `content/about.json`: `photo` (an image key from `media-source/about`, e.g. `pin6`), `photoAlt`, and `bio` paragraphs. Lines starting with `PLACEHOLDER:` are still to be written.
+The About page reads `content/about.json`: `photo` (an image key from `media-source/about`, e.g. `artist-with-flowers`), `photoAlt`, `bio` paragraphs, and an optional `closingPhoto` + `closingPhotoAlt` shown at the bottom of the page. Lines starting with `PLACEHOLDER:` are still to be written.
 
 ## Running tests
 
@@ -151,11 +172,20 @@ npm run test:coverage   # coverage summary in the terminal; HTML report in serve
 npm run lint            # ESLint
 npm run format:check    # Prettier
 npm run typecheck       # TypeScript (tsc, no output files)
+
+cd ../client
+npm test                # Vitest + Testing Library (page smoke tests, typewriter, 3D layout, API client)
+npm run lint && npm run typecheck && npm run build
 ```
 
 Tests use small fixture content and images in `server/tests/fixtures/`, so they never depend on the real photos; one test validates the real `content/` and `media/` separately.
 
-CI runs the same steps on every pull request (lint, format check, type check, migrations, tests with coverage), then seeds and boots the server under plain Node as Render does, against a throwaway Postgres 17 service. `main` is protected: changes land only through a pull request, and the CI check must pass first.
+CI runs two jobs on every pull request:
+
+- **Server:** lint, format check, type check, migrations, and tests with coverage, then it seeds and boots the server under plain Node as Render does, against a throwaway Postgres 17 service.
+- **Client:** lint, format check, type check, tests, and a production build.
+
+`main` is protected: changes land only through a pull request, and both checks must pass first.
 
 ## Testing Stripe webhooks locally
 
@@ -173,6 +203,7 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | POST | `/api/v1/auth/register` | Public | Create a client account and log in. Body: `email`, `password` (12+ chars, ≤ 72 bytes), `displayName`. Rate limited: 5 per hour per IP. |
 | POST | `/api/v1/auth/login` | Public | Log in. Body: `email`, `password`. Rate limited: 10 failed attempts per 15 minutes per IP + email. |
 | POST | `/api/v1/auth/logout` | Any | End the session (idempotent). Returns 204. |
+| GET | `/api/v1/auth/session` | Public | Who is logged in: `{ data: user }` or `{ data: null }`, always 200 (the site asks on every page load). |
 | GET | `/api/v1/users/me` | Logged in | The current user. |
 | GET | `/api/v1/users/:id` | Owner or admin | A user record. Clients may only read their own. |
 | GET | `/api/v1/users` | Admin | Paginated list of users (`?page=1&pageSize=20`, max 100). |
@@ -198,6 +229,8 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | GET / POST | `/api/v1/admin/tags` | Admin | List all tags with counts / create (`name`, optional `slug`). |
 | PATCH / DELETE | `/api/v1/admin/tags/:id` | Admin | Rename / delete a tag. |
 
+| GET | `/api/v1/pricing/options` | Public | What the commission form may offer: priced size + medium pairs, fulfillment types, extra subjects, rush. No prices. |
+
 Images are served from `/media/artworks/...` and `/media/about/...` (paths come from the API), cached by browsers for a year.
 
 **Commissions:** every status change goes through the state machine and is written together with an audit event in one transaction, with the commission row locked against concurrent changes. Who may make which change is documented in [docs/state-machine.md](docs/state-machine.md).
@@ -212,11 +245,12 @@ Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTH
 
 ## Deployment
 
-**Live API:** https://marigold-and-ink-api.onrender.com. Health check: [`/api/v1/health`](https://marigold-and-ink-api.onrender.com/api/v1/health). On the free plan the service sleeps when idle, so the first request may take up to a minute.
+**Live site and API:** https://marigold-and-ink-api.onrender.com. Health check: [`/api/v1/health`](https://marigold-and-ink-api.onrender.com/api/v1/health). On the free plan the service sleeps when idle, so the first request may take up to a minute.
 
 The API runs on [Render](https://render.com), defined in [`render.yaml`](render.yaml) (a Render Blueprint). The Postgres 17 database runs on [Neon](https://neon.com)'s free plan, in the same region (Oregon). See [ADR 0005](docs/decisions/0005-hosting-on-render.md) and [ADR 0006](docs/decisions/0006-neon-for-production-postgres.md).
 
 - **Deploys:** Render deploys `main` automatically, but only after GitHub Actions CI passes (`autoDeployTrigger: checksPass`).
+- **Build:** `cd client && npm ci --include=dev && npm run build && cd ../server && npm ci --omit=dev`. Express serves the built site from `client/dist`; the site and API share one URL. (`NODE_ENV=production` would make a plain `npm ci` skip Vite and TypeScript, hence `--include=dev` for the client.)
 - **On start:** `cd server && npm run migrate:up && npm run seed && npm start`. A failed migration, or content that doesn't match its images, means the new instance never passes its health check (`/api/v1/health`), so the previous deploy keeps serving.
 - **No `rootDir`:** Render hides files outside a service's root directory, and the server reads `content/` and `media/` at the repo root, so the commands `cd server` themselves.
 - **Environment variables:**
@@ -233,7 +267,7 @@ The API runs on [Render](https://render.com), defined in [`render.yaml`](render.
 **First-time setup:**
 1. In Neon, create a project (Postgres 17, AWS US West / Oregon) and copy the direct connection string. Change `sslmode=require` to `sslmode=verify-full`.
 2. In the Render Dashboard, choose New → Blueprint, then connect this repository.
-3. Enter values for `DATABASE_URL`, `CORS_ORIGINS` (the service's own URL until the client exists), `ADMIN_EMAIL`, and `ADMIN_PASSWORD`.
+3. Enter values for `DATABASE_URL`, `CORS_ORIGINS` (the service's own URL: the site is served from it), `ADMIN_EMAIL`, and `ADMIN_PASSWORD`.
 4. Apply, then check `https://<service>.onrender.com/api/v1/health`.
 
 ## Design decisions
@@ -248,6 +282,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0006: Host the production database on Neon](docs/decisions/0006-neon-for-production-postgres.md)
 - [0007: Artwork content in files, images processed locally and committed](docs/decisions/0007-content-files-and-media-pipeline.md)
 - [0008: TypeScript on the server through Node's type stripping](docs/decisions/0008-typescript-with-node-type-stripping.md)
+- [0009: React client: same origin, CSS Modules, TanStack Query](docs/decisions/0009-react-client-stack.md)
 
 ## Roadmap
 

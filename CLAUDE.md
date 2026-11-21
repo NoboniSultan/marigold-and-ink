@@ -71,11 +71,16 @@ npm run migrate:create -- name
 npm run seed                  # idempotent; admin from ADMIN_EMAIL/ADMIN_PASSWORD, placeholder prices, content sync
 npm run typecheck             # tsc, no output
 npm run media                 # process media-source/ into media/ (macOS for HEIC); add -- --force to redo all
+
+# client/ (needs the API on :3000)
+npm run dev                   # Vite on :5173, proxying /api and /media
+npm test                      # Vitest + Testing Library
+npm run lint && npm run typecheck && npm run build
 ```
 
 ## Git and GitHub rules
 
-- `main` is protected: no direct pushes (admins included), no force-pushes. Changes land only through a PR, and the **"Server: lint, migrate, test"** CI check must pass with the branch up to date with `main`.
+- `main` is protected: no direct pushes (admins included), no force-pushes. Changes land only through a PR, and the **"Server: lint, migrate, test"** and **"Client: lint, typecheck, test, build"** CI checks must pass with the branch up to date with `main`.
 - Render deploys `main` only after CI passes (`render.yaml`, `autoDeployTrigger: checksPass`).
 - The repo is public. Never put personal data (such as the admin email) or secrets in committed files; they belong in `.env` and Render's Dashboard.
 - Stage explicit paths, never whole directories, and check `git diff --cached --name-only` before committing.
@@ -103,6 +108,14 @@ npm run media                 # process media-source/ into media/ (macOS for HEI
 - Never invent artwork titles, mediums, years, credits, alt text, or bio text. Unknown values stay `"to fill in"` (unpublished) or `PLACEHOLDER:`.
 - Admin routes go on the `/api/v1/admin` router, which is guarded once at the router level (`routes.js`).
 - Tests use `tests/fixtures/content` and `tests/fixtures/media` (set via `CONTENT_DIR` / `MEDIA_DIR` in `vitest.config.js`); `content.real.test.ts` checks the real files.
+
+## Client rules (ADR 0009, docs/motion.md)
+
+- Only `client/src/api/client.ts` calls `fetch`; components use the hooks in `api/queries.ts`. Types come from `shared/types` (`import type`).
+- Style with CSS Modules and the variables in `styles/tokens.css`; never hard-code palette values. Marigold is never text on white; primary buttons are Marigold with Ink text.
+- Every animation needs a reduced-motion fallback (`usePrefersReducedMotion`) and an entry in `docs/motion.md`.
+- Site copy lives in `client/src/content/copy.ts`; never invent it (use `PLACEHOLDER:`).
+- Page tests run with animations skipped; shared-layout exits and WebGL can't run in jsdom, so check them in a real browser and list that in the PR.
 
 ## Database rules
 
