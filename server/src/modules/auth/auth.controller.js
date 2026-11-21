@@ -30,6 +30,11 @@ export async function login(req, res) {
   res.json({ data: user });
 }
 
+/** Who is logged in: { data: user } or { data: null }. Always 200. */
+export async function session(req, res) {
+  res.json({ data: await authService.getSessionUser(req.session?.userId) });
+}
+
 /** Idempotent: logging out without a session still succeeds. */
 export async function logout(req, res) {
   await destroySession(req);

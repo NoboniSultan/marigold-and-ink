@@ -225,3 +225,39 @@ describe('POST /api/v1/auth/logout', () => {
     expect(res.status).toBe(204);
   });
 });
+
+describe('GET /api/v1/auth/session', () => {
+  it('answers 200 with null when nobody is logged in (not an error)', async () => {
+    const res = await request(app).get('/api/v1/auth/session');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: null });
+  });
+
+  it('returns the logged-in user, without the password hash', async () => {
+    const user = await createUserWithPassword();
+    const agent = request.agent(app);
+    await agent
+      .post('/api/v1/auth/login')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ email: user.email, password: user.password });
+
+    const res = await agent.get('/api/v1/auth/session');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ id: user.id, email: user.email, role: 'client' });
+    expect(res.body.data).not.toHaveProperty('passwordHash');
+  });
+
+  it('answers null once the account behind the session is gone', async () => {
+    const user = await createUserWithPassword();
+    const agent = request.agent(app);
+    await agent
+      .post('/api/v1/auth/login')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ email: user.email, password: user.password });
+    await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
+
+    expect((await agent.get('/api/v1/auth/session')).body).toEqual({ data: null });
+  });
+});

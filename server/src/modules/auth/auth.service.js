@@ -2,6 +2,15 @@ import * as usersService from '../users/users.service.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { UnauthorizedError } from '../../errors/index.js';
 
+/**
+ * The user behind a session, or null. Used by GET /auth/session, where "not logged in" is
+ * a normal answer (200 with null), not an error: the site asks on every page load.
+ */
+export async function getSessionUser(userId) {
+  if (!userId) return null;
+  return (await usersService.findById(userId)) ?? null;
+}
+
 // Compared against when the email doesn't exist, so a login attempt takes the same time
 // whether or not the account exists. Otherwise response timing would reveal which
 // emails are registered. Created lazily (with the configured cost) and reused.
