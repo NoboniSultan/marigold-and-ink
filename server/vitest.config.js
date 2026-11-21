@@ -22,6 +22,9 @@ export default defineConfig({
       BCRYPT_ROUNDS: '4',
       RATE_LIMIT_LOGIN_MAX: '1000',
       RATE_LIMIT_REGISTER_MAX: '1000',
+      // Test-only business values (deliberately unlike any real price policy).
+      DEPOSIT_PERCENT: '40',
+      COMMISSION_REVISION_LIMIT: '2',
     },
     // Integration tests share one test database and truncate it between tests,
     // so test files run one at a time to avoid wiping each other's data.
