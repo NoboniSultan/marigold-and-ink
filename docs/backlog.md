@@ -21,7 +21,7 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Shared rate-limit store**: login and registration counters are in memory, per instance, and reset on restart. Move them to Redis if the API ever runs on more than one instance.
 - **"Log out everywhere"**: add a `user_id` column to `sessions` so all of a user's sessions can be revoked (e.g. after a password change).
 - **Password reset and email verification**: these need the email feature.
-- **Upgrade Render Postgres before real customers use the site**: the free database expires 30 days after creation and has no backups. On a paid web instance, move `migrate:up && seed` to `preDeployCommand`.
+- **Real backups before real customers use the site**: Neon Free keeps only 6 hours of restore history and 1 GB of storage. Move to a paid Neon or Render Postgres plan; only `DATABASE_URL` changes. On a paid Render web instance, also move `migrate:up && seed` to `preDeployCommand`.
 - **Same-site client hosting** (milestone 5): the session cookie requires the React client and the API to be on the same site (Express serves the build, or a rewrite to `/api`).
 - **Dev-dependency audit**: `npm audit` reports a high-severity ReDoS advisory in `picomatch`, which the Vitest toolchain pulls in (dev-only; production dependencies report 0 vulnerabilities). npm's suggested fix downgrades Vitest by two major versions, so it was not applied. Re-check when Vitest or tinyglobby release a fix.
 - **Health check for Redis** once Redis is used.
