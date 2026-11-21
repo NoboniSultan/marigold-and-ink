@@ -1,4 +1,4 @@
-import * as usersService from '../modules/users/users.service.js';
+import * as usersService from '../modules/users/users.service.ts';
 import { UnauthorizedError, ForbiddenError } from '../errors/index.js';
 import { assertCanAccessOwnedResource } from '../lib/authorization.js';
 import { destroySession } from '../lib/session.js';

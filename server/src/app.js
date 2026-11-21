@@ -13,6 +13,7 @@ import { requireTrustedOrigin } from './middleware/originCheck.js';
 import { createSessionMiddleware } from './lib/session.js';
 import { pool } from './db/pool.js';
 import { apiRouter } from './routes.js';
+import { createDefaultAdapters } from './adapters/index.ts';
 
 const MEDIA_COLLECTIONS = ['artworks', 'about'];
 
@@ -21,9 +22,13 @@ const MEDIA_COLLECTIONS = ['artworks', 'about'];
  * Supertest and server.js can own the network and process lifecycle.
  * Middleware order matters and is commented step by step.
  * The session store is exposed on app.locals so server.js can close it on shutdown.
+ *
+ * `adapters` are the third-party services (email, Google). By default they're built from
+ * config; tests pass fakes: createApp({ adapters: { email: fakeEmail, google: fakeGoogle } }).
  */
-export function createApp() {
+export function createApp({ adapters = createDefaultAdapters() } = {}) {
   const app = express();
+  app.locals.adapters = adapters;
 
   // Behind Render's proxy, trust X-Forwarded-For/-Proto from that many hops, so req.ip
   // is the real client (rate limiting) and req.secure is true (Secure cookies).
