@@ -1,16 +1,17 @@
 {
   "artworks": [
     {
-      "image": "guayasamin-embrace-replica-with-charcoal",
+      "image": "embrace",
       "slug": "embrace",
       "title": "Embrace",
       "category": "portraits",
       "medium": "charcoal on paper",
+      "credit": "after Oswaldo Guayasamín",
       "year": null,
       "published": true
     },
     {
-      "image": "img-20190612-195453-original",
+      "image": "fawn",
       "slug": "fawn",
       "title": "Fawn",
       "category": "nature",
@@ -19,7 +20,7 @@
       "published": true
     },
     {
-      "image": "digital-abstract-goddess",
+      "image": "goddess",
       "slug": "goddess",
       "title": "Goddess",
       "category": "portraits",
@@ -28,7 +29,7 @@
       "published": true
     },
     {
-      "image": "digital-portrait-example",
+      "image": "i-stay-i-pray",
       "slug": "i-stay-i-pray",
       "title": "I Stay I Pray",
       "category": "portraits",
@@ -37,7 +38,7 @@
       "published": true
     },
     {
-      "image": "digital-portrait-example-2",
+      "image": "stargazer",
       "slug": "stargazer",
       "title": "Stargazer",
       "category": "portraits",
@@ -46,7 +47,7 @@
       "published": true
     },
     {
-      "image": "scratch-painting-starry-night",
+      "image": "starry-night",
       "slug": "starry-night",
       "title": "Starry Night",
       "category": "studies",
@@ -56,7 +57,7 @@
       "published": true
     },
     {
-      "image": "acrylic-painting",
+      "image": "two-faces",
       "slug": "two-faces",
       "title": "Two Faces",
       "category": "portraits",

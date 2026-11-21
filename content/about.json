@@ -1,9 +1,11 @@
 {
-  "photo": "pin6",
+  "photo": "artist-with-flowers",
   "photoAlt": "PLACEHOLDER: describe this photo of you for screen readers",
   "bio": [
     "PLACEHOLDER: Who you are and where you're from.",
     "PLACEHOLDER: How you started making art, and the mediums you love working in.",
     "PLACEHOLDER: Why a share of every order goes to charity."
-  ]
+  ],
+  "closingPhoto": "artist-at-painted-bench",
+  "closingPhotoAlt": "PLACEHOLDER: describe this photo of you at the painted bench"
 }

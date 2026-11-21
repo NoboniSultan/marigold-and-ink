@@ -30,6 +30,7 @@ describe('GET /api/v1/about', () => {
         alt: 'The artist in a garden',
       },
       bio: ['First paragraph.', 'Second paragraph.'],
+      closingPhoto: null,
       isPlaceholder: false,
     });
   });
@@ -48,6 +49,44 @@ describe('buildAbout', () => {
     expect(() => buildAbout({ photo: 'nobody', photoAlt: 'x', bio: ['x'] }, manifest)).toThrow(
       new ContentError(`about.json: photo "nobody" isn't in media/manifest.json (available: me)`),
     );
+  });
+
+  it('includes the optional closing photo, and flags its placeholder alt text', () => {
+    const about = buildAbout(
+      {
+        photo: 'me',
+        photoAlt: 'Me',
+        bio: ['Real text.'],
+        closingPhoto: 'me',
+        closingPhotoAlt: 'PLACEHOLDER: describe',
+      },
+      manifest,
+    );
+
+    expect(about.closingPhoto).toEqual({
+      thumb: manifest.about.me!.thumb,
+      large: manifest.about.me!.large,
+      alt: 'PLACEHOLDER: describe',
+    });
+    expect(about.isPlaceholder).toBe(true);
+  });
+
+  it('refuses a closing photo that was not processed', () => {
+    expect(() =>
+      buildAbout(
+        { photo: 'me', photoAlt: 'x', bio: ['x'], closingPhoto: 'gone', closingPhotoAlt: 'x' },
+        manifest,
+      ),
+    ).toThrow(/closingPhoto "gone" isn't in/);
+  });
+
+  it('requires the closing photo and its alt text together', () => {
+    const base = { photo: 'me', photoAlt: 'x', bio: ['x'] };
+    expect(aboutFileSchema.safeParse({ ...base, closingPhoto: 'me' }).success).toBe(false);
+    expect(aboutFileSchema.safeParse({ ...base, closingPhotoAlt: 'x' }).success).toBe(false);
+    expect(
+      aboutFileSchema.safeParse({ ...base, closingPhoto: 'me', closingPhotoAlt: 'x' }).success,
+    ).toBe(true);
   });
 
   it('requires at least one bio paragraph and rejects unknown fields', () => {
