@@ -1,0 +1,88 @@
+.hero {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-4) var(--space-8);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-8);
+}
+
+/*
+ * Notebook paper, pure CSS:
+ * - ruled lines: a repeating gradient, one line every --rule-gap;
+ * - the margin line: a 2px vertical stripe near the left edge;
+ * - binder holes: three radial gradients.
+ * The text's line-height equals --rule-gap and its padding matches the first line, so the
+ * typed letters sit on the ruled lines like handwriting.
+ */
+.paper {
+  --rule-gap: 2.5rem;
+  --margin-x: 3.5rem;
+  position: relative;
+  width: min(100%, 44rem);
+  min-height: calc(var(--rule-gap) * 5);
+  padding: calc(var(--rule-gap) * 1.6) var(--space-6) var(--rule-gap)
+    calc(var(--margin-x) + var(--space-4));
+  background-color: var(--color-white);
+  background-image:
+    radial-gradient(circle at 1.25rem 20%, var(--color-rule) 0.45rem, transparent 0.5rem),
+    radial-gradient(circle at 1.25rem 50%, var(--color-rule) 0.45rem, transparent 0.5rem),
+    radial-gradient(circle at 1.25rem 80%, var(--color-rule) 0.45rem, transparent 0.5rem),
+    linear-gradient(
+      to right,
+      transparent var(--margin-x),
+      var(--paper-margin) var(--margin-x),
+      var(--paper-margin) calc(var(--margin-x) + 2px),
+      transparent calc(var(--margin-x) + 2px)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--rule-gap) - 1px),
+      var(--paper-line) calc(var(--rule-gap) - 1px),
+      var(--paper-line) var(--rule-gap)
+    );
+  background-position:
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0.6rem;
+  border: 1px solid var(--color-rule);
+  box-shadow:
+    0 1px 0 var(--color-rule),
+    0 12px 30px -18px color-mix(in srgb, var(--color-ink) 45%, transparent);
+  transform: rotate(-0.6deg);
+}
+
+.typed {
+  margin: 0;
+  font-family: var(--font-typewriter);
+  font-size: clamp(1.15rem, 0.9rem + 1.2vw, 1.75rem);
+  line-height: var(--rule-gap);
+  min-height: var(--rule-gap);
+  /* Sit on the ruled line rather than between lines. */
+  transform: translateY(-0.45rem);
+  overflow-wrap: anywhere;
+}
+
+/* The Marigold typewriter cursor. */
+.cursor,
+.cursorStill {
+  display: inline-block;
+  width: 0.55em;
+  height: 0.12em;
+  margin-left: 0.08em;
+  vertical-align: baseline;
+  background: var(--color-marigold);
+}
+
+.cursor {
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}

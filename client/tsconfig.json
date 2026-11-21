@@ -1,0 +1,26 @@
+{
+  // Type checking only; Vite compiles. `npm run typecheck` runs this, and so does `build`.
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": ["vite/client", "@testing-library/jest-dom/vitest"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    // Same rules as the server, so shared/types work on both sides unchanged.
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+
+    // API types shared with the server. Type-only (`import type`), enforced by ESLint.
+    "paths": { "@shared/*": ["../shared/*"] }
+  },
+  "include": ["src", "../shared", "vite.config.ts"]
+}

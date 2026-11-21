@@ -1,0 +1,55 @@
+/*
+ * Design tokens: the brand palette and type, defined once. Components use these variables,
+ * never raw values, so a brand change happens here.
+ *
+ * Contrast (WCAG):
+ * - Ink on White ≈ 17:1 and Gray on White ≈ 5.9:1, both above the 4.5:1 needed for text.
+ * - Marigold on White is only ≈ 2.2:1, so Marigold is never used for text on white.
+ * - Ink on Marigold ≈ 8:1, so primary buttons are Marigold with Ink text.
+ * - Focus rings pair Marigold with an Ink outline, which keeps them above the 3:1 needed
+ *   for focus indicators.
+ */
+:root {
+  /* Palette */
+  --color-ink: #29151c; /* text and dark sections, instead of black */
+  --color-white: #ffffff; /* background */
+  --color-gray: #6e6366; /* secondary text */
+  --color-rule: #e6e1e2; /* borders and dividers */
+  --color-marigold: #ff965b; /* accent only: buttons, underlines, active states, focus */
+
+  /* Notebook paper (Home hero): ruled lines and the margin, derived from the palette */
+  --paper-line: color-mix(in srgb, var(--color-ink) 12%, transparent);
+  --paper-margin: color-mix(in srgb, var(--color-marigold) 70%, transparent);
+
+  /* Type */
+  --font-display: 'Goudy Bookletter 1911', Georgia, serif; /* headlines; one weight */
+  --font-body: 'Libre Franklin Variable', 'Helvetica Neue', Arial, sans-serif;
+  --font-typewriter: 'Special Elite', 'Courier New', monospace; /* hero line only */
+
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  --text-2xl: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+  --text-3xl: clamp(2.5rem, 1.6rem + 3.6vw, 4.5rem);
+  --leading-body: 1.6;
+
+  /* Space and layout */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --content-width: 72rem;
+  --reading-width: 40rem;
+  --radius: 4px;
+  --header-height: 4.5rem;
+
+  /* Motion (see docs/motion.md) */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+}

@@ -1,0 +1,33 @@
+.page {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-4) 0;
+}
+
+.intro {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-12);
+  align-items: start;
+}
+
+.photo {
+  width: 100%;
+}
+
+.bio {
+  max-width: var(--reading-width);
+  font-size: var(--text-lg);
+}
+
+.closing {
+  max-width: 48rem;
+  margin: var(--space-16) auto 0;
+}
+
+@media (max-width: 48rem) {
+  .intro {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+  }
+}

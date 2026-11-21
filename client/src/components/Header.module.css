@@ -1,0 +1,84 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--color-white) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.inner {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  min-height: var(--header-height);
+  padding: var(--space-2) var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--color-ink);
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-synthesis: none;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+}
+
+.navLink,
+.navButton {
+  text-decoration-color: transparent;
+  padding: var(--space-1) 0;
+}
+
+.navButton {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.navLink:hover,
+.navButton:hover,
+.active {
+  text-decoration-color: var(--color-marigold);
+}
+
+.cta {
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 40rem) {
+  .wordmark {
+    display: none;
+  }
+  /* The sticky header stays one row on phones; the Home hero and artwork pages carry the CTA. */
+  .cta {
+    display: none;
+  }
+  .nav {
+    gap: var(--space-2) var(--space-4);
+  }
+}
