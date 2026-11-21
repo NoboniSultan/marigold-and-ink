@@ -18,7 +18,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Server foundation (config, logging, errors, health check) | Built |
 | Database schema and migrations | Built |
 | Authentication and roles (sessions, ownership, rate limiting, CSRF) | Built |
-| CI (GitHub Actions) and deployment config (Render) | Built; first deploy in progress |
+| CI (GitHub Actions) and deployment (API on Render, Postgres on Neon) | Built, live |
 | Commission state machine | Planned |
 | Pricing engine and quotes | Planned |
 | Public gallery API and React client | Planned |
@@ -157,7 +157,7 @@ Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTH
 
 ## Deployment
 
-**Live API:** _pending first deploy_
+**Live API:** https://marigold-and-ink-api.onrender.com. Health check: [`/api/v1/health`](https://marigold-and-ink-api.onrender.com/api/v1/health). On the free plan the service sleeps when idle, so the first request may take up to a minute.
 
 The API runs on [Render](https://render.com), defined in [`render.yaml`](render.yaml) (a Render Blueprint). The Postgres 17 database runs on [Neon](https://neon.com)'s free plan, in the same region (Oregon). See [ADR 0005](docs/decisions/0005-hosting-on-render.md) and [ADR 0006](docs/decisions/0006-neon-for-production-postgres.md).
 
