@@ -29,10 +29,10 @@ services:
         value: 26.13.1
       - key: TRUST_PROXY # Render's load balancer is one proxy hop
         value: '1'
-      - key: DATABASE_URL # private-network URL, so no TLS setup is needed
-        fromDatabase:
-          name: marigold-and-ink-db
-          property: connectionString
+      # Postgres is hosted on Neon (ADR 0006). Paste Neon's DIRECT connection string
+      # (pooling off: the host must not contain "-pooler"), with sslmode=verify-full.
+      - key: DATABASE_URL
+        sync: false
       - key: AUTH_SECRET
         generateValue: true
       # Browser origins allowed to call the API (comma-separated). Until the client is
@@ -43,11 +43,4 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-
-databases:
-  - name: marigold-and-ink-db
-    plan: free # expires 30 days after creation (14-day grace to upgrade); no backups
-    region: oregon
-    postgresMajorVersion: '17'
-    databaseName: marigold
-    user: marigold
+# No `databases:` section: the database lives on Neon, not Render (ADR 0006).
