@@ -45,12 +45,13 @@ Global middleware runs in this order (see `server/src/app.js`):
 2. **requestLogger**: one log line per request when it finishes (method, path, status, duration).
 3. **helmet**: security headers.
 4. **cors**: only origins listed in `CORS_ORIGINS` get CORS headers, with credentials (cookies) allowed.
-5. **express.json**: parses JSON bodies up to 100 KB.
-6. **session**: loads the Postgres-backed session from the signed `httpOnly` cookie.
-7. **requireTrustedOrigin**: CSRF check. A POST, PUT, PATCH, or DELETE whose `Origin`/`Referer` is outside `CORS_ORIGINS` gets `403 CSRF_ORIGIN_MISMATCH`.
-8. **/api/v1 routes**: feature modules. Per route: rate limiter → `requireAuth` → `requireRole` / `requireOwnerOrAdmin` → `validate` → controller.
-9. **notFound**: anything unmatched becomes `404 ROUTE_NOT_FOUND`.
-10. **errorHandler**: the only place errors become HTTP responses.
+5. **/media/artworks, /media/about**: processed images (`express.static`), served before sessions so an image never costs a session lookup. Names contain a content hash, so they're cached as `immutable` for a year. `media/manifest.json` is not exposed. See [ADR 0007](decisions/0007-content-files-and-media-pipeline.md).
+6. **express.json**: parses JSON bodies up to 100 KB.
+7. **session**: loads the Postgres-backed session from the signed `httpOnly` cookie.
+8. **requireTrustedOrigin**: CSRF check. A POST, PUT, PATCH, or DELETE whose `Origin`/`Referer` is outside `CORS_ORIGINS` gets `403 CSRF_ORIGIN_MISMATCH`.
+9. **/api/v1 routes**: feature modules. Per route: rate limiter → `requireAuth` → `requireRole` / `requireOwnerOrAdmin` → `validate` → controller. Everything under `/api/v1/admin` passes one router-level `requireAuth` + `requireRole('admin')` guard, so a new admin route can't be left unprotected by forgetting the guard.
+10. **notFound**: anything unmatched becomes `404 ROUTE_NOT_FOUND`.
+11. **errorHandler**: the only place errors become HTTP responses.
 
 `app.set('trust proxy', TRUST_PROXY)` makes `req.ip` and `req.secure` correct behind Render's load balancer.
 
@@ -117,7 +118,27 @@ Each layer does one job. The controller only translates HTTP. The quotes service
 
 ### Module dependencies
 
-`quotes` → `commissions`, `pricing`. `commissions` → `pricing`. `pricing` depends on nothing. Dependencies run one way: no module imports a module that imports it back, and no module reaches into another's repository.
+`quotes` → `commissions`, `pricing`. `commissions` → `pricing`. `pricing`, `gallery`, and `about` depend on no other module. The content seed (`db/seeds/content.ts`) calls the `gallery` and `about` services. Dependencies run one way: no module imports a module that imports it back, and no module reaches into another's repository.
+
+## Content and images
+
+```mermaid
+flowchart LR
+    Src[media-source/<br/>originals, gitignored] -- npm run media --> Media[media/*.webp<br/>+ manifest.json]
+    Media -- new photo --> Content[content/artworks.json<br/>'to fill in' stub]
+    Content -- owner edits --> Content
+    Media --> Seed[npm run seed<br/>validate, then sync by hash]
+    Content --> Seed
+    Seed --> DB[(artworks, tags)]
+    Media -- /media/... immutable --> Browser([Browser])
+    DB -- /api/v1/artworks --> Browser
+```
+
+`media/` and `content/` are committed. Every deploy runs the seed, which refuses to change anything if the content and images disagree, so a bad edit fails the deploy instead of the live gallery. CI runs the same checks. Details in [ADR 0007](decisions/0007-content-files-and-media-pipeline.md).
+
+## TypeScript
+
+New code is TypeScript, run by Node directly (type stripping) and checked by `npm run typecheck` in CI. API types shared with the client live in `shared/types/`. See [ADR 0008](decisions/0008-typescript-with-node-type-stripping.md) and the [TypeScript guide](typescript-guide.md).
 
 ## Module map
 
@@ -129,6 +150,7 @@ Each layer does one job. The controller only translates HTTP. The quotes service
 | commissions | requests, state machine, status changes with event history | 4 |
 | pricing | pricing rules and the pure `calculateQuote` engine | 4 |
 | quotes | generate, adjust, send, and view quotes (uses commissions + pricing) | 4 |
-| gallery | artworks and tags, public listing | 5 |
+| gallery | artworks and tags: public listing, search, admin CRUD, syncing `content/artworks.json` | 5 |
+| about | the About page content from `content/about.json` | 5 |
 | payments | Stripe Checkout sessions, webhooks, refunds | 7 |
 | donations | donation calculator, ledger, charities, public totals | 8 |

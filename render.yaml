@@ -14,13 +14,16 @@ services:
     branch: main
     # Deploy only after GitHub Actions CI passes on main, so a failing commit never ships.
     autoDeployTrigger: checksPass
-    rootDir: server
-    buildCommand: npm ci --omit=dev
+    # No rootDir: Render hides files outside a service's root directory, and the server
+    # reads content/ and media/ at the repo root (and will build client/ in milestone 5b).
+    # Commands therefore `cd server` themselves.
+    buildCommand: cd server && npm ci --omit=dev
     # Free instances don't support preDeployCommand, so migrations and the (idempotent)
-    # admin seed run before the server starts. If a migration fails, the new instance never
-    # becomes healthy and Render keeps serving the previous deploy.
+    # seed run before the server starts. If either fails (a broken migration, or a content
+    # file that doesn't match its images), the new instance never becomes healthy and Render
+    # keeps serving the previous deploy.
     # On a paid plan, move `npm run migrate:up && npm run seed` to preDeployCommand.
-    startCommand: npm run migrate:up && npm run seed && npm start
+    startCommand: cd server && npm run migrate:up && npm run seed && npm start
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV

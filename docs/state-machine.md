@@ -1,6 +1,6 @@
 # Commission state machine
 
-Every commission moves through a fixed set of statuses. Allowed changes are defined in one pure module, [`commissions.stateMachine.js`](../server/src/modules/commissions/commissions.stateMachine.js), which has no database or HTTP access. The service applies a change by updating the commission and inserting a `commission_events` row **in the same database transaction**, so the status and its audit trail can never disagree.
+Every commission moves through a fixed set of statuses. Allowed changes are defined in one pure module, [`commissions.stateMachine.ts`](../server/src/modules/commissions/commissions.stateMachine.ts), which has no database or HTTP access. The service applies a change by updating the commission and inserting a `commission_events` row **in the same database transaction**, so the status and its audit trail can never disagree.
 
 ## Diagram
 

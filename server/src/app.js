@@ -1,4 +1,6 @@
+import path from 'node:path';
 import express from 'express';
+import { MEDIA_DIR } from './config/paths.ts';
 import helmet from 'helmet';
 import cors from 'cors';
 import { config } from './config/env.js';
@@ -10,6 +12,8 @@ import { requireTrustedOrigin } from './middleware/originCheck.js';
 import { createSessionMiddleware } from './lib/session.js';
 import { pool } from './db/pool.js';
 import { apiRouter } from './routes.js';
+
+const MEDIA_COLLECTIONS = ['artworks', 'about'];
 
 /**
  * Builds the Express app without starting a server, so tests can drive it with
@@ -33,20 +37,37 @@ export function createApp() {
   app.use(helmet());
   app.use(cors({ origin: [...config.corsOrigins], credentials: true }));
 
-  // 3. Parse JSON bodies, rejecting anything over 100 KB to limit abuse.
+  // 3. Processed images (npm run media). Before sessions, so an image never costs a session
+  //    lookup. File names contain a content hash, so browsers may cache them forever
+  //    (`immutable`): a changed image always gets a new name. Only the image folders are
+  //    exposed, never media/manifest.json. A missing file falls through to the JSON 404.
+  for (const collection of MEDIA_COLLECTIONS) {
+    app.use(
+      `/media/${collection}`,
+      express.static(path.join(MEDIA_DIR, collection), {
+        immutable: true,
+        maxAge: '1y',
+        index: false,
+        redirect: false,
+        dotfiles: 'ignore',
+      }),
+    );
+  }
+
+  // 4. Parse JSON bodies, rejecting anything over 100 KB to limit abuse.
   //    (The Stripe webhook will need the raw body and is mounted before this in milestone 7.)
   app.use(express.json({ limit: '100kb' }));
 
-  // 4. Sessions (Postgres-backed, httpOnly cookie), then CSRF origin check for writes.
+  // 5. Sessions (Postgres-backed, httpOnly cookie), then CSRF origin check for writes.
   const { middleware: sessionMiddleware, store: sessionStore } = createSessionMiddleware({ pool });
   app.locals.sessionStore = sessionStore;
   app.use(sessionMiddleware);
   app.use(requireTrustedOrigin({ allowedOrigins: config.corsOrigins }));
 
-  // 5. Feature routes.
+  // 6. Feature routes.
   app.use('/api/v1', apiRouter);
 
-  // 6. Nothing matched: 404. Then turn every error into the standard JSON shape.
+  // 7. Nothing matched: 404. Then turn every error into the standard JSON shape.
   app.use(notFound);
   app.use(errorHandler());
 

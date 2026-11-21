@@ -15,11 +15,52 @@
 import { BusinessRuleError } from '../../errors/index.js';
 import { assertCents, sumCents } from '../../lib/money.js';
 
-function findRule(rules, criteria) {
-  const matches = rules.filter((rule) =>
-    Object.entries(criteria).every(([key, value]) => rule[key] === value),
-  );
-  if (matches.length === 0) {
+/** Mirrors the `fulfillment_type` database domain. */
+export type FulfillmentType = 'digital' | 'physical' | 'mixed_media';
+
+/** Mirrors the `pricing_rules.rule_type` check; also the line-item codes. */
+export type RuleType = 'base' | 'extra_subject' | 'fulfillment' | 'rush';
+
+export interface QuoteInput {
+  size: string;
+  medium: string;
+  subjectCount: number;
+  fulfillmentType: FulfillmentType;
+  isRush: boolean;
+}
+
+/** An active row from `pricing_rules`. Which optional fields are set depends on ruleType. */
+export interface PricingRule {
+  ruleType: RuleType;
+  size?: string | null;
+  medium?: string | null;
+  fulfillmentType?: FulfillmentType | null;
+  amountCents: number;
+}
+
+export interface LineItem {
+  code: RuleType;
+  label: string;
+  quantity: number;
+  unitAmountCents: number;
+  amountCents: number;
+}
+
+export interface Quote {
+  lineItems: LineItem[];
+  totalCents: number;
+}
+
+/** The fields a rule must match exactly, e.g. { ruleType: 'base', size: 'A4', medium: 'ink' }. */
+type RuleCriteria = Partial<Pick<PricingRule, 'ruleType' | 'size' | 'medium' | 'fulfillmentType'>>;
+
+function findRule(rules: readonly PricingRule[], criteria: RuleCriteria): PricingRule {
+  // Object.entries loses the key types, so restore them: every key comes from RuleCriteria.
+  const entries = Object.entries(criteria) as [keyof RuleCriteria, unknown][];
+  const matches = rules.filter((rule) => entries.every(([key, value]) => rule[key] === value));
+  const [match] = matches;
+
+  if (!match) {
     throw new BusinessRuleError(`No active price for ${describe(criteria)}`, {
       code: 'PRICING_RULE_MISSING',
       details: criteria,
@@ -31,33 +72,31 @@ function findRule(rules, criteria) {
       details: criteria,
     });
   }
-  return matches[0];
+  return match;
 }
 
-function describe(criteria) {
+function describe(criteria: RuleCriteria): string {
   return Object.values(criteria).join(' / ');
 }
 
-function lineItem(code, label, quantity, unitAmountCents) {
+function lineItem(
+  code: RuleType,
+  label: string,
+  quantity: number,
+  unitAmountCents: number,
+): LineItem {
   assertCents(unitAmountCents, `${code} price`);
   return { code, label, quantity, unitAmountCents, amountCents: quantity * unitAmountCents };
 }
 
-/**
- * @param {{ size: string, medium: string, subjectCount: number,
- *           fulfillmentType: 'digital'|'physical'|'mixed_media', isRush: boolean }} input
- * @param {Array<{ ruleType: string, size?: string|null, medium?: string|null,
- *                 fulfillmentType?: string|null, amountCents: number }>} rules  active rules
- * @returns {{ lineItems: Array<{ code, label, quantity, unitAmountCents, amountCents }>,
- *             totalCents: number }}
- */
-export function calculateQuote(input, rules) {
+/** Prices a commission request against the active rules. */
+export function calculateQuote(input: QuoteInput, rules: readonly PricingRule[]): Quote {
   const { size, medium, subjectCount, fulfillmentType, isRush } = input;
   if (!Number.isInteger(subjectCount) || subjectCount < 1) {
     throw new RangeError(`subjectCount must be a positive integer, got ${subjectCount}`);
   }
 
-  const lineItems = [];
+  const lineItems: LineItem[] = [];
 
   const base = findRule(rules, { ruleType: 'base', size, medium });
   lineItems.push(lineItem('base', `${size} ${medium} portrait`, 1, base.amountCents));

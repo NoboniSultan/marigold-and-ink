@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { pool } from '../pool.js';
-import { withTransaction } from '../transaction.js';
+import { withTransaction } from '../transaction.ts';
 
 // A scratch table for these tests only; real tables arrive with migrations in milestone 2.
 const TABLE = 'tx_helper_test';

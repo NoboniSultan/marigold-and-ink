@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 // Load ../.env for local runs. In CI there is no .env file and the workflow sets
@@ -11,7 +12,11 @@ try {
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/__tests__/**/*.test.js', 'tests/**/*.test.js'],
+    include: [
+      'src/**/__tests__/**/*.test.{js,ts}',
+      'scripts/**/__tests__/**/*.test.{js,ts}',
+      'tests/**/*.test.{js,ts}',
+    ],
     globalSetup: ['tests/setup/globalSetup.js'],
     setupFiles: ['tests/setup/setupFile.js'],
     env: {
@@ -25,13 +30,17 @@ export default defineConfig({
       // Test-only business values (deliberately unlike any real price policy).
       DEPOSIT_PERCENT: '40',
       COMMISSION_REVISION_LIMIT: '2',
+      // Small fixture content and images (tests/fixtures), so tests never depend on the
+      // owner's real photos. content.real.test.ts validates the real files separately.
+      CONTENT_DIR: path.join(import.meta.dirname, 'tests/fixtures/content'),
+      MEDIA_DIR: path.join(import.meta.dirname, 'tests/fixtures/media'),
     },
     // Integration tests share one test database and truncate it between tests,
     // so test files run one at a time to avoid wiping each other's data.
     fileParallelism: false,
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.js'],
+      include: ['src/**/*.{js,ts}'],
       // CLI entry points: their logic lives in tested modules (app.js, migrator.js, seeds/).
       exclude: ['src/server.js', 'src/db/migrate.js', 'src/db/seed.js', 'src/**/__tests__/**'],
       reporter: ['text', 'html', 'lcov'],
@@ -41,13 +50,13 @@ export default defineConfig({
       thresholds: {
         lines: 90,
         branches: 85,
-        'src/modules/commissions/commissions.stateMachine.js': {
+        'src/modules/commissions/commissions.stateMachine.ts': {
           statements: 100,
           branches: 100,
           functions: 100,
           lines: 100,
         },
-        'src/modules/pricing/pricing.engine.js': {
+        'src/modules/pricing/pricing.engine.ts': {
           statements: 100,
           branches: 100,
           functions: 100,

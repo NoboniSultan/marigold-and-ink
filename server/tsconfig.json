@@ -1,0 +1,36 @@
+{
+  // Type checking only: Node 26 runs .ts files directly by stripping the types, so there is
+  // no build step. `npm run typecheck` (tsc) is the only thing that reads this file, and CI
+  // runs it. See docs/typescript-guide.md.
+  "compilerOptions": {
+    "target": "es2024",
+    "lib": ["es2024"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    // TypeScript 6 no longer loads every @types package automatically.
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    // Existing .js files keep working and are converted one at a time.
+    "allowJs": true,
+    "checkJs": false,
+
+    // Rules that keep every .ts file runnable by Node's type stripping:
+    // - imports name the real file (`./x.ts`), because Node doesn't rewrite extensions;
+    // - only "erasable" syntax: no enum, namespace, or constructor parameter properties;
+    // - type-only imports are written `import type`, so they vanish at runtime.
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+
+    // Types shared with the React client. Only `import type` may use this alias: Node
+    // doesn't know it, which is safe only because type imports are erased (ESLint enforces it).
+    "paths": { "@shared/*": ["../shared/*"] }
+  },
+  "include": ["src", "tests", "scripts", "../shared"]
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateQuote } from '../pricing.engine.js';
+import { calculateQuote } from '../pricing.engine.ts';
 import { BusinessRuleError } from '../../../errors/index.js';
 
 // Test rules: deliberately odd amounts so the arithmetic is visible in every assertion.

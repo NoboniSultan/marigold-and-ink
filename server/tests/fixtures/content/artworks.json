@@ -1,0 +1,32 @@
+{
+  "artworks": [
+    {
+      "image": "fawn",
+      "slug": "fawn",
+      "title": "Fawn",
+      "category": "nature",
+      "medium": "scratchboard",
+      "tags": ["Animals"],
+      "published": true
+    },
+    {
+      "image": "study",
+      "slug": "starry-night",
+      "title": "Starry Night",
+      "category": "studies",
+      "medium": "scratchboard",
+      "credit": "after Vincent van Gogh",
+      "altText": "A swirling night sky over a village",
+      "published": true
+    },
+    {
+      "image": "draft-piece",
+      "slug": "draft-piece",
+      "title": "draft-piece",
+      "category": "to fill in",
+      "medium": "to fill in",
+      "tags": ["Secret"],
+      "published": false
+    }
+  ]
+}

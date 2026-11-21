@@ -46,15 +46,36 @@ export async function createUserWithPassword({ password = TEST_PASSWORD, ...over
   return { ...user, password };
 }
 
+/** Defaults to an unpublished artwork; pass `isPublished: true` (it has alt text already). */
 export function createArtwork(overrides = {}) {
   const n = next();
   return insert('artworks', {
     title: `Artwork ${n}`,
     slug: `artwork-${n}`,
     category: 'test-category',
-    imageUrl: `https://example.com/art-${n}.jpg`,
+    imageKey: `artwork-${n}`,
+    thumbPath: `/media/artworks/artwork-${n}-600.test.webp`,
+    thumbWidth: 600,
+    thumbHeight: 800,
+    largePath: `/media/artworks/artwork-${n}-2000.test.webp`,
+    largeWidth: 1500,
+    largeHeight: 2000,
+    altText: `Test artwork ${n}`,
     ...overrides,
   });
+}
+
+export function createTag(overrides = {}) {
+  const n = next();
+  return insert('tags', { name: `Tag ${n}`, slug: `tag-${n}`, ...overrides });
+}
+
+/** Links existing artworks and tags: tagArtwork(artwork.id, tag.id). */
+export async function tagArtwork(artworkId, tagId) {
+  await pool.query('INSERT INTO artwork_tags (artwork_id, tag_id) VALUES ($1, $2)', [
+    artworkId,
+    tagId,
+  ]);
 }
 
 export function createPricingRule(overrides = {}) {

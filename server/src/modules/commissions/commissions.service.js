@@ -4,8 +4,8 @@ import {
   actorFromUser,
   assertTransition,
   availableTransitions,
-} from './commissions.stateMachine.js';
-import { withTransaction } from '../../db/transaction.js';
+} from './commissions.stateMachine.ts';
+import { withTransaction } from '../../db/transaction.ts';
 import { NotFoundError } from '../../errors/index.js';
 import { assertCanAccessOwnedResource } from '../../lib/authorization.js';
 import { toLimitOffset, toPageMeta } from '../../lib/pagination.js';

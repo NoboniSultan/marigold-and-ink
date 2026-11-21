@@ -7,6 +7,7 @@ import { logger } from '../lib/logger.js';
 import { pool } from './pool.js';
 import { seedAdmin } from './seeds/admin.js';
 import { seedPlaceholderPricing } from './seeds/pricing.placeholder.js';
+import { seedContent } from './seeds/content.ts';
 
 try {
   const admin = await seedAdmin();
@@ -20,6 +21,22 @@ try {
       { inserted: pricing.inserted },
       'PLACEHOLDER pricing seeded: replace with real prices',
     );
+
+  const content = await seedContent();
+  logger.info(
+    {
+      inserted: content.inserted.length,
+      updated: content.updated.length,
+      removed: content.removed.length,
+      unchanged: content.unchanged,
+      published: content.published,
+      drafts: content.drafts,
+    },
+    'content seed done',
+  );
+  if (content.aboutIsPlaceholder) {
+    logger.warn('content/about.json still has PLACEHOLDER text');
+  }
 } catch (err) {
   logger.fatal({ err }, 'seed failed');
   process.exitCode = 1;
