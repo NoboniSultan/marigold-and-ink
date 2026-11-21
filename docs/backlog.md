@@ -19,8 +19,10 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 
 - **Make `REDIS_URL` required** once a feature (BullMQ jobs) depends on Redis. It is validated but optional for now.
 - **Shared rate-limit store**: login and registration counters are in memory, per instance, and reset on restart. Move them to Redis if the API ever runs on more than one instance.
-- **"Log out everywhere"**: add a `user_id` column to `sessions` so all of a user's sessions can be revoked (e.g. after a password change).
-- **Password reset and email verification**: these need the email feature.
+- **"Log out everywhere"**: `authRepository.deleteSessionsForUser` already revokes a user's sessions by matching the JSON `userId` (used when Google takes over an unverified account). If it becomes frequent, add an indexed `user_id` column to `sessions`.
+- **Password reset**: email verification is done (milestone 5c). Reset can reuse the same code mechanism (`email_verifications` with a purpose column): email a code, set a new password, sign out other sessions.
+- **Real email in production**: buy a domain, verify it in Resend, and set `EMAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `EMAIL_FROM` on Render. Until then production email sign-up says "opens soon" (docs/setup-google-and-email.md).
+- **Connect Google from account settings**: let a logged-in user link Google deliberately (today linking happens by matching verified email at sign-in).
 - **Real backups before real customers use the site**: Neon Free keeps only 6 hours of restore history and 1 GB of storage. Move to a paid Neon or Render Postgres plan; only `DATABASE_URL` changes. On a paid Render web instance, also move `migrate:up && seed` to `preDeployCommand`.
 - **Browser tests in CI:** milestone 5b was checked in headless Chrome by hand (Playwright driving the real site: morph, Escape close, 3D, register → commission). Add Playwright to CI so the shared-layout exit and the 3D scene, which jsdom can't run, are tested on every PR.
 - **Trim the main bundle** (about 168 KB gzipped): Motion's `LazyMotion` with `m` components loads only the features in use. `layoutId` needs the `domMax` feature set, so measure before and after.

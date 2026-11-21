@@ -21,6 +21,7 @@ describe('GET /api/v1/users/me', () => {
       email: user.email,
       displayName: user.display_name,
       role: 'client',
+      emailVerifiedAt: expect.any(String),
       createdAt: expect.any(String),
       updatedAt: expect.any(String),
     });

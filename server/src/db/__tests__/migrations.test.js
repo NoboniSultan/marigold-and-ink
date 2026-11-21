@@ -10,10 +10,12 @@ const MIGRATION_COUNT = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.s
 const EXPECTED_TABLES = [
   'artwork_tags',
   'artworks',
+  'auth_identities',
   'charities',
   'commission_events',
   'commissions',
   'donations',
+  'email_verifications',
   'files',
   'messages',
   'payments',

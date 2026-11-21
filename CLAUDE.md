@@ -89,7 +89,9 @@ npm run lint && npm run typecheck && npm run build
 
 - Protect routes with `requireAuth`, then `requireRole('admin')` or `requireOwnerOrAdmin(getOwnerId)`. In services, use `assertCanAccessOwnedResource(user, ownerId)` after loading a resource.
 - Controllers read input only from `req.validated` (set by `validate({ params, query, body })`).
-- Repositories select explicit column lists; only `findByEmailWithPasswordHash` returns `password_hash`.
+- Repositories select explicit column lists; only `usersRepository.findForAuthByEmail` returns `password_hash`.
+- Accounts are created only by `auth.signup.service.ts` (after an emailed code) or `auth.google.service.ts` (Google-verified email); never insert a client user any other way. Google sign-in never applies to admins. See ADR 0010.
+- Third-party services (email, Google) are adapters passed to `createApp({ adapters })`; tests pass fakes and never send email or call Google. The `log` email transport is development-only.
 - Tests: `loggedInAgent(app, { role })` from `tests/helpers/auth.js` returns a logged-in Supertest agent; state-changing requests need `.set('Origin', TRUSTED_ORIGIN)`.
 
 ## Commission and money rules

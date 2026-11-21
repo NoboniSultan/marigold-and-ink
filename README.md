@@ -23,7 +23,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Pricing engine and quotes (generate, admin adjustment, send) | Built, with **placeholder prices** |
 | Public gallery API (search, filters, admin CRUD), image pipeline, About content | Built |
 | Website: Home (typewriter, carousel), Gallery (grid and 3D), About, login, commission form | Built, with **placeholder copy** |
-| Google sign-in (milestone 5c) | Planned |
+| Accounts: email sign-up verified by a 6-digit code, "Continue with Google" | Built; email sending and Google need [setup](docs/setup-google-and-email.md) |
 | Stripe deposit and final payments, webhooks, refunds | Planned |
 | Donation ledger and transparency totals | Planned |
 | File uploads, messaging, shipping, shop, slots | Later (see backlog) |
@@ -39,7 +39,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Migrations | node-pg-migrate with plain `.sql` files |
 | Validation | zod |
 | Auth | Server sessions in Postgres (express-session + connect-pg-simple), httpOnly cookie |
-| Security | helmet, cors allow-list, express-rate-limit, bcrypt |
+| Security | helmet, cors allow-list, express-rate-limit, bcrypt, openid-client (Google OIDC) |
 | Logging | pino with a request ID on every line |
 | Cache / queue | Redis (BullMQ later) |
 | Payments | Stripe Checkout and webhooks, test mode |
@@ -119,6 +119,8 @@ npm run dev                    # http://localhost:5173 (proxies /api and /media 
 ```
 
 The site and API share one origin in both development (Vite's proxy) and production (Express serves `client/dist`), so the session cookie works without CORS. `CORS_ORIGINS` in `.env` must include `http://localhost:5173` for logins and forms to pass the CSRF check. Vite uses `strictPort`: if another app already uses 5173, stop it or run `npx vite --port 5174` and add that origin to `CORS_ORIGINS`.
+
+**Signing up locally:** sign-up emails a 6-digit code. In development no email is sent: the code is printed in the server terminal (`email (log transport, development only)`). To try Google sign-in locally, follow the [setup guide](docs/setup-google-and-email.md) and set `PUBLIC_URL=http://localhost:5173`.
 
 ### Site text and design
 
@@ -200,8 +202,12 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | Public | App status and a database ping. Returns 200, or 503 if the database is unreachable. |
-| POST | `/api/v1/auth/register` | Public | Create a client account and log in. Body: `email`, `password` (12+ chars, ≤ 72 bytes), `displayName`. Rate limited: 5 per hour per IP. |
-| POST | `/api/v1/auth/login` | Public | Log in. Body: `email`, `password`. Rate limited: 10 failed attempts per 15 minutes per IP + email. |
+| POST | `/api/v1/auth/signup/start` | Public | Sign-up step 1: `{ email }`. Emails a 6-digit code (an existing member gets an "already have an account" email instead; the answer is the same). 202. One code a minute per address; 5 requests per hour per IP. |
+| POST | `/api/v1/auth/signup/complete` | Public | Sign-up step 2: `email`, `code`, `password` (12+ chars, ≤ 72 bytes), `displayName`. Creates the verified account and logs in. A code works for 15 minutes and 5 tries. |
+| GET | `/api/v1/auth/google/start` | Public | Browser navigation: starts Google sign-in (`?next=/path` to return to). |
+| GET | `/api/v1/auth/google/callback` | Public | Where Google sends the visitor back; signs in and redirects to `next`, or to `/login?error=…`. |
+| GET | `/api/v1/auth/providers` | Public | `{ google, emailSignup }`: which sign-in methods are switched on. |
+| POST | `/api/v1/auth/login` | Public | Log in. Body: `email`, `password`. Rate limited: 10 failed attempts per 15 minutes per IP + email. Accounts never verified get 403 `EMAIL_NOT_VERIFIED` (only with the right password). |
 | POST | `/api/v1/auth/logout` | Any | End the session (idempotent). Returns 204. |
 | GET | `/api/v1/auth/session` | Public | Who is logged in: `{ data: user }` or `{ data: null }`, always 200 (the site asks on every page load). |
 | GET | `/api/v1/users/me` | Logged in | The current user. |
@@ -241,7 +247,9 @@ Images are served from `/media/artworks/...` and `/media/about/...` (paths come 
 
 **Auth model:** server-side sessions stored in Postgres. The browser holds only a signed session ID in an `httpOnly`, `SameSite=Lax` cookie (`Secure` with the `__Host-` prefix in production). Sessions last 7 days from the last request. State-changing requests from an `Origin` outside `CORS_ORIGINS` are rejected as CSRF. Passwords are hashed with bcrypt (cost 12). See [ADR 0004](docs/decisions/0004-server-sessions-in-postgres.md).
 
-Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` (422), `RATE_LIMITED` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` (503).
+**Accounts:** an account exists only once its owner has entered a code sent to the email (or signed in with Google, which verifies the email), so nobody can open an account with someone else's address. Google sign-in uses the OpenID Connect code flow with PKCE, state, and nonce, checks the ID token's signature and claims, and matches people by Google's permanent ID. Admin accounts can't use Google. See [ADR 0010](docs/decisions/0010-email-verification-and-google-sign-in.md) and the [setup guide](docs/setup-google-and-email.md).
+
+Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` / `EMAIL_NOT_VERIFIED` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` / `CODE_INCORRECT` / `CODE_EXPIRED` (422), `RATE_LIMITED` / `CODE_RESEND_TOO_SOON` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` / `EMAIL_SIGNUP_UNAVAILABLE` / `EMAIL_SEND_FAILED` (503).
 
 ## Deployment
 
@@ -260,6 +268,8 @@ The API runs on [Render](https://render.com), defined in [`render.yaml`](render.
   | `NODE_ENV`, `NODE_VERSION`, `TRUST_PROXY` | Fixed values in `render.yaml` |
   | `AUTH_SECRET` | Generated by Render |
   | `DATABASE_URL`, `CORS_ORIGINS`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Entered in the Render Dashboard when the Blueprint is created; never committed |
+  | `PUBLIC_URL` | Fixed in `render.yaml` (the site's address; Google returns visitors there) |
+  | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_TRANSPORT`, `RESEND_API_KEY`, `EMAIL_FROM` | Optional, added in the Render Dashboard; each feature stays off until set. See the [setup guide](docs/setup-google-and-email.md) |
 
 - **Database connection:** use Neon's **direct** connection string (connection pooling off, so the host has no `-pooler`), with `sslmode=verify-full`. The migration tool takes a lock that Neon's pooled connections can't hold. TLS verifies Neon's certificate, and `channel_binding=require` is honored (see `server/src/db/connection.js`).
 - **Free plan limits:** the API sleeps after 15 minutes idle, so the first request then takes a while. The Neon database sleeps after 5 minutes idle (it wakes in under a second), is limited to 1 GB, and keeps only 6 hours of restore history. Move to plans with real backups before real customers use the site.
@@ -283,6 +293,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0007: Artwork content in files, images processed locally and committed](docs/decisions/0007-content-files-and-media-pipeline.md)
 - [0008: TypeScript on the server through Node's type stripping](docs/decisions/0008-typescript-with-node-type-stripping.md)
 - [0009: React client: same origin, CSS Modules, TanStack Query](docs/decisions/0009-react-client-stack.md)
+- [0010: Email-verified sign-up and Google sign-in](docs/decisions/0010-email-verification-and-google-sign-in.md)
 
 ## Roadmap
 

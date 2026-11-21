@@ -97,6 +97,7 @@ export const USER: User = {
   email: 'client@example.com',
   displayName: 'Client',
   role: 'client',
+  emailVerifiedAt: '2026-11-21T00:00:00.000Z',
   createdAt: '2026-11-21T00:00:00.000Z',
   updatedAt: '2026-11-21T00:00:00.000Z',
 };

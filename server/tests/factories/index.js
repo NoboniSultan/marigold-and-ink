@@ -36,11 +36,26 @@ export function createUser(overrides = {}) {
     passwordHash: '$2b$10$fakehashfortestsonlyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     displayName: `Test User ${n}`,
     role: 'client',
+    // Every account created through the app has a verified email (signup code or Google).
+    emailVerifiedAt: new Date(),
     ...overrides,
   });
 }
 
-/** A user who can actually log in (real bcrypt hash; tests use the minimum cost for speed). */
+/** Links a Google account to a user: createIdentity({ userId, providerUserId: 'google-sub-1' }). */
+export function createIdentity(overrides = {}) {
+  const n = next();
+  return insert('auth_identities', {
+    provider: 'google',
+    providerUserId: `google-sub-${n}`,
+    ...overrides,
+  });
+}
+
+/**
+ * A user who can actually log in (real bcrypt hash; tests use the minimum cost for speed).
+ * @param {{ password?: string } & Record<string, unknown>} [options] plus any users column
+ */
 export async function createUserWithPassword({ password = TEST_PASSWORD, ...overrides } = {}) {
   const user = await createUser({ ...overrides, passwordHash: await hashPassword(password) });
   return { ...user, password };

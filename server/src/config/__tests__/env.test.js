@@ -93,3 +93,58 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...validEnv, PORT: '70000' })).toThrow(/PORT/);
   });
 });
+
+describe('loadConfig: Google sign-in and email', () => {
+  const google = {
+    GOOGLE_CLIENT_ID: 'id.apps.googleusercontent.com',
+    GOOGLE_CLIENT_SECRET: 'secret',
+    PUBLIC_URL: 'https://example.com/',
+  };
+
+  it('leaves Google off unless configured', () => {
+    expect(loadConfig(validEnv).google).toBeNull();
+  });
+
+  it('builds the callback URL from PUBLIC_URL', () => {
+    expect(loadConfig({ ...validEnv, ...google }).google).toEqual({
+      clientId: 'id.apps.googleusercontent.com',
+      clientSecret: 'secret',
+      redirectUri: 'https://example.com/api/v1/auth/google/callback',
+    });
+  });
+
+  it('refuses half a Google configuration, and Google without PUBLIC_URL', () => {
+    expect(() => loadConfig({ ...validEnv, GOOGLE_CLIENT_ID: 'id' })).toThrow(
+      /GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET[\s\S]*PUBLIC_URL/,
+    );
+  });
+
+  it('prints codes to the log in development by default, and turns email off in production', () => {
+    expect(loadConfig(validEnv).email).toEqual({ transport: 'log' });
+    expect(loadConfig({ ...validEnv, NODE_ENV: 'production' }).email).toBeNull();
+  });
+
+  it("refuses the 'log' transport in production", () => {
+    expect(() =>
+      loadConfig({ ...validEnv, NODE_ENV: 'production', EMAIL_TRANSPORT: 'log' }),
+    ).toThrow(/production logs[\s\S]*EMAIL_TRANSPORT/);
+  });
+
+  it('needs an API key and sender for Resend', () => {
+    expect(() => loadConfig({ ...validEnv, EMAIL_TRANSPORT: 'resend' })).toThrow(
+      /RESEND_API_KEY[\s\S]*EMAIL_FROM/,
+    );
+    expect(
+      loadConfig({
+        ...validEnv,
+        EMAIL_TRANSPORT: 'resend',
+        RESEND_API_KEY: 're_test',
+        EMAIL_FROM: 'Marigold & Ink <hello@example.com>',
+      }).email,
+    ).toEqual({
+      transport: 'resend',
+      apiKey: 're_test',
+      from: 'Marigold & Ink <hello@example.com>',
+    });
+  });
+});
