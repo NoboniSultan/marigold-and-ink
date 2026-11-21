@@ -43,4 +43,9 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # Business settings, not secrets. ⚠️ PLACEHOLDERS until the owner sets real values.
+      - key: DEPOSIT_PERCENT
+        value: '50'
+      - key: COMMISSION_REVISION_LIMIT
+        value: '2'
 # No `databases:` section: the database lives on Neon, not Render (ADR 0006).
