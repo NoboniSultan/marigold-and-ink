@@ -1,6 +1,6 @@
 # 5. Host on Render, defined as a Blueprint
 
-- **Status:** Accepted
+- **Status:** Accepted. Database hosting superseded by [ADR 0006](0006-neon-for-production-postgres.md); the API stays on Render.
 - **Date:** 2026-11-17
 
 ## Context

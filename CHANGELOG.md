@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+### Changed
+
+- The production database moved from Render Postgres to Neon Free (ADR 0006). Render allows one free database per workspace, and its free tier expires after 30 days. `render.yaml` no longer declares a database; `DATABASE_URL` is entered in the Render Dashboard.
+
+### Added
+
+- `db/connection.js`: a shared pg connection config for the pool and the migration runner. It honors `channel_binding=require` from the connection string, which pg otherwise ignores. TLS verification comes from `sslmode=verify-full`.
+
 ## [0.3.0] - 2026-11-17 (Milestone 3: authentication, CI, deploy config)
 
 ### Added

@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { config } from '../config/env.js';
 import { logger } from '../lib/logger.js';
+import { buildConnectionConfig } from './connection.js';
 
 // pg returns bigint (int8) columns as strings because JS numbers lose precision above
 // 2^53. Our IDs and counts will never get near that, and string IDs make comparisons
@@ -13,7 +14,7 @@ pg.types.setTypeParser(INT8_OID, (value) => Number.parseInt(value, 10));
  * withTransaction() borrows one client from it so several queries share a transaction.
  */
 export const pool = new pg.Pool({
-  connectionString: config.databaseUrl,
+  ...buildConnectionConfig(config.databaseUrl),
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
