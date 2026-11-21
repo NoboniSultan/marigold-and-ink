@@ -5,6 +5,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-20 (Milestone 4: commission state machine and pricing engine)
+
+### Added
+
+- **State machine** (`commissions.stateMachine.js`): the approved transition table as data, covering actors (client, admin, system), guards (revision limit, digital vs. physical), effects (revision count), and dedicated flows (`via: 'quote' | 'refund'`). It provides `canTransition`, `assertTransition` (409 / 403 / 422), and `availableTransitions`.
+- **Commission endpoints:** create (client only; size + medium must be priced; price fields ignored), list (own for clients, all for admins, status filter, pagination), detail with available actions, status changes, and event history.
+- **`applyTransition`:** row lock (`FOR UPDATE`), state-machine check, update, and event insert in one transaction. It can join a caller's transaction (the quote flow, and the Stripe webhook in milestone 7).
+- **Pricing engine** (`pricing.engine.js`): a pure `calculateQuote` returning itemized line items in integer cents. Missing or ambiguous rules are refused (422), never silently $0.
+- **Quotes module:** generate a draft (inquiry only; regenerating supersedes the old draft), admin adjustment with a required note, and send. Sending stores total, deposit, and balance and moves the commission to `quoted` in one transaction. Clients never see drafts.
+- `lib/money.js`: integer-cent helpers, half-up percentages, and a deposit split that always adds up to the total.
+- Required settings `DEPOSIT_PERCENT` and `COMMISSION_REVISION_LIMIT`, with no defaults in code.
+- Placeholder price seed, inserted only into an empty pricing table.
+- 100% coverage thresholds for the state machine, the pricing engine, and money helpers (CI fails below them), plus global thresholds.
+- `docs/state-machine.md` (diagram, table, error codes) and a request-flow sequence diagram in `docs/architecture.md`.
+- 365 new tests (506 total): every one of the 144 status pairs × 3 actor types, every pricing combination, concurrency, rollback, and schema-consistency checks.
+
+### Fixed
+
+- The startup config check no longer hides a missing `DATABASE_URL` when another variable is absent.
+
 ## [0.3.1] - 2026-11-20 (Milestone 3: first deploy)
 
 ### Deployed

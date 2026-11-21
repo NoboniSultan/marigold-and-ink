@@ -83,6 +83,15 @@ npm run seed                  # idempotent; creates/promotes the admin from ADMI
 - Repositories select explicit column lists; only `findByEmailWithPasswordHash` returns `password_hash`.
 - Tests: `loggedInAgent(app, { role })` from `tests/helpers/auth.js` returns a logged-in Supertest agent; state-changing requests need `.set('Origin', TRUSTED_ORIGIN)`.
 
+## Commission and money rules
+
+- Change a commission's status **only** through `commissionsService.applyTransition(...)`. It locks the row, checks the state machine, updates, and writes the event in one transaction. Pass `{ client }` to join an existing transaction. Never `UPDATE commissions SET status` anywhere else.
+- Transitions with `via` (`quote`, `refund`) belong to a dedicated flow; the generic status endpoint can't trigger them.
+- To change the lifecycle, edit `TRANSITIONS` in `commissions.stateMachine.js` **and** the independent `EXPECTED` table in its test, then update `docs/state-machine.md`.
+- Prices come only from `pricing.engine.js` + active `pricing_rules`; never trust amounts from a request. Use `lib/money.js` for all arithmetic (`percentOfCents`, `splitDeposit`, `sumCents`).
+- `DEPOSIT_PERCENT` and `COMMISSION_REVISION_LIMIT` are owner-set business values with no code defaults. The current values (50, 2) and the seeded prices are **placeholders**.
+- The state machine, pricing engine, and money helpers have 100% coverage thresholds; `npm run test:coverage` fails below them.
+
 ## Database rules
 
 - Schema changes only through new migration files (never edit an applied migration). Write both up and down; the migration test reverts and re-applies all of them.

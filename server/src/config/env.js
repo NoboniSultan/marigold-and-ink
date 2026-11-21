@@ -10,42 +10,52 @@ const commaSeparatedUrls = z
   )
   .pipe(z.array(z.url()).min(1, 'must list at least one origin'));
 
-const envSchema = z
-  .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    LOG_LEVEL: z
-      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-      .default('info'),
-    DATABASE_URL: z.url().optional(),
-    TEST_DATABASE_URL: z.url().optional(),
-    // Validated when present. It becomes required once something uses Redis (BullMQ, later).
-    REDIS_URL: z.url().optional(),
-    AUTH_SECRET: z.string().min(32, 'must be at least 32 characters'),
-    CORS_ORIGINS: commaSeparatedUrls,
-    // Number of reverse proxies in front of the app (1 on Render). Needed so req.ip is
-    // the real client IP (rate limiting) and req.secure is true behind HTTPS (cookies).
-    TRUST_PROXY: z.coerce.number().int().min(0).default(0),
-    // bcrypt work factor: each +1 doubles hashing time. Tests use the minimum (4) for speed.
-    BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
-    SESSION_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(90).default(7),
-    // Failed logins allowed per IP + email per window, and registrations per IP per window.
-    RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().min(1).default(10),
-    RATE_LIMIT_LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).default(15),
-    RATE_LIMIT_REGISTER_MAX: z.coerce.number().int().min(1).default(5),
-    RATE_LIMIT_REGISTER_WINDOW_MINUTES: z.coerce.number().int().min(1).default(60),
-  })
-  .superRefine((env, ctx) => {
-    // Tests always use the separate test database; everything else uses DATABASE_URL.
-    const requiredDbVar = env.NODE_ENV === 'test' ? 'TEST_DATABASE_URL' : 'DATABASE_URL';
-    if (!env[requiredDbVar]) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [requiredDbVar],
-        message: `is required when NODE_ENV=${env.NODE_ENV}`,
-      });
-    }
-  });
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  DATABASE_URL: z.url().optional(),
+  TEST_DATABASE_URL: z.url().optional(),
+  // Validated when present. It becomes required once something uses Redis (BullMQ, later).
+  REDIS_URL: z.url().optional(),
+  AUTH_SECRET: z.string().min(32, 'must be at least 32 characters'),
+  CORS_ORIGINS: commaSeparatedUrls,
+  // Number of reverse proxies in front of the app (1 on Render). Needed so req.ip is
+  // the real client IP (rate limiting) and req.secure is true behind HTTPS (cookies).
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+  // bcrypt work factor: each +1 doubles hashing time. Tests use the minimum (4) for speed.
+  BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
+  SESSION_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+  // Failed logins allowed per IP + email per window, and registrations per IP per window.
+  RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().min(1).default(10),
+  RATE_LIMIT_LOGIN_WINDOW_MINUTES: z.coerce.number().int().min(1).default(15),
+  RATE_LIMIT_REGISTER_MAX: z.coerce.number().int().min(1).default(5),
+  RATE_LIMIT_REGISTER_WINDOW_MINUTES: z.coerce.number().int().min(1).default(60),
+  // Business values set by the owner. Deliberately no defaults: the app refuses to
+  // start rather than quietly charge a made-up deposit or allow a made-up revision count.
+  DEPOSIT_PERCENT: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9, {
+      message: 'may have at most two decimal places',
+    }),
+  COMMISSION_REVISION_LIMIT: z.coerce.number().int().min(0).max(20),
+});
+
+/**
+ * Tests always use the separate test database; everything else uses DATABASE_URL.
+ * Checked outside the zod schema on purpose: zod skips object-level refinements when a
+ * field is missing entirely, which would hide this error behind the others. Checking it
+ * separately keeps the promise of reporting every problem at once.
+ */
+function missingDatabaseVar(env) {
+  const nodeEnv = env.NODE_ENV ?? 'development';
+  const requiredDbVar = nodeEnv === 'test' ? 'TEST_DATABASE_URL' : 'DATABASE_URL';
+  return env[requiredDbVar]
+    ? null
+    : `✖ is required when NODE_ENV=${nodeEnv}\n  → at ${requiredDbVar}`;
+}
 
 export class ConfigError extends Error {
   constructor(message) {
@@ -63,9 +73,14 @@ export function loadConfig(rawEnv) {
   const env = Object.fromEntries(Object.entries(rawEnv).filter(([, value]) => value !== ''));
 
   const result = envSchema.safeParse(env);
-  if (!result.success) {
+  const problems = [
+    result.success ? null : z.prettifyError(result.error),
+    missingDatabaseVar(env),
+  ].filter(Boolean);
+
+  if (problems.length > 0) {
     throw new ConfigError(
-      `Invalid environment configuration:\n${z.prettifyError(result.error)}\n` +
+      `Invalid environment configuration:\n${problems.join('\n')}\n` +
         'Copy .env.example to .env and fill in the missing values.',
     );
   }
@@ -94,6 +109,8 @@ export function loadConfig(rawEnv) {
         windowMs: e.RATE_LIMIT_REGISTER_WINDOW_MINUTES * 60_000,
       },
     }),
+    depositPercent: e.DEPOSIT_PERCENT,
+    commissionRevisionLimit: e.COMMISSION_REVISION_LIMIT,
   });
 }
 

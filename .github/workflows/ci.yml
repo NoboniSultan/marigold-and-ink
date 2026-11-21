@@ -42,6 +42,9 @@ jobs:
       TEST_DATABASE_URL: postgres://marigold:marigold@localhost:5432/marigold_test
       AUTH_SECRET: ci-only-placeholder-not-a-real-secret-0000
       CORS_ORIGINS: http://localhost:5173
+      # Test-only business values; the real ones are set in render.yaml / .env.
+      DEPOSIT_PERCENT: '40'
+      COMMISSION_REVISION_LIMIT: '2'
 
     defaults:
       run:

@@ -7,9 +7,30 @@ const validEnv = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/dev',
   AUTH_SECRET: 'x'.repeat(32),
   CORS_ORIGINS: 'http://localhost:5173, https://example.com',
+  DEPOSIT_PERCENT: '40', // test values only, not business values
+  COMMISSION_REVISION_LIMIT: '3',
 };
 
 describe('loadConfig', () => {
+  it('reads the business settings', () => {
+    const config = loadConfig({ ...validEnv, DEPOSIT_PERCENT: '33.33' });
+
+    expect(config.depositPercent).toBe(33.33);
+    expect(config.commissionRevisionLimit).toBe(3);
+  });
+
+  it('refuses to start without the business settings (no invented defaults)', () => {
+    const { DEPOSIT_PERCENT: _d, COMMISSION_REVISION_LIMIT: _r, ...withoutBusiness } = validEnv;
+
+    expect(() => loadConfig(withoutBusiness)).toThrow(
+      /DEPOSIT_PERCENT[\s\S]*COMMISSION_REVISION_LIMIT/,
+    );
+  });
+
+  it.each(['101', '-1', '12.345'])('rejects DEPOSIT_PERCENT=%s', (value) => {
+    expect(() => loadConfig({ ...validEnv, DEPOSIT_PERCENT: value })).toThrow(/DEPOSIT_PERCENT/);
+  });
+
   it('parses a valid environment into a typed config', () => {
     const config = loadConfig(validEnv);
 
