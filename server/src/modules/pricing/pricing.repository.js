@@ -22,6 +22,25 @@ export async function findActiveRules(client = pool) {
   return rows.map(toRule);
 }
 
+export async function countActive(client = pool) {
+  const { rows } = await client.query('SELECT count(*) AS n FROM pricing_rules WHERE is_active');
+  return rows[0].n;
+}
+
+export async function insertRule(rule, client = pool) {
+  await client.query(
+    `INSERT INTO pricing_rules (rule_type, size, medium, fulfillment_type, amount_cents)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      rule.ruleType,
+      rule.size ?? null,
+      rule.medium ?? null,
+      rule.fulfillmentType ?? null,
+      rule.amountCents,
+    ],
+  );
+}
+
 export async function hasActiveBaseRule({ size, medium }, client = pool) {
   const { rows } = await client.query(
     `SELECT EXISTS (
