@@ -44,6 +44,16 @@ export async function createCommission(user, input) {
   });
 }
 
+/**
+ * Loads and locks a commission inside the caller's transaction, so other modules
+ * (quotes, later payments) can read it and act on it without a concurrent change slipping in.
+ */
+export async function lockCommission(id, client) {
+  const commission = await commissionsRepository.findById(id, client, { forUpdate: true });
+  if (!commission) throw notFound();
+  return commission;
+}
+
 /** Loads a commission the user may see (their own, or any for an admin). */
 export async function getCommissionForUser(id, user) {
   const commission = await commissionsRepository.findById(id);
