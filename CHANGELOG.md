@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-20 (Milestone 3: first deploy)
+
+### Deployed
+
+- The API is live at https://marigold-and-ink-api.onrender.com (Render free plan), with Postgres 17 on Neon. Verified in production: health check with database ping, security headers, HTTP-to-HTTPS redirect, error shapes, login rate limiting, and the CSRF origin check.
+
 ### Changed
 
 - The production database moved from Render Postgres to Neon Free (ADR 0006). Render allows one free database per workspace, and its free tier expires after 30 days. `render.yaml` no longer declares a database; `DATABASE_URL` is entered in the Render Dashboard.
