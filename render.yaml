@@ -17,7 +17,10 @@ services:
     # No rootDir: Render hides files outside a service's root directory, and the server
     # reads content/ and media/ at the repo root (and will build client/ in milestone 5b).
     # Commands therefore `cd server` themselves.
-    buildCommand: cd server && npm ci --omit=dev
+    # Build the React site first (Express serves client/dist). NODE_ENV=production makes a
+    # plain `npm ci` skip devDependencies, and Vite and TypeScript are devDependencies, so
+    # the client install includes them; the server install keeps runtime packages only.
+    buildCommand: cd client && npm ci --include=dev && npm run build && cd ../server && npm ci --omit=dev
     # Free instances don't support preDeployCommand, so migrations and the (idempotent)
     # seed run before the server starts. If either fails (a broken migration, or a content
     # file that doesn't match its images), the new instance never becomes healthy and Render
@@ -38,8 +41,9 @@ services:
         sync: false
       - key: AUTH_SECRET
         generateValue: true
-      # Browser origins allowed to call the API (comma-separated). Until the client is
-      # deployed (milestone 5), use this service's own URL.
+      # Browser origins allowed to send state-changing requests (comma-separated). The site
+      # is served by this same service, so this is the service's own URL (or the custom
+      # domain, once there is one). The CSRF origin check rejects anything else.
       - key: CORS_ORIGINS
         sync: false
       - key: ADMIN_EMAIL
