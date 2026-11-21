@@ -85,9 +85,39 @@ Code at any layer throws an `AppError` subclass (`NotFoundError`, `ConflictError
 
 `lib/logger.js` adds the current request ID to every log line through a pino mixin that reads AsyncLocalStorage. A service or repository can log without receiving `req`, and its lines still correlate with the request.
 
-## Request flow (example)
+## Request flow (example): sending a quote
 
-To be expanded in milestone 4. For example, `POST /api/v1/commissions/:id/transitions` goes from route, through `requireAuth` and `validate`, to the controller, then to `commissions.service`. The service runs `withTransaction`: it loads the commission, calls `assertTransition`, updates the status, and inserts a `commission_events` row, then commits.
+`POST /api/v1/commissions/42/quote/send` by an admin:
+
+```mermaid
+sequenceDiagram
+    participant R as Route + middleware
+    participant QC as quotes.controller
+    participant QS as quotes.service
+    participant CS as commissions.service
+    participant SM as stateMachine (pure)
+    participant DB as Postgres
+    R->>R: requireAuth, requireRole('admin'), validate(params)
+    R->>QC: req.validated.params.id = 42
+    QC->>QS: sendQuote(42, admin)
+    QS->>DB: BEGIN
+    QS->>CS: lockCommission(42) → SELECT ... FOR UPDATE
+    QS->>DB: find current draft quote
+    QS->>QS: total = adjusted ?? computed; splitDeposit(total, DEPOSIT_PERCENT)
+    QS->>DB: UPDATE quotes SET status='sent'
+    QS->>CS: applyTransition(→ quoted, via 'quote', extraChanges: amounts)
+    CS->>SM: assertTransition(commission, 'quoted', admin, {via})
+    CS->>DB: UPDATE commissions (status + amounts)
+    CS->>DB: INSERT commission_events
+    QS->>DB: COMMIT (or ROLLBACK if any step threw)
+    QC-->>R: 200 { data: { commission, quote } }
+```
+
+Each layer does one job. The controller only translates HTTP. The quotes service orchestrates. The commissions service owns every status change. The state machine decides without touching the database. Repositories hold the SQL. `applyTransition` accepts the caller's transaction client, so the quote update and the status change commit or roll back together.
+
+### Module dependencies
+
+`quotes` → `commissions`, `pricing`. `commissions` → `pricing`. `pricing` depends on nothing. Dependencies run one way: no module imports a module that imports it back, and no module reaches into another's repository.
 
 ## Module map
 
@@ -96,8 +126,9 @@ To be expanded in milestone 4. For example, `POST /api/v1/commissions/:id/transi
 | health | `GET /health`: app status and a database ping | 1 |
 | auth | register, login, logout; password hashing; session start and end | 3 |
 | users | user records: `GET /users/me`, `GET /users/:id`, admin `GET /users` | 3 |
-| commissions | requests, state machine, event history | 4 |
-| pricing | pricing rules and the `calculateQuote` engine, quotes | 4 |
+| commissions | requests, state machine, status changes with event history | 4 |
+| pricing | pricing rules and the pure `calculateQuote` engine | 4 |
+| quotes | generate, adjust, send, and view quotes (uses commissions + pricing) | 4 |
 | gallery | artworks and tags, public listing | 5 |
 | payments | Stripe Checkout sessions, webhooks, refunds | 7 |
 | donations | donation calculator, ledger, charities, public totals | 8 |

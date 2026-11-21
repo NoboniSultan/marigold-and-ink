@@ -19,8 +19,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Database schema and migrations | Built |
 | Authentication and roles (sessions, ownership, rate limiting, CSRF) | Built |
 | CI (GitHub Actions) and deployment (API on Render, Postgres on Neon) | Built, live |
-| Commission state machine | Planned |
-| Pricing engine and quotes | Planned |
+| Commission requests and state machine (audit trail, actor permissions, revision limit) | Built |
+| Pricing engine and quotes (generate, admin adjustment, send) | Built, with **placeholder prices** |
 | Public gallery API and React client | Planned |
 | Stripe deposit and final payments, webhooks, refunds | Planned |
 | Donation ledger and transparency totals | Planned |
@@ -93,7 +93,7 @@ docker compose up -d --wait
 cd server
 npm install
 npm run migrate:up             # create the schema in the dev database
-npm run seed                   # create the admin account from ADMIN_EMAIL / ADMIN_PASSWORD
+npm run seed                   # admin account (ADMIN_EMAIL / ADMIN_PASSWORD) + placeholder prices if none exist
 npm run dev                    # http://localhost:3000/api/v1/health
 ```
 
@@ -150,10 +150,25 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | GET | `/api/v1/users/me` | Logged in | The current user. |
 | GET | `/api/v1/users/:id` | Owner or admin | A user record. Clients may only read their own. |
 | GET | `/api/v1/users` | Admin | Paginated list of users (`?page=1&pageSize=20`, max 100). |
+| POST | `/api/v1/commissions` | Client | Request a commission: `size`, `medium`, `subjectCount`, `fulfillmentType`, `isRush`, `notes`. Starts at `inquiry`. Price fields are ignored. 422 if the size + medium isn't offered. |
+| GET | `/api/v1/commissions` | Logged in | Clients see their own; admins see all. `?status=&page=&pageSize=` |
+| GET | `/api/v1/commissions/:id` | Owner or admin | The commission plus `availableTransitions` for the current user. |
+| POST | `/api/v1/commissions/:id/transitions` | Owner or admin | Change status: `{ toStatus, reason? }`. Rules in [docs/state-machine.md](docs/state-machine.md). |
+| GET | `/api/v1/commissions/:id/events` | Owner or admin | Full status history: who, when, from → to, why. |
+| POST | `/api/v1/commissions/:id/quote` | Admin | Generate a draft quote from the active pricing rules (inquiry only). |
+| PATCH | `/api/v1/commissions/:id/quote` | Admin | Adjust the draft: `{ adjustedAmountCents, adjustmentNote }` (note required). |
+| POST | `/api/v1/commissions/:id/quote/send` | Admin | Send the draft: stores total, deposit, and balance on the commission and moves it to `quoted`, all in one transaction. |
+| GET | `/api/v1/commissions/:id/quote` | Owner or admin | The current quote. Clients only see it once it has been sent. |
+
+**Commissions:** every status change goes through the state machine and is written together with an audit event in one transaction, with the commission row locked against concurrent changes. Who may make which change is documented in [docs/state-machine.md](docs/state-machine.md).
+
+**Pricing:** quotes are computed on the server by a pure engine (`pricing.engine.js`) from active `pricing_rules`: base price by size and medium, plus extra subjects, a fulfillment surcharge, and an optional flat rush fee, all in integer cents. The deposit is `DEPOSIT_PERCENT` of the total, rounded half up to the cent; the balance is the exact remainder.
+
+> ⚠️ **Placeholder prices.** The current price list, `DEPOSIT_PERCENT=50`, and `COMMISSION_REVISION_LIMIT=2` are placeholders (see `server/src/db/seeds/pricing.placeholder.js`). The seed only inserts prices into an empty table, so real prices are never overwritten.
 
 **Auth model:** server-side sessions stored in Postgres. The browser holds only a signed session ID in an `httpOnly`, `SameSite=Lax` cookie (`Secure` with the `__Host-` prefix in production). Sessions last 7 days from the last request. State-changing requests from an `Origin` outside `CORS_ORIGINS` are rejected as CSRF. Passwords are hashed with bcrypt (cost 12). See [ADR 0004](docs/decisions/0004-server-sessions-in-postgres.md).
 
-Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` (422), `RATE_LIMITED` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` (503).
+Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` (422), `RATE_LIMITED` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` (503).
 
 ## Deployment
 
