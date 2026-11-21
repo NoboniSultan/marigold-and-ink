@@ -1,6 +1,7 @@
 import path from 'node:path';
 import express from 'express';
-import { MEDIA_DIR } from './config/paths.ts';
+import { CLIENT_DIST_DIR, MEDIA_DIR } from './config/paths.ts';
+import { createClientSiteRouter } from './lib/clientSite.ts';
 import helmet from 'helmet';
 import cors from 'cors';
 import { config } from './config/env.js';
@@ -53,6 +54,11 @@ export function createApp() {
       }),
     );
   }
+
+  //    The React site (client/dist), when built: its files, and index.html for page URLs.
+  //    Also before sessions: serving the site never needs one. See lib/clientSite.ts.
+  const clientSite = createClientSiteRouter(CLIENT_DIST_DIR);
+  if (clientSite) app.use(clientSite);
 
   // 4. Parse JSON bodies, rejecting anything over 100 KB to limit abuse.
   //    (The Stripe webhook will need the raw body and is mounted before this in milestone 7.)

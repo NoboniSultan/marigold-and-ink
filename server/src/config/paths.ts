@@ -16,5 +16,9 @@ export const CONTENT_DIR = process.env.CONTENT_DIR ?? path.join(REPO_ROOT, 'cont
 /** Processed images and manifest.json, written by `npm run media`. Committed; served at /media. */
 export const MEDIA_DIR = process.env.MEDIA_DIR ?? path.join(REPO_ROOT, 'media');
 
+/** The built React site (`npm run build` in client/). Served by Express when it exists. */
+export const CLIENT_DIST_DIR =
+  process.env.CLIENT_DIST_DIR ?? path.join(REPO_ROOT, 'client', 'dist');
+
 /** Original photos. Gitignored: they exist only on the owner's machine. */
 export const MEDIA_SOURCE_DIR = path.join(REPO_ROOT, 'media-source');
