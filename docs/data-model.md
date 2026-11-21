@@ -210,7 +210,7 @@ erDiagram
 | `artworks_year_check` | CHECK | 1900–2100: a sanity range that catches typos, not a business rule. |
 | `artworks_credit_check` | CHECK | Credit (e.g. "after Vincent van Gogh"), when present, is 1–200 characters. |
 | `artworks_content_hash_check` | CHECK | A SHA-256 hex digest. Set on rows owned by `content/artworks.json`; NULL for rows created through the admin API. The seed rewrites a row only when this hash changes (see [ADR 0007](decisions/0007-content-files-and-media-pipeline.md)). |
-| `search_vector` | Generated column (`STORED`) | `setweight(title, A) ‖ setweight(credit + medium + category, B) ‖ setweight(description, C)` in the `english` configuration. Postgres recomputes it on every write, so search can never go stale. |
+| `search_vector` | Generated column (`STORED`) | `setweight(title, A) ‖ setweight(credit + medium + category, B) ‖ setweight(description, C)` in the `english_unaccent` configuration (a copy of `english` that runs the `unaccent` dictionary before stemming, so "guayasamin" matches "Guayasamín"; queries use the same configuration). Postgres recomputes it on every write, so search can never go stale. |
 | `artworks_search_idx` | GIN index on `search_vector` | A **GIN** (generalized inverted) index maps each word stem to the rows containing it, so `search_vector @@ websearch_to_tsquery(...)` doesn't scan the table. |
 | `artworks_published_sort_idx` | Partial index `(sort_order, id) WHERE is_published` | The public gallery lists only published artworks in sort order. A **partial index** contains only the rows matching its `WHERE`, so it stays small. |
 | `artworks_published_category_idx` | Partial index `(category) WHERE is_published` | The gallery's category filter. |

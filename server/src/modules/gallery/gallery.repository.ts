@@ -132,9 +132,9 @@ export async function listArtworks(
         AND ($3::text IS NULL OR EXISTS (
               SELECT 1 FROM artwork_tags at JOIN tags t ON t.id = at.tag_id
                WHERE at.artwork_id = a.id AND t.slug = $3))
-        AND ($4::text IS NULL OR a.search_vector @@ websearch_to_tsquery('english', $4))
+        AND ($4::text IS NULL OR a.search_vector @@ websearch_to_tsquery('english_unaccent', $4))
       ORDER BY CASE WHEN $4::text IS NULL THEN 0
-                    ELSE ts_rank(a.search_vector, websearch_to_tsquery('english', $4)) END DESC,
+                    ELSE ts_rank(a.search_vector, websearch_to_tsquery('english_unaccent', $4)) END DESC,
                a.sort_order, a.id
       LIMIT $5 OFFSET $6`,
     [status, category ?? null, tag ?? null, q ?? null, limit, offset],

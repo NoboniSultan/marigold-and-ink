@@ -164,9 +164,9 @@ describe('artworks', () => {
     await pool.query('UPDATE artworks SET medium = $1 WHERE id = $2', ['ink', artwork.id]);
 
     const { rows } = await pool.query(
-      `SELECT search_vector @@ websearch_to_tsquery('english', 'gogh') AS by_credit,
-              search_vector @@ websearch_to_tsquery('english', 'ink') AS by_new_medium,
-              search_vector @@ websearch_to_tsquery('english', 'scratchboard') AS by_old_medium,
+      `SELECT search_vector @@ websearch_to_tsquery('english_unaccent', 'gogh') AS by_credit,
+              search_vector @@ websearch_to_tsquery('english_unaccent', 'ink') AS by_new_medium,
+              search_vector @@ websearch_to_tsquery('english_unaccent', 'scratchboard') AS by_old_medium,
               search_vector::text AS vector
          FROM artworks WHERE id = $1`,
       [artwork.id],

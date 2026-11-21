@@ -71,6 +71,18 @@ describe('GET /api/v1/artworks (public)', () => {
     expect(titles(await request(app).get('/api/v1/artworks?tag=secret'))).toEqual([]);
   });
 
+  it('ignores accents in both directions', async () => {
+    await createArtwork({
+      title: 'Embrace',
+      credit: 'after Oswaldo Guayasamín',
+      isPublished: true,
+    });
+
+    expect(titles(await request(app).get('/api/v1/artworks?q=guayasamin'))).toEqual(['Embrace']);
+    expect(titles(await request(app).get('/api/v1/artworks?q=Guayasamín'))).toEqual(['Embrace']);
+    expect(titles(await request(app).get('/api/v1/artworks?q=embráce'))).toEqual(['Embrace']);
+  });
+
   it('searches title, credit, and medium, with stemming', async () => {
     expect(titles(await request(app).get('/api/v1/artworks?q=gogh'))).toEqual(['Starry Night']);
     expect(titles(await request(app).get('/api/v1/artworks?q=nights'))).toEqual(['Starry Night']);
