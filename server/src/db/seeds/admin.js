@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import * as authService from '../../modules/auth/auth.service.js';
-import { registerBody } from '../../modules/auth/auth.validation.js';
+import { signupCompleteBody } from '../../modules/auth/auth.validation.js';
 
 // Reuses the registration rules, so the admin password meets the same policy as everyone's.
 const adminEnv = z.object({
-  ADMIN_EMAIL: registerBody.shape.email,
-  ADMIN_PASSWORD: registerBody.shape.password,
-  ADMIN_DISPLAY_NAME: registerBody.shape.displayName.default('Admin'),
+  ADMIN_EMAIL: signupCompleteBody.shape.email,
+  ADMIN_PASSWORD: signupCompleteBody.shape.password,
+  ADMIN_DISPLAY_NAME: signupCompleteBody.shape.displayName.default('Admin'),
 });
 
 /**

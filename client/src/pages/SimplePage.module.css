@@ -100,3 +100,42 @@
   margin-top: var(--space-6);
   color: var(--color-gray);
 }
+
+/* Google sign-in sits above the email form. */
+.alternatives:not(:empty) {
+  margin-top: var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-rule);
+  border-left: 6px solid var(--color-ink);
+  border-radius: var(--radius);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.linkButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--color-marigold);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.linkButton:disabled {
+  color: var(--color-gray);
+  text-decoration-color: transparent;
+  cursor: default;
+}

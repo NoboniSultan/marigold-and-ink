@@ -16,11 +16,29 @@ const newPassword = z
     message: `must be at most ${PASSWORD_MAX_BYTES} bytes`,
   });
 
-// Unknown fields (e.g. "role": "admin") are stripped by zod, so they never reach the service.
-export const registerBody = z.object({
+/** Step 1 of sign-up: where to send the code. */
+export const signupStartBody = z.object({ email });
+
+// Step 2. Unknown fields (e.g. "role": "admin") are stripped by zod, so they never reach
+// the service.
+export const signupCompleteBody = z.object({
   email,
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'must be the 6-digit code from the email'),
   password: newPassword,
   displayName: z.string().trim().min(1).max(100),
+});
+
+/** Where to return after Google sign-in: a same-site path only, never another site. */
+export const googleStartQuery = z.object({
+  next: z
+    .string()
+    .regex(/^\/(?!\/)/, 'must be a path on this site')
+    .max(500)
+    .optional()
+    .catch(undefined),
 });
 
 // Login doesn't re-apply the password policy (the policy could change after sign-up);

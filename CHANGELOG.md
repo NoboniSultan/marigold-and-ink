@@ -5,6 +5,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-21 (Milestone 5c: verified sign-up and Google sign-in)
+
+### Added
+
+- **Email-verified sign-up in two steps:**
+  - `POST /auth/signup/start` emails a 6-digit code: hashed at rest, valid 15 minutes, 5 tries, one per minute per address.
+  - `POST /auth/signup/complete` takes the code, name and password, creates the account already verified, and logs in.
+  - Step 1 answers the same whether or not the email has an account (members get an "already have an account" email), so it can't be used to probe emails.
+  - Nobody can open an account with an address they can't read.
+- **"Continue with Google":**
+  - the OpenID Connect code flow with PKCE, state, and nonce (openid-client), with ID-token signature and claim checks;
+  - only the `openid email profile` scopes; people matched by Google's permanent ID; a verified email required; the session regenerated;
+  - links to an existing account with the same verified email. A verified account keeps its password; an unverified account's password is removed and its sessions signed out;
+  - admin accounts can never sign in with Google.
+- `GET /auth/providers`: which sign-in methods are on. The site shows the Google button and email sign-up accordingly.
+- **Email through Resend,** as an injected adapter. In development, codes print to the server log; config refuses that in production. Production email sign-up says "opens soon" until a domain is verified.
+- **Configuration:** `PUBLIC_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_TRANSPORT`, `RESEND_API_KEY`, `EMAIL_FROM`. All are optional, in complete groups, validated at startup.
+- **Migration:** `users.email_verified_at` (admins backfilled), nullable `password_hash` (Google-only accounts), `auth_identities`, `email_verifications`.
+- **Site:** a two-step sign-up page (code, resend countdown, "use a different email"), Google on login and sign-up, readable messages for every Google failure, and a "get a code" path for unverified accounts.
+- **Docs:** `docs/setup-google-and-email.md` (Google Cloud Console and Resend, step by step) and ADR 0010.
+- **Tests:** 33 new server tests (685 total) and 6 new client tests (49 total). They use fake email and Google adapters and cover:
+  - new, returning, and linked users;
+  - an unverified Google email, a state mismatch, replay, expiry, and cancelling;
+  - admins refused; code attempts, expiry, cooldown, and binding to one address.
+
+  The sign-up flow was also checked end to end in Chrome.
+
+### Changed
+
+- **`POST /auth/register` is removed;** sign-up is the two steps above.
+- **Accounts created before this release** (never verified) can't log in until claimed with a code (`403 EMAIL_NOT_VERIFIED`, only after a correct password).
+- The users module and the auth controller are now TypeScript.
+
 ## [0.6.0] - 2026-11-21 (Milestone 5b: the website)
 
 ### Added

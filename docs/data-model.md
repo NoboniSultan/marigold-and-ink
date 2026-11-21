@@ -22,6 +22,7 @@ erDiagram
     users ||--o{ commission_events : "acts in (nullable: system)"
     users ||--o{ files : "uploads"
     users ||--o{ messages : "sends"
+    users ||--o{ auth_identities : "signs in with"
 
     artworks ||--o{ artwork_tags : "tagged with"
     tags ||--o{ artwork_tags : "applied to"
@@ -40,9 +41,24 @@ erDiagram
     users {
         bigint id PK
         citext email UK
-        text password_hash
+        text password_hash "nullable: Google-only"
         text display_name
         text role "client | admin"
+        timestamptz email_verified_at
+    }
+    auth_identities {
+        bigint id PK
+        bigint user_id FK
+        text provider "google"
+        text provider_user_id
+        citext email
+    }
+    email_verifications {
+        citext email PK
+        text code_hash
+        smallint attempts
+        timestamptz expires_at
+        timestamptz sent_at
     }
     artworks {
         bigint id PK
@@ -193,6 +209,20 @@ erDiagram
 | `users_email_format_check` | CHECK | A light sanity check (`x@y`, ≤ 254 chars). Real validation is in zod; this stops obvious garbage written by any path. |
 | `users_display_name_check` | CHECK | 1 to 100 non-blank characters. |
 | `users_role_check` | CHECK | Only `client` or `admin`, so a typo can't create an unknown role that authorization ignores. |
+
+`password_hash` is nullable: accounts created with Google have no password, and login treats a missing hash exactly like a wrong password. `email_verified_at` records when the owner proved the email (a sign-up code or Google); `NULL` only for accounts from before milestone 5c, which can't log in until claimed with a code ([ADR 0010](decisions/0010-email-verification-and-google-sign-in.md)).
+
+### auth_identities, email_verifications
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `auth_identities_provider_user_key` | UNIQUE `(provider, provider_user_id)` | One Google account signs in to exactly one user. Users are matched on Google's permanent `sub`, never on email. |
+| `auth_identities_user_provider_key` | UNIQUE `(user_id, provider)` | A user links at most one Google account. |
+| `auth_identities_provider_check` | CHECK | Only `google` for now. |
+| `auth_identities.user_id` | FK, `ON DELETE CASCADE` | A sign-in method means nothing without its user and holds no money or history. |
+| `email_verifications_pkey` | PRIMARY KEY `(email)` | At most one pending code per address: a new code replaces the old one. |
+| `email_verifications_code_hash_check` | CHECK | A SHA-256 hex digest: only an HMAC of the code is stored, never the code. |
+| `email_verifications_attempts_check` | CHECK | Never negative. Five wrong tries use a code up (enforced by the service). |
 
 ### artworks, tags, artwork_tags
 

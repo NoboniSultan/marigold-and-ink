@@ -1,4 +1,4 @@
-import * as usersService from './users.service.js';
+import * as usersService from './users.service.ts';
 
 /** requireAuth has already loaded the current user onto req.user. */
 export function getMe(req, res) {

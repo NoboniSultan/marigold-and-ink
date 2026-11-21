@@ -41,7 +41,59 @@ const envSchema = z.object({
       message: 'may have at most two decimal places',
     }),
   COMMISSION_REVISION_LIMIT: z.coerce.number().int().min(0).max(20),
+
+  // The site's public address, e.g. https://marigold-and-ink-api.onrender.com. Google sends
+  // visitors back to <PUBLIC_URL>/api/v1/auth/google/callback.
+  PUBLIC_URL: z
+    .url()
+    .transform((url) => url.replace(/\/+$/, ''))
+    .optional(),
+  // "Continue with Google": both or neither (checked below). Secret: .env / Render only.
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  // How sign-up codes are sent: 'resend' (real email) or 'log' (printed to the server log,
+  // development only). Defaults to 'log' outside production, and to off in production.
+  EMAIL_TRANSPORT: z.enum(['resend', 'log']).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  // Sender, e.g. "Marigold & Ink <hello@yourdomain.com>"; the domain must be verified in Resend.
+  EMAIL_FROM: z.string().min(3).optional(),
 });
+
+/**
+ * Settings that only make sense together (Google sign-in, real email). Like the database
+ * check, these run outside zod so every problem is reported at once.
+ */
+function groupProblems(env) {
+  const problems = [];
+  const nodeEnv = env.NODE_ENV ?? 'development';
+
+  if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
+    problems.push('✖ set both or neither\n  → at GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET');
+  }
+  if (env.GOOGLE_CLIENT_ID && !env.PUBLIC_URL) {
+    problems.push(
+      '✖ is required for Google sign-in (Google redirects back to it)\n  → at PUBLIC_URL',
+    );
+  }
+
+  const transport = emailTransport(env);
+  if (transport === 'log' && nodeEnv === 'production') {
+    problems.push(
+      "✖ 'log' would put sign-up codes in production logs; use 'resend'\n  → at EMAIL_TRANSPORT",
+    );
+  }
+  if (transport === 'resend') {
+    for (const key of ['RESEND_API_KEY', 'EMAIL_FROM']) {
+      if (!env[key]) problems.push(`✖ is required when EMAIL_TRANSPORT=resend\n  → at ${key}`);
+    }
+  }
+  return problems.length ? problems.join('\n') : null;
+}
+
+function emailTransport(env) {
+  if (env.EMAIL_TRANSPORT) return env.EMAIL_TRANSPORT;
+  return (env.NODE_ENV ?? 'development') === 'production' ? undefined : 'log';
+}
 
 /**
  * Tests always use the separate test database; everything else uses DATABASE_URL.
@@ -76,6 +128,7 @@ export function loadConfig(rawEnv) {
   const problems = [
     result.success ? null : z.prettifyError(result.error),
     missingDatabaseVar(env),
+    groupProblems(env),
   ].filter(Boolean);
 
   if (problems.length > 0) {
@@ -111,6 +164,23 @@ export function loadConfig(rawEnv) {
     }),
     depositPercent: e.DEPOSIT_PERCENT,
     commissionRevisionLimit: e.COMMISSION_REVISION_LIMIT,
+    publicUrl: e.PUBLIC_URL ?? null,
+    // null = "Continue with Google" is off (the button is hidden).
+    google: e.GOOGLE_CLIENT_ID
+      ? Object.freeze({
+          clientId: e.GOOGLE_CLIENT_ID,
+          clientSecret: e.GOOGLE_CLIENT_SECRET,
+          redirectUri: `${e.PUBLIC_URL}/api/v1/auth/google/callback`,
+        })
+      : null,
+    // null = email sign-up is off (no way to send codes).
+    email: (() => {
+      const transport = emailTransport(e);
+      if (transport === 'resend') {
+        return Object.freeze({ transport, apiKey: e.RESEND_API_KEY, from: e.EMAIL_FROM });
+      }
+      return transport === 'log' ? Object.freeze({ transport }) : null;
+    })(),
   });
 }
 
