@@ -39,7 +39,7 @@ Each one takes about 10–20 minutes. For each:
 1. **`src/db/errors.js`** (easiest). `isUniqueViolation(err, constraint)` receives an unknown thrown value.
    - Type `err` as `unknown` and `constraint` as `string | undefined` (or optional).
    - You'll need to narrow `err` before reading `.code`. Try `typeof err === 'object' && err !== null && 'code' in err`.
-   - Importers: `users.service.js`, `gallery.service.ts`.
+   - Importers: `users.service.ts`, `gallery.service.ts`, `auth.google.service.ts`.
 2. **`src/lib/authorization.js`.**
    - Define a small user type: `{ id: number; role: 'client' | 'admin' }`.
    - Allow `null | undefined` for the user, since `canAccessOwnedResource` handles a missing one.

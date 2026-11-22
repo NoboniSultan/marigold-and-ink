@@ -119,7 +119,7 @@ Each layer does one job. The controller only translates HTTP. The quotes service
 
 ### Module dependencies
 
-`quotes` → `commissions`, `pricing`. `commissions` → `pricing`. `pricing`, `gallery`, and `about` depend on no other module. The content seed (`db/seeds/content.ts`) calls the `gallery` and `about` services. Dependencies run one way: no module imports a module that imports it back, and no module reaches into another's repository.
+`quotes` → `commissions`, `pricing`. `commissions` → `pricing`. `auth` → `users`. `pricing`, `users`, `gallery`, and `about` depend on no other module. The content seed (`db/seeds/content.ts`) calls the `gallery` and `about` services. Dependencies run one way: no module imports a module that imports it back, and no module reaches into another's repository.
 
 ## Content and images
 
@@ -164,7 +164,7 @@ flowchart LR
 | Module | Responsibility | Milestone |
 | --- | --- | --- |
 | health | `GET /health`: app status and a database ping | 1 |
-| auth | register, login, logout; password hashing; session start and end | 3 |
+| auth | sign-up with an emailed code, Google sign-in, login, logout; password hashing; session start and end (uses users) | 3, 5c |
 | users | user records: `GET /users/me`, `GET /users/:id`, admin `GET /users` | 3 |
 | commissions | requests, state machine, status changes with event history | 4 |
 | pricing | pricing rules, the pure `calculateQuote` engine, and the public form options (`GET /pricing/options`, no prices) | 4, 5 |
