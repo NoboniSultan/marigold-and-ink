@@ -117,32 +117,45 @@ export interface ListFilters {
   offset: number;
 }
 
+// The list's filters, shared by the page query and the count below. Parameters:
+// $1 status, $2 category, $3 tag slug, $4 search text.
+// websearch_to_tsquery never throws on user input (unlike to_tsquery), so search text
+// like `"starry night" -sketch` is safe to pass straight through as a parameter.
+const LIST_WHERE = `
+  WHERE ($1::text = 'all' OR a.is_published = ($1::text = 'published'))
+    AND ($2::text IS NULL OR a.category = $2)
+    AND ($3::text IS NULL OR EXISTS (
+          SELECT 1 FROM artwork_tags at JOIN tags t ON t.id = at.tag_id
+           WHERE at.artwork_id = a.id AND t.slug = $3))
+    AND ($4::text IS NULL OR a.search_vector @@ websearch_to_tsquery('english_unaccent', $4))`;
+
 export async function listArtworks(
   { status, category, tag, q, limit, offset }: ListFilters,
   client: Db = pool,
 ): Promise<{ artworks: ArtworkRecord[]; total: number }> {
-  // websearch_to_tsquery never throws on user input (unlike to_tsquery), so search text
-  // like `"starry night" -sketch` is safe to pass straight through as a parameter.
+  const filters = [status, category ?? null, tag ?? null, q ?? null];
   // With a search, the best matches come first; otherwise the owner's gallery order.
   const { rows } = await client.query(
     `SELECT ${COLUMNS}, ${TAGS_JSON}, count(*) OVER () AS total
        FROM artworks a
-      WHERE ($1::text = 'all' OR a.is_published = ($1::text = 'published'))
-        AND ($2::text IS NULL OR a.category = $2)
-        AND ($3::text IS NULL OR EXISTS (
-              SELECT 1 FROM artwork_tags at JOIN tags t ON t.id = at.tag_id
-               WHERE at.artwork_id = a.id AND t.slug = $3))
-        AND ($4::text IS NULL OR a.search_vector @@ websearch_to_tsquery('english_unaccent', $4))
+      ${LIST_WHERE}
       ORDER BY CASE WHEN $4::text IS NULL THEN 0
                     ELSE ts_rank(a.search_vector, websearch_to_tsquery('english_unaccent', $4)) END DESC,
                a.sort_order, a.id
       LIMIT $5 OFFSET $6`,
-    [status, category ?? null, tag ?? null, q ?? null, limit, offset],
+    [...filters, limit, offset],
   );
-  return {
-    artworks: rows.map(toArtwork),
-    total: rows.length > 0 ? Number(rows[0].total) : 0,
-  };
+  // count(*) OVER () rides along on each row. A page past the end has no rows to carry it,
+  // so count separately; an empty first page really does mean there are none.
+  let total = rows.length > 0 ? Number(rows[0].total) : 0;
+  if (rows.length === 0 && offset > 0) {
+    const counted = await client.query(
+      `SELECT count(*)::int AS total FROM artworks a ${LIST_WHERE}`,
+      filters,
+    );
+    total = counted.rows[0].total;
+  }
+  return { artworks: rows.map(toArtwork), total };
 }
 
 export async function findBySlug(slug: string, client: Db = pool): Promise<ArtworkRecord | null> {
@@ -163,14 +176,6 @@ export async function findById(
     [id],
   );
   return rows[0] ? toArtwork(rows[0]) : null;
-}
-
-export async function findByImageKey(
-  imageKey: string,
-  client: Db = pool,
-): Promise<{ id: number } | null> {
-  const { rows } = await client.query('SELECT id FROM artworks WHERE image_key = $1', [imageKey]);
-  return rows[0] ? { id: rows[0].id } : null;
 }
 
 /** Published categories with counts, for the gallery's filter. */
@@ -246,11 +251,6 @@ export async function listTags(
     [publishedOnly],
   );
   return rows;
-}
-
-export async function findTagById(id: number, client: Db = pool): Promise<TagRow | null> {
-  const { rows } = await client.query('SELECT id, name, slug FROM tags WHERE id = $1', [id]);
-  return rows[0] ?? null;
 }
 
 export async function insertTag(

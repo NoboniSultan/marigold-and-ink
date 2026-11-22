@@ -61,6 +61,15 @@ describe('GET /api/v1/artworks (public)', () => {
     expect(res.body.meta).toEqual({ page: 2, pageSize: 1, total: 2 });
   });
 
+  it('still reports the real total on a page past the end (filters applied)', async () => {
+    const all = await request(app).get('/api/v1/artworks?page=99');
+    const tagged = await request(app).get('/api/v1/artworks?tag=animals&page=99');
+
+    expect(all.body.data).toEqual([]);
+    expect(all.body.meta).toEqual({ page: 99, pageSize: 20, total: 2 });
+    expect(tagged.body.meta.total).toBe(1);
+  });
+
   it('filters by category', async () => {
     const res = await request(app).get('/api/v1/artworks?category=studies');
     expect(titles(res)).toEqual(['Starry Night']);
