@@ -130,9 +130,9 @@ describe('loadConfig: Google sign-in and email', () => {
     ).toThrow(/production logs[\s\S]*EMAIL_TRANSPORT/);
   });
 
-  it('needs an API key and sender for Resend', () => {
+  it('needs an API key, a sender, and the public URL (for links in emails) for Resend', () => {
     expect(() => loadConfig({ ...validEnv, EMAIL_TRANSPORT: 'resend' })).toThrow(
-      /RESEND_API_KEY[\s\S]*EMAIL_FROM/,
+      /RESEND_API_KEY[\s\S]*EMAIL_FROM[\s\S]*PUBLIC_URL/,
     );
     expect(
       loadConfig({
@@ -140,6 +140,7 @@ describe('loadConfig: Google sign-in and email', () => {
         EMAIL_TRANSPORT: 'resend',
         RESEND_API_KEY: 're_test',
         EMAIL_FROM: 'Marigold & Ink <hello@example.com>',
+        PUBLIC_URL: 'https://example.com',
       }).email,
     ).toEqual({
       transport: 'resend',

@@ -65,7 +65,8 @@ Sign-up sends a 6-digit code by email. Real email needs **a domain you own** (e.
      RESEND_API_KEY=re_...
      EMAIL_FROM=Marigold & Ink <hello@your-domain.com>
      ```
-   - **Locally** you can keep the default (`log`: codes print in the server terminal), or use the same three values to receive real email.
+     `PUBLIC_URL` is also required with `resend` (emails link back to the site); `render.yaml` already sets it.
+   - **Locally** you can keep the default (`log`: codes print in the server terminal), or use the same three values plus `PUBLIC_URL` to receive real email.
 
 Then sign up on the live site with your own address to check the code arrives. If sending fails, the visitor sees "We couldn't send the email" and can retry at once, and the server log says why (for example, a domain that isn't verified yet).
 
