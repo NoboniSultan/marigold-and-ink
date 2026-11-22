@@ -145,6 +145,26 @@ describe('Gallery', () => {
     await waitFor(() => expect(router.state.location.search).not.toContain('art='));
   });
 
+  it('keeps keyboard focus inside the open dialog, both directions', async () => {
+    api();
+    const user = userEvent.setup();
+    renderRoute('/gallery?mode=grid&art=fawn');
+
+    const dialog = await screen.findByRole('dialog', { name: 'Fawn' });
+    const close = within(dialog).getByRole('button', { name: 'Close' });
+    const fullPage = within(dialog).getByRole('link', { name: 'Open the full page' });
+    await waitFor(() => expect(close).toHaveFocus());
+
+    await user.tab(); // the close button is last in the dialog, so Tab wraps to the first
+    expect(fullPage).toHaveFocus();
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(fullPage).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(close).toHaveFocus();
+  });
+
   it('opens the dialog from a shared link (?art=)', async () => {
     api();
     renderRoute('/gallery?mode=grid&art=fawn');
