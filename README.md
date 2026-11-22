@@ -74,7 +74,7 @@ server/src/       Express API
   middleware/     auth, validation, rate limiting, request ID, error handling
   errors/         AppError and its subclasses
   lib/            logger, money helpers, pagination
-  adapters/       wrappers around third-party SDKs (Stripe)
+  adapters/       wrappers around outside services (email via Resend, Google sign-in)
   modules/        one folder per feature: routes, controller, service, repository, validation
 server/tests/     test setup, factories, fixtures
 client/src/       React site (TypeScript)
@@ -145,7 +145,7 @@ The server validates its environment at startup. If a variable is missing or inv
 
 The dev database uses host port **5434**, not the default 5432, so it does not clash with a Postgres already installed on your machine (Postgres.app, Homebrew).
 
-`npm run seed` is idempotent: it creates the admin, or promotes an existing account with that email, and never overwrites an existing password. It also syncs `content/artworks.json` into the database (see below). The React client is added in milestone 5b.
+`npm run seed` is idempotent: it creates the admin, or promotes an existing account with that email, and never overwrites an existing password. It also syncs `content/artworks.json` into the database (see below).
 
 ## Adding and editing artwork
 
@@ -234,7 +234,6 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | DELETE | `/api/v1/admin/artworks/:id` | Admin | Delete. 409 for artworks owned by `content/artworks.json`. |
 | GET / POST | `/api/v1/admin/tags` | Admin | List all tags with counts / create (`name`, optional `slug`). |
 | PATCH / DELETE | `/api/v1/admin/tags/:id` | Admin | Rename / delete a tag. |
-
 | GET | `/api/v1/pricing/options` | Public | What the commission form may offer: priced size + medium pairs, fulfillment types, extra subjects, rush. No prices. |
 
 Images are served from `/media/artworks/...` and `/media/about/...` (paths come from the API), cached by browsers for a year.
@@ -249,7 +248,7 @@ Images are served from `/media/artworks/...` and `/media/about/...` (paths come 
 
 **Accounts:** an account exists only once its owner has entered a code sent to the email (or signed in with Google, which verifies the email), so nobody can open an account with someone else's address. Google sign-in uses the OpenID Connect code flow with PKCE, state, and nonce, checks the ID token's signature and claims, and matches people by Google's permanent ID. Admin accounts can't use Google. See [ADR 0010](docs/decisions/0010-email-verification-and-google-sign-in.md) and the [setup guide](docs/setup-google-and-email.md).
 
-Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` / `EMAIL_NOT_VERIFIED` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` (409), `PAYLOAD_TOO_LARGE` (413), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` / `CODE_INCORRECT` / `CODE_EXPIRED` (422), `RATE_LIMITED` / `CODE_RESEND_TOO_SOON` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` / `EMAIL_SIGNUP_UNAVAILABLE` / `EMAIL_SEND_FAILED` (503).
+Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `BAD_REQUEST` (any other malformed request body, usually 400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` / `EMAIL_NOT_VERIFIED` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` / `ASSET_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` (409), `PAYLOAD_TOO_LARGE` (413), `UNSUPPORTED_ENCODING` (415), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` / `CODE_INCORRECT` / `CODE_EXPIRED` (422), `RATE_LIMITED` / `CODE_RESEND_TOO_SOON` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` / `EMAIL_SIGNUP_UNAVAILABLE` / `EMAIL_SEND_FAILED` (503).
 
 ## Deployment
 
