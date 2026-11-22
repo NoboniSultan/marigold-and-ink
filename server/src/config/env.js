@@ -57,7 +57,32 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   // Sender, e.g. "Marigold & Ink <hello@yourdomain.com>"; the domain must be verified in Resend.
   EMAIL_FROM: z.string().min(3).optional(),
+
+  // Stripe payments: the two secrets switch payments on, and then all three are required
+  // (checked below). The currency alone may be set in advance. Secrets: .env / Render only.
+  // Test mode only: a live key (sk_live_ / rk_live_) is refused, so this app can't take
+  // real money by accident.
+  STRIPE_SECRET_KEY: z
+    .string()
+    .regex(
+      /^(sk|rk)_test_\w+$/,
+      'must be a Stripe test-mode key (sk_test_…); live keys are refused',
+    )
+    .optional(),
+  // Signs webhook deliveries: from `stripe listen` locally, or the Dashboard endpoint.
+  STRIPE_WEBHOOK_SECRET: z
+    .string()
+    .regex(/^whsec_\w+$/, 'must start with whsec_')
+    .optional(),
+  // ISO 4217 code the shop charges in, set by the owner (no default).
+  PAYMENT_CURRENCY: z
+    .string()
+    .transform((value) => value.toLowerCase())
+    .pipe(z.string().regex(/^[a-z]{3}$/, 'must be a 3-letter currency code, e.g. usd'))
+    .optional(),
 });
+
+const STRIPE_KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'PAYMENT_CURRENCY'];
 
 /**
  * Settings that only make sense together (Google sign-in, real email). Like the database
@@ -87,6 +112,18 @@ function groupProblems(env) {
     for (const key of ['RESEND_API_KEY', 'EMAIL_FROM', 'PUBLIC_URL']) {
       if (!env[key]) problems.push(`✖ is required when EMAIL_TRANSPORT=resend\n  → at ${key}`);
     }
+  }
+
+  const paymentsOn = Boolean(env.STRIPE_SECRET_KEY || env.STRIPE_WEBHOOK_SECRET);
+  for (const key of STRIPE_KEYS) {
+    if (paymentsOn && !env[key]) {
+      problems.push(`✖ is required for payments (with the other Stripe settings)\n  → at ${key}`);
+    }
+  }
+  if (paymentsOn && !env.PUBLIC_URL) {
+    problems.push(
+      '✖ is required for payments (Stripe sends the visitor back to it)\n  → at PUBLIC_URL',
+    );
   }
   return problems.length ? problems.join('\n') : null;
 }
@@ -182,6 +219,14 @@ export function loadConfig(rawEnv) {
       }
       return transport === 'log' ? Object.freeze({ transport }) : null;
     })(),
+    // null = payments are off (payment routes answer 503 PAYMENTS_UNAVAILABLE).
+    stripe: e.STRIPE_SECRET_KEY
+      ? Object.freeze({
+          secretKey: e.STRIPE_SECRET_KEY,
+          webhookSecret: e.STRIPE_WEBHOOK_SECRET,
+          currency: e.PAYMENT_CURRENCY,
+        })
+      : null,
   });
 }
 

@@ -149,3 +149,55 @@ describe('loadConfig: Google sign-in and email', () => {
     });
   });
 });
+
+describe('loadConfig: Stripe payments', () => {
+  const stripeEnv = {
+    ...validEnv,
+    PUBLIC_URL: 'https://example.com',
+    STRIPE_SECRET_KEY: 'sk_test_abc123',
+    STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
+    PAYMENT_CURRENCY: 'USD',
+  };
+
+  it('is off without keys', () => {
+    expect(loadConfig(validEnv).stripe).toBeNull();
+  });
+
+  it('reads the keys and lowercases the currency', () => {
+    expect(loadConfig(stripeEnv).stripe).toEqual({
+      secretKey: 'sk_test_abc123',
+      webhookSecret: 'whsec_abc123',
+      currency: 'usd',
+    });
+  });
+
+  it.each(['sk_live_abc123', 'rk_live_abc123', 'pk_test_abc123'])(
+    'refuses %s (test-mode secret keys only)',
+    (key) => {
+      expect(() => loadConfig({ ...stripeEnv, STRIPE_SECRET_KEY: key })).toThrow(
+        /test-mode key[\s\S]*STRIPE_SECRET_KEY/,
+      );
+    },
+  );
+
+  it('allows the currency alone (set in advance), but no partial Stripe setup', () => {
+    expect(loadConfig({ ...validEnv, PAYMENT_CURRENCY: 'usd' }).stripe).toBeNull();
+  });
+
+  it('refuses part of the group, and payments without PUBLIC_URL', () => {
+    const { PAYMENT_CURRENCY: _c, ...withoutCurrency } = stripeEnv;
+    expect(() => loadConfig(withoutCurrency)).toThrow(
+      /required for payments[\s\S]*PAYMENT_CURRENCY/,
+    );
+    const { STRIPE_WEBHOOK_SECRET: _w, ...withoutWebhook } = stripeEnv;
+    expect(() => loadConfig(withoutWebhook)).toThrow(/STRIPE_WEBHOOK_SECRET/);
+
+    const { PUBLIC_URL: _p, ...withoutUrl } = stripeEnv;
+    expect(() => loadConfig(withoutUrl)).toThrow(/required for payments[\s\S]*PUBLIC_URL/);
+  });
+
+  it('rejects a malformed webhook secret or currency', () => {
+    expect(() => loadConfig({ ...stripeEnv, STRIPE_WEBHOOK_SECRET: 'abc' })).toThrow(/whsec_/);
+    expect(() => loadConfig({ ...stripeEnv, PAYMENT_CURRENCY: 'dollars' })).toThrow(/3-letter/);
+  });
+});

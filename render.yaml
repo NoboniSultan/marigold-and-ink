@@ -67,6 +67,15 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # Stripe payments, test mode only (sk_test_ keys; live keys are refused). Off until
+      # both secrets are set in the Dashboard; the webhook secret comes from the Dashboard
+      # endpoint for <PUBLIC_URL>/api/v1/webhooks/stripe.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PAYMENT_CURRENCY
+        value: usd
       # Business settings, not secrets. ⚠️ PLACEHOLDERS until the owner sets real values.
       - key: DEPOSIT_PERCENT
         value: '50'
