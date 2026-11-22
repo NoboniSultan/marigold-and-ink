@@ -118,7 +118,9 @@ export async function googleCallback(req: Request, res: Response) {
   } catch (err) {
     const reason = err instanceof GoogleSignInError ? err.reason : 'google_failed';
     logger.warn({ err, reason }, 'Google sign-in failed');
-    await saveSession(req); // persist the removal of the pending sign-in
+    // Persist the removal of the pending sign-in. With none pending there is nothing to
+    // save, and saving would store an empty session row for every stray callback visit.
+    if (pending) await saveSession(req);
     redirectToLogin(res, reason);
   }
 }

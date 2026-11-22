@@ -164,11 +164,13 @@ describe('Google sign-in', () => {
     expect(await sessionUser(agent)).toBeNull();
   });
 
-  it('refuses a callback this browser never started', async () => {
+  it('refuses a callback this browser never started, without storing a session for it', async () => {
     const res = await request(app).get('/api/v1/auth/google/callback?code=x&state=state-1');
 
     expect(res.headers.location).toBe('/login?error=google_failed');
+    expect(res.headers['set-cookie']).toBeUndefined();
     expect(await countUsers()).toBe(0);
+    expect((await pool.query('SELECT 1 FROM sessions')).rowCount).toBe(0);
   });
 
   it('accepts each callback only once (no replay)', async () => {
@@ -241,6 +243,13 @@ describe('Google sign-in', () => {
     const { callback } = await signIn(undefined, { next: '/gallery?tag=floral&page=2' });
 
     expect(callback.headers.location).toBe('/gallery?tag=floral&page=2');
+  });
+
+  it('is listed as available when Google is configured', async () => {
+    const res = await request(app).get('/api/v1/auth/providers');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ google: true, emailSignup: false });
   });
 
   it('is off when Google is not configured', async () => {
