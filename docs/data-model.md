@@ -147,6 +147,10 @@ erDiagram
         text stripe_payment_intent_id
         text stripe_refund_id UK
         bigint refunded_payment_id FK
+        text checkout_url "deposit | final"
+        timestamptz checkout_expires_at "deposit | final"
+        text reason "refund"
+        bigint requested_by_user_id FK "refund, admin"
     }
     processed_webhook_events {
         bigint id PK
@@ -317,6 +321,11 @@ Every money movement is one row: `deposit`, `final`, or `refund`. Amounts are al
 | `payments_one_succeeded_per_stage_idx` | Partial UNIQUE `(commission_id, type) WHERE type IN ('deposit','final') AND status = 'succeeded'` | A commission can be paid successfully at most once per stage. The last line of defense against double-charging if two sessions or webhooks race. |
 | `payments_commission_id_idx` | Index | A commission's payments. |
 | `payments_refunded_payment_id_idx` | Partial index | Refunds of a given payment, to total what has already been refunded. |
+| `payments_checkout_fields_check` | CHECK | `checkout_url` and `checkout_expires_at` (the open Stripe page, reused by a second "Pay" click) belong to incoming payments only. |
+| `payments_refund_fields_check` | CHECK | `reason` and `requested_by_user_id` belong to refunds only. A refund with no requester was automatic or made in the Stripe Dashboard. |
+| `payments_reason_check` | CHECK | A refund reason is 1–500 characters once trimmed. |
+| `payments_checkout_url_check` | CHECK | Checkout URLs are `https://`, so a stored link can never be a `javascript:` URL. |
+| `payments.requested_by_user_id` | FK, `ON DELETE RESTRICT` | Money history keeps who asked for each refund. |
 
 ### processed_webhook_events
 

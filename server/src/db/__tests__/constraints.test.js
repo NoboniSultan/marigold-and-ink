@@ -425,6 +425,40 @@ describe('payments', () => {
       'payments_currency_check',
     );
   });
+
+  it('keeps checkout fields on incoming payments and refund fields on refunds', async () => {
+    const deposit = await createPayment();
+    const refund = (overrides) =>
+      createPayment({
+        commissionId: deposit.commission_id,
+        type: 'refund',
+        refundedPaymentId: deposit.id,
+        stripeCheckoutSessionId: null,
+        stripeRefundId: null,
+        ...overrides,
+      });
+
+    await expectViolation(
+      refund({ checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_test_1' }),
+      CHECK_VIOLATION,
+      'payments_checkout_fields_check',
+    );
+    await expectViolation(
+      createPayment({ reason: 'not a refund' }),
+      CHECK_VIOLATION,
+      'payments_refund_fields_check',
+    );
+    await expectViolation(refund({ reason: '   ' }), CHECK_VIOLATION, 'payments_reason_check');
+    await expect(refund({ reason: 'Client changed their mind' })).resolves.toBeDefined();
+  });
+
+  it('only stores https checkout URLs', async () => {
+    await expectViolation(
+      createPayment({ checkoutUrl: 'javascript:alert(1)' }),
+      CHECK_VIOLATION,
+      'payments_checkout_url_check',
+    );
+  });
 });
 
 describe('processed_webhook_events', () => {
