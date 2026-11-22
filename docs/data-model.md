@@ -23,6 +23,7 @@ erDiagram
     users ||--o{ files : "uploads"
     users ||--o{ messages : "sends"
     users ||--o{ auth_identities : "signs in with"
+    users |o--o{ payments : "requests refunds"
 
     artworks ||--o{ artwork_tags : "tagged with"
     tags ||--o{ artwork_tags : "applied to"
