@@ -109,6 +109,25 @@ describe('Gallery', () => {
     );
   });
 
+  it('explains a page past the end and offers page 1, instead of "no artworks match"', async () => {
+    api({
+      extra: (call) =>
+        call.path === '/artworks' && call.params.get('page') === '9'
+          ? { body: { data: [], meta: { page: 9, pageSize: 24, total: 30 } } }
+          : undefined,
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoute('/gallery?page=9');
+
+    expect(await screen.findByText(/no page 9; these results end at page 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/No artworks match/)).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Gallery pages' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Go to page 1' }));
+    expect(await screen.findByRole('button', { name: 'Open Embrace' })).toBeInTheDocument();
+    expect(router.state.location.search).not.toContain('page=');
+  });
+
   it('opens an artwork in a dialog (?art= in the URL) and closes it with Escape', async () => {
     api();
     const user = userEvent.setup();
