@@ -314,6 +314,38 @@ describe('Login and register', () => {
     expect(await screen.findByRole('button', { name: 'Log out' })).toBeInTheDocument();
   });
 
+  it('logs out and goes home', async () => {
+    api({
+      user: USER,
+      extra: (call) => (call.path === '/auth/logout' ? { status: 204 } : undefined),
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoute('/gallery');
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }));
+
+    expect(await screen.findByRole('link', { name: 'Log in' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('says so when logging out fails, and stays logged in', async () => {
+    api({
+      user: USER,
+      extra: (call) =>
+        call.path === '/auth/logout'
+          ? { status: 500, body: { error: { code: 'INTERNAL_ERROR', message: 'Oops' } } }
+          : undefined,
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoute('/gallery');
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't log you out");
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeEnabled();
+    expect(router.state.location.pathname).toBe('/gallery');
+  });
+
   it('signs up in two steps: email, then the code with name and password', async () => {
     const calls = api({
       extra: (call) => {
