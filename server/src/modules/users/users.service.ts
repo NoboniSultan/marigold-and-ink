@@ -17,8 +17,8 @@ export function findById(id: number, { client }: Tx = {}): Promise<UserRecord | 
   return usersRepository.findById(id, client);
 }
 
-export async function getById(id: number): Promise<UserRecord> {
-  const user = await usersRepository.findById(id);
+export async function getById(id: number, { client }: Tx = {}): Promise<UserRecord> {
+  const user = await usersRepository.findById(id, client);
   if (!user) throw new NotFoundError('User not found', { code: 'USER_NOT_FOUND' });
   return user;
 }

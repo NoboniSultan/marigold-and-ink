@@ -16,6 +16,7 @@ import { withTransaction } from '../../db/transaction.ts';
 import { isUniqueViolation } from '../../db/errors.js';
 import type { GoogleChecks, GoogleAuth, GoogleProfile } from '../../adapters/googleOidc.ts';
 import * as usersService from '../users/users.service.ts';
+import type { UserRecord } from '../users/users.service.ts';
 import * as authRepository from './auth.repository.ts';
 
 /** Reasons a Google sign-in fails; each becomes ?error=<reason> on the login page. */
@@ -37,18 +38,12 @@ export class GoogleSignInError extends Error {
   }
 }
 
-interface AppUser {
-  id: number;
-  role: string;
-  emailVerifiedAt: Date | null;
-}
-
 function displayNameFor(profile: GoogleProfile, email: string): string {
   const name = profile.name?.trim() || email.split('@')[0] || 'Friend';
   return name.slice(0, 100);
 }
 
-async function signInWith(profile: GoogleProfile): Promise<AppUser> {
+async function signInWith(profile: GoogleProfile): Promise<UserRecord> {
   if (!profile.email || !profile.emailVerified) {
     throw new GoogleSignInError('google_unverified_email');
   }
@@ -57,15 +52,16 @@ async function signInWith(profile: GoogleProfile): Promise<AppUser> {
   return withTransaction(async (tx) => {
     const identity = await authRepository.findIdentity('google', profile.sub, tx);
     if (identity) {
-      const user = (await usersService.findById(identity.userId, { client: tx })) as AppUser;
+      // The identity row references the user (foreign key), so the user exists.
+      const user = await usersService.getById(identity.userId, { client: tx });
       if (user.role === 'admin') throw new GoogleSignInError('google_admin');
       return user;
     }
 
-    const existing = (await usersService.findForAuthByEmail(email, {
+    const existing = await usersService.findForAuthByEmail(email, {
       client: tx,
       forUpdate: true,
-    })) as AppUser | null;
+    });
 
     if (existing) {
       if (existing.role === 'admin') throw new GoogleSignInError('google_admin');
@@ -81,12 +77,16 @@ async function signInWith(profile: GoogleProfile): Promise<AppUser> {
         }
         throw err;
       }
-      if (existing.emailVerifiedAt) return existing;
+      if (existing.emailVerifiedAt) {
+        // Return the user without the password hash `findForAuthByEmail` includes.
+        const { passwordHash: _passwordHash, ...user } = existing;
+        return user;
+      }
       await authRepository.deleteSessionsForUser(existing.id, tx);
-      return (await usersService.verifyAndClearPassword(existing.id, { client: tx })) as AppUser;
+      return usersService.verifyAndClearPassword(existing.id, { client: tx });
     }
 
-    const user = (await usersService.createUser(
+    const user = await usersService.createUser(
       {
         email,
         passwordHash: null,
@@ -95,7 +95,7 @@ async function signInWith(profile: GoogleProfile): Promise<AppUser> {
         emailVerifiedAt: new Date(),
       },
       { client: tx },
-    )) as AppUser;
+    );
     await authRepository.insertIdentity(
       { userId: user.id, provider: 'google', providerUserId: profile.sub, email },
       tx,
@@ -115,7 +115,7 @@ export async function finishGoogleSignIn(
   google: GoogleAuth | null,
   callbackUrl: URL,
   checks: GoogleChecks | undefined,
-): Promise<AppUser> {
+): Promise<UserRecord> {
   if (!google) throw new GoogleSignInError('google_unavailable');
   // The visitor pressed "Cancel" on Google's page.
   if (callbackUrl.searchParams.get('error') === 'access_denied') {
