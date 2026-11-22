@@ -445,7 +445,10 @@ describe('Not found and redirects', () => {
 
   it('only allows same-site paths after login', () => {
     expect(safeNextPath('/commission')).toBe('/commission');
+    expect(safeNextPath('/gallery?tag=floral&page=2')).toBe('/gallery?tag=floral&page=2');
     expect(safeNextPath('//evil.example')).toBe('/');
+    expect(safeNextPath('/\\evil.example')).toBe('/'); // browsers read \ as /
+    expect(safeNextPath('/\t/evil.example')).toBe('/'); // browsers drop tabs
     expect(safeNextPath('https://evil.example')).toBe('/');
     expect(safeNextPath(null)).toBe('/');
   });

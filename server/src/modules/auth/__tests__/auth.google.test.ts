@@ -226,10 +226,21 @@ describe('Google sign-in', () => {
     expect(callback.headers.location).toBe('/login?error=google_account_conflict');
   });
 
-  it('only returns to pages on this site', async () => {
-    const { callback } = await signIn(undefined, { next: '//evil.example/steal' });
+  it.each([
+    '//evil.example/steal',
+    '/\\evil.example/steal', // browsers read the backslash as a slash
+    '/\t/evil.example/steal', // browsers drop tabs from URLs
+    'https://evil.example/steal',
+  ])('only returns to pages on this site (refuses %j)', async (next) => {
+    const { callback } = await signIn(undefined, { next });
 
     expect(callback.headers.location).toBe('/');
+  });
+
+  it('returns to a same-site page with its query string', async () => {
+    const { callback } = await signIn(undefined, { next: '/gallery?tag=floral&page=2' });
+
+    expect(callback.headers.location).toBe('/gallery?tag=floral&page=2');
   });
 
   it('is off when Google is not configured', async () => {

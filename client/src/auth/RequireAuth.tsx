@@ -19,7 +19,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return children;
 }
 
+/**
+ * A path on this site: one leading slash, then no backslash, whitespace or control
+ * character anywhere. Browsers read `/\evil.example` as `//evil.example` (another site) and
+ * drop tabs and newlines from URLs. Same rule as the server's `SAME_SITE_PATH`.
+ */
+const SAME_SITE_PATH = /^\/(?![/\\])[^\\\s\p{Cc}]*$/u;
+
 /** Only allows same-site paths as a post-login destination, so ?next= can't redirect off-site. */
 export function safeNextPath(next: string | null): string {
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+  return next && SAME_SITE_PATH.test(next) ? next : '/';
 }
