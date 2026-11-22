@@ -12,6 +12,7 @@ import {
 } from './modules/gallery/gallery.routes.ts';
 import { aboutRouter } from './modules/about/about.routes.ts';
 import { pricingRouter } from './modules/pricing/pricing.routes.ts';
+import { paymentsRouter, adminRefundsRouter } from './modules/payments/payments.routes.ts';
 import { requireAuth, requireRole } from './middleware/auth.js';
 
 /** Mounts every module's router. app.js mounts this whole router under /api/v1. */
@@ -20,8 +21,9 @@ export const apiRouter = Router();
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/users', usersRouter);
-// The more specific /commissions/:id/quote is mounted before /commissions.
+// The more specific /commissions/:id/... routers are mounted before /commissions.
 apiRouter.use('/commissions/:id/quote', quotesRouter);
+apiRouter.use('/commissions/:id/payments', paymentsRouter);
 apiRouter.use('/commissions', commissionsRouter);
 apiRouter.use('/artworks', artworksRouter);
 apiRouter.use('/tags', tagsRouter);
@@ -34,4 +36,5 @@ const adminRouter = Router();
 adminRouter.use(requireAuth, requireRole('admin'));
 adminRouter.use('/artworks', adminArtworksRouter);
 adminRouter.use('/tags', adminTagsRouter);
+adminRouter.use('/commissions/:id/refunds', adminRefundsRouter);
 apiRouter.use('/admin', adminRouter);
