@@ -24,7 +24,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Public gallery API (search, filters, admin CRUD), image pipeline, About content | Built |
 | Website: Home (typewriter, carousel), Gallery (grid and 3D), About, login, commission form | Built, with **placeholder copy** |
 | Accounts: email sign-up verified by a 6-digit code, "Continue with Google" | Built; email sending and Google need [setup](docs/setup-google-and-email.md) |
-| Stripe deposit and final payments, webhooks, refunds | Planned |
+| Stripe deposit and final payments, webhooks, refunds, commission page with "Pay" | Built, **test mode**; needs [setup](docs/setup-stripe.md) |
 | Donation ledger and transparency totals | Planned |
 | File uploads, messaging, shipping, shop, slots | Later (see backlog) |
 
@@ -192,7 +192,16 @@ CI runs two jobs on every pull request:
 
 ## Testing Stripe webhooks locally
 
-> Added in milestone 7.
+Stripe can't reach `localhost`, so the [Stripe CLI](https://docs.stripe.com/stripe-cli) receives webhooks and forwards them to the API:
+
+```sh
+stripe login
+stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe
+```
+
+Put the `whsec_…` it prints in `.env` as `STRIPE_WEBHOOK_SECRET`, along with a test `STRIPE_SECRET_KEY` (`sk_test_…`), `PAYMENT_CURRENCY`, and `PUBLIC_URL`, then pay with the test card `4242 4242 4242 4242`. [docs/setup-stripe.md](docs/setup-stripe.md) walks through a full test deposit, a replayed event (`stripe events resend evt_…`, which changes nothing), and a refund.
+
+The automated tests never call Stripe: they pass a fake gateway (`server/tests/helpers/stripe.ts`), sign Stripe-shaped events with a test secret, and check the real adapter's requests through the SDK's fetch client.
 
 ## API overview
 
@@ -223,6 +232,11 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | PATCH | `/api/v1/commissions/:id/quote` | Admin | Adjust the draft: `{ adjustedAmountCents, adjustmentNote }` (note required). |
 | POST | `/api/v1/commissions/:id/quote/send` | Admin | Send the draft: stores total, deposit, and balance on the commission and moves it to `quoted`, all in one transaction. |
 | GET | `/api/v1/commissions/:id/quote` | Owner or admin | The current quote. Clients only see it once it has been sent. |
+| POST | `/api/v1/commissions/:id/payments/deposit` | The commission's client | While `quoted`: returns `{ url, expiresAt, reused }`, a Stripe Checkout page for the deposit on the quote. An open page is reused (200); a new one is 201. |
+| POST | `/api/v1/commissions/:id/payments/final` | The commission's client | The same for the balance, while `awaiting_final_payment`. |
+| GET | `/api/v1/commissions/:id/payments` | Owner or admin | Deposits, final payments, and refunds, plus `meta: { paymentsEnabled, currency }`. Refund notes are admin-only. |
+| POST | `/api/v1/admin/commissions/:id/refunds` | Admin | Refund a payment: `{ paymentId, amountCents?, reason }`. Without an amount, refunds everything not yet refunded. |
+| POST | `/api/v1/webhooks/stripe` | Stripe (signed) | Stripe's events: payment completed or expired, refund created or changed. Raw body, signature checked, each event handled once. |
 | GET | `/api/v1/artworks` | Public | Published artworks in gallery order. `?page=&pageSize=&category=&tag=&q=`. `q` is full-text search (`"exact phrase"`, `-exclude`), ranked by relevance. |
 | GET | `/api/v1/artworks/categories` | Public | Categories with their published-artwork counts. |
 | GET | `/api/v1/artworks/:slug` | Public | One published artwork. Drafts answer 404, like missing artworks. |
@@ -247,9 +261,11 @@ Images are served from `/media/artworks/...` and `/media/about/...` (paths come 
 
 **Auth model:** server-side sessions stored in Postgres. The browser holds only a signed session ID in an `httpOnly`, `SameSite=Lax` cookie (`Secure` with the `__Host-` prefix in production). Sessions last 7 days from the last request. State-changing requests from an `Origin` outside `CORS_ORIGINS` are rejected as CSRF. Passwords are hashed with bcrypt (cost 12). See [ADR 0004](docs/decisions/0004-server-sessions-in-postgres.md).
 
+**Payments:** deposits and balances are paid on Stripe Checkout (test mode only; live keys are refused). The amount always comes from the stored quote, never from the request, and every Stripe call carries an idempotency key. Each webhook event is handled in one transaction that first records its ID, so a duplicate delivery does nothing, and a failure rolls everything back for Stripe to retry. A paid deposit moves the commission to `deposit_paid`; a paid balance moves it to `ready_to_ship` (physical, mixed media) or `delivered` (digital). A payment that arrives after the commission was cancelled is refunded automatically. A refund that returns everything paid moves the commission to `refunded`; partial refunds, and refunds after the final payment, move money only. See [ADR 0011](docs/decisions/0011-stripe-payments.md) and the [setup guide](docs/setup-stripe.md).
+
 **Accounts:** an account exists only once its owner has entered a code sent to the email (or signed in with Google, which verifies the email), so nobody can open an account with someone else's address. Google sign-in uses the OpenID Connect code flow with PKCE, state, and nonce, checks the ID token's signature and claims, and matches people by Google's permanent ID. Admin accounts can't use Google. See [ADR 0010](docs/decisions/0010-email-verification-and-google-sign-in.md) and the [setup guide](docs/setup-google-and-email.md).
 
-Error codes used so far: `VALIDATION_ERROR` (400), `INVALID_JSON` (400), `BAD_REQUEST` (any other malformed request body, usually 400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` / `EMAIL_NOT_VERIFIED` (403), `COMMISSION_TRANSITION_FORBIDDEN` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` / `ASSET_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` (409), `PAYLOAD_TOO_LARGE` (413), `UNSUPPORTED_ENCODING` (415), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` / `CODE_INCORRECT` / `CODE_EXPIRED` (422), `RATE_LIMITED` / `CODE_RESEND_TOO_SOON` (429), `INTERNAL_ERROR` (500), `SERVICE_UNAVAILABLE` / `EMAIL_SIGNUP_UNAVAILABLE` / `EMAIL_SEND_FAILED` (503).
+Error codes used so far: `VALIDATION_ERROR` / `WEBHOOK_SIGNATURE_INVALID` (400), `INVALID_JSON` (400), `BAD_REQUEST` (any other malformed request body, usually 400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` / `EMAIL_NOT_VERIFIED` (403), `COMMISSION_TRANSITION_FORBIDDEN` / `PAYMENT_CLIENT_ONLY` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` / `ASSET_NOT_FOUND` / `PAYMENT_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` / `PAYMENT_NOT_ALLOWED` (409), `PAYLOAD_TOO_LARGE` (413), `UNSUPPORTED_ENCODING` (415), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` / `CODE_INCORRECT` / `CODE_EXPIRED` / `NOTHING_TO_PAY` / `PAYMENT_NOT_REFUNDABLE` / `ALREADY_REFUNDED` / `REFUND_EXCEEDS_PAYMENT` (422), `RATE_LIMITED` / `CODE_RESEND_TOO_SOON` (429), `INTERNAL_ERROR` (500), `PAYMENT_PROVIDER_ERROR` (502), `SERVICE_UNAVAILABLE` / `EMAIL_SIGNUP_UNAVAILABLE` / `EMAIL_SEND_FAILED` / `PAYMENTS_UNAVAILABLE` (503).
 
 ## Deployment
 
@@ -268,8 +284,9 @@ The API runs on [Render](https://render.com), defined in [`render.yaml`](render.
   | `NODE_ENV`, `NODE_VERSION`, `TRUST_PROXY` | Fixed values in `render.yaml` |
   | `AUTH_SECRET` | Generated by Render |
   | `DATABASE_URL`, `CORS_ORIGINS`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Entered in the Render Dashboard when the Blueprint is created; never committed |
-  | `PUBLIC_URL` | Fixed in `render.yaml` (the site's address; Google returns visitors there) |
+  | `PUBLIC_URL`, `PAYMENT_CURRENCY` | Fixed in `render.yaml` (the site's address, where Google and Stripe return visitors; the shop currency, `usd`) |
   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_TRANSPORT`, `RESEND_API_KEY`, `EMAIL_FROM` | Optional, added in the Render Dashboard; each feature stays off until set. See the [setup guide](docs/setup-google-and-email.md) |
+  | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Optional, test-mode values added in the Render Dashboard; payments stay off until both are set. See the [Stripe guide](docs/setup-stripe.md) |
 
 - **Database connection:** use Neon's **direct** connection string (connection pooling off, so the host has no `-pooler`), with `sslmode=verify-full`. The migration tool takes a lock that Neon's pooled connections can't hold. TLS verifies Neon's certificate, and `channel_binding=require` is honored (see `server/src/db/connection.js`).
 - **Free plan limits:** the API sleeps after 15 minutes idle, so the first request then takes a while. The Neon database sleeps after 5 minutes idle (it wakes in under a second), is limited to 1 GB, and keeps only 6 hours of restore history. Move to plans with real backups before real customers use the site.
@@ -294,6 +311,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0008: TypeScript on the server through Node's type stripping](docs/decisions/0008-typescript-with-node-type-stripping.md)
 - [0009: React client: same origin, CSS Modules, TanStack Query](docs/decisions/0009-react-client-stack.md)
 - [0010: Email-verified sign-up and Google sign-in](docs/decisions/0010-email-verification-and-google-sign-in.md)
+- [0011: Stripe Checkout payments, webhooks, and refunds](docs/decisions/0011-stripe-payments.md)
 
 ## Roadmap
 

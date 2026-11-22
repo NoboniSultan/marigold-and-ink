@@ -38,22 +38,22 @@ stateDiagram-v2
 
 ## Transition table
 
-"Client" means the commission's **own** client. "System" means an automatic actor with no user, such as the Stripe webhook (milestone 7).
+"Client" means the commission's **own** client. "System" means an automatic actor with no user, such as the Stripe webhook.
 
 | From | To | Who | Rule |
 | --- | --- | --- | --- |
 | inquiry | quoted | admin | Only through **send quote**, which also records the price |
 | inquiry | canceled | client, admin | |
 | quoted | canceled | client, admin | |
-| quoted | deposit_paid | system | Stripe deposit payment succeeded |
+| quoted | deposit_paid | system | The Stripe webhook: the deposit was paid |
 | deposit_paid | in_progress | admin | |
-| deposit_paid | refunded | admin, system | Only through the **refund flow** (milestone 7) |
+| deposit_paid | refunded | admin, system | Only through the **refund flow**, once everything paid is refunded |
 | in_progress | revision | client | Only while `revision_count < revision_limit` |
 | in_progress | awaiting_final_payment | client, admin | The client approves the final design (or the admin moves it on) |
 | in_progress | refunded | admin, system | Only through the refund flow |
 | revision | in_progress | admin | `revision_count` increases by 1 |
-| awaiting_final_payment | ready_to_ship | system | Physical or mixed-media only; final payment succeeded |
-| awaiting_final_payment | delivered | system | Digital only; final payment succeeded |
+| awaiting_final_payment | ready_to_ship | system | Physical or mixed-media only; the Stripe webhook: the balance was paid |
+| awaiting_final_payment | delivered | system | Digital only; the Stripe webhook: the balance was paid |
 | awaiting_final_payment | refunded | admin, system | Only through the refund flow |
 | ready_to_ship | shipped | admin | |
 | shipped | delivered | admin | A carrier webhook will do this later |
@@ -73,7 +73,7 @@ A rejected change returns one of three errors, so the client can tell *why* it f
 ## Design notes
 
 - **Data, not if/else chains.** Transitions are a list of `{ from, to, actors, guard?, effect?, via? }`. Adding a status is a data change, and the full rule set can be read and tested in one place.
-- **Dedicated flows (`via`).** `→ quoted` and `→ refunded` must do more than change the status: record the price, or move money. The generic status endpoint can't trigger them. Only the quote flow (and, in milestone 7, the refund flow) can.
+- **Dedicated flows (`via`).** `→ quoted` and `→ refunded` must do more than change the status: record the price, or move money. The generic status endpoint can't trigger them. Only the quote flow and the refund flow can. A refund changes the status only when everything paid has been refunded; partial refunds, and refunds after the final payment, move money only (see [ADR 0011](decisions/0011-stripe-payments.md)).
 - **Concurrency.** The service locks the commission row (`SELECT ... FOR UPDATE`) inside the transaction before checking the rules. If two requests try to change the same commission at once, the second waits and then sees the first one's result, so it can't act on a status that's already out of date.
 - **Defense in depth.** The database independently refuses invalid status values, shipping states for digital work, revision counts above the limit, and any edit or deletion of an event row (see [data-model.md](data-model.md)).
 - **Tests.** The unit tests check all 144 status pairs against all three actor types, using an expected table written independently of the implementation. A deliberate mutation (letting clients start work) is caught by the suite.

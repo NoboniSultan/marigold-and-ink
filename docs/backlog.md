@@ -29,12 +29,16 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Client dashboard** ("my commissions", quote acceptance): the commission form shows a confirmation, but there's no page listing a client's requests yet.
 - **Migration-tool audit** (found in milestone 6): `npm audit` reports 3 moderate advisories in the server's production dependencies, all through `node-pg-migrate` 9.0.0 → `glob` 13.x (GHSA-3g3m-2fjr-6pw4) → `minimatch` 10.x (GHSA-g3hv-75wg-m249). They only run during `migrate:up`, on our own fixed file patterns, never on visitor input. Patched `glob` 14 / `minimatch` 11 exist, but `node-pg-migrate` pins `glob ~13.0.0`, and npm's suggested fix is a downgrade to `node-pg-migrate` 7, so neither was applied. Re-check when `node-pg-migrate` releases an update; an npm `overrides` entry is the fallback if it doesn't.
 - **Health check for Redis** once Redis is used.
-- **Currency** (milestone 7): `payments.currency` is required. Confirm the shop's currency with the owner and put it in config.
 - **Replace placeholder prices and settings** before taking real orders: `server/src/db/seeds/pricing.placeholder.js`, `DEPOSIT_PERCENT=50`, and `COMMISSION_REVISION_LIMIT=2` (in `render.yaml` and `.env`) are placeholders. Deactivate the placeholder rules and insert real ones.
 - **Admin pricing management**: endpoints to list, create, and deactivate pricing rules, so prices change without a migration.
 - **Rush fee shape**: `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column and a branch in `pricing.engine.ts`.
 - **Re-quote after sending**: a sent quote can't change. If the price must change after sending, add a "revise quote" flow (supersede the sent quote, and move the commission back to inquiry or keep it quoted, as the owner decides).
-- **Refund flow** (milestone 7): `→ refunded` is reserved for the refund flow (`via: 'refund'`), so the status can never claim a refund that didn't move money.
+- **Shipping and tax on the final payment** (with shipping): the balance is charged as quoted. Add the shipping cost for physical and mixed-media work, and decide on sales tax (Stripe Tax or a fixed rule) with the owner.
+- **Refunds after the final payment** (milestone 7 decision): they move money only. If a commission refunded in full after delivery should end as `refunded`, add those transitions to the state machine.
+- **Admin screens for quotes and refunds:** both work through the API (see docs/setup-stripe.md); there's no admin UI yet.
+- **Delayed payment methods** (bank debits, etc.): Checkout is cards-only so `checkout.session.completed` means paid. Others need the `checkout.session.async_payment_succeeded` / `_failed` events.
+- **Payments live on Render (test mode):** add the Stripe webhook endpoint in the Dashboard and the two secrets in Render (docs/setup-stripe.md, step 6).
+- **Two paid sessions for one stage** can't both be recorded (ADR 0011): the second event would keep failing and retrying. Practically impossible with page reuse and expiry on cancel; if it ever happens, refund it automatically like a late payment.
 - **Adjustment note visibility**: clients currently see the quote's `adjustmentNote`. Decide whether it is client-facing ("returning client discount") or internal-only.
 - **Donation adjustment history** (milestone 8): partial refunds need an auditable adjustment record; design it with the refund-after-payout rule.
 - **Artwork uploads** (with file handling): an upload flow that produces processed images like `npm run media` does. Until then, `POST /admin/artworks` can only use a processed image that no content entry claims. See ADR 0007.
