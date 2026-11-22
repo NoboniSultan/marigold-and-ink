@@ -1,6 +1,6 @@
 /**
  * Who is logged in, for the whole app. The session lives in an httpOnly cookie that
- * JavaScript can't read, so "am I logged in?" is answered by GET /users/me, cached by
+ * JavaScript can't read, so "am I logged in?" is answered by GET /auth/session, cached by
  * TanStack Query under queryKeys.me. Login, sign-up, and logout update that cache entry,
  * so every component using useAuth() re-renders at once.
  */
@@ -12,7 +12,7 @@ import { queryKeys, useMe } from '../api/queries.ts';
 
 interface AuthValue {
   user: User | null;
-  /** True until the first /users/me answer arrives. */
+  /** True until the first /auth/session answer arrives. */
   isLoading: boolean;
   login: (body: LoginRequest) => Promise<User>;
   /** Sign-up step 2 (step 1, sending the code, needs no auth state: authApi.signupStart). */

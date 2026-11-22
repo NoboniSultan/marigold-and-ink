@@ -5,6 +5,53 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-22 (Milestone 6: review and fixes)
+
+No new features. A review of open TODOs, flaky tests, lint warnings, missing tests and docs, plus a security, accessibility and code review; only the approved fixes were made.
+
+### Security
+
+- **Return paths after sign-in:** `/\evil.example` (which browsers read as `//evil.example`) and paths with tabs or other control characters are refused. Both the server and the site use the same rule.
+- **Claiming an old, unverified account with an emailed code** now signs out its other sessions, as Google sign-in already did.
+- **Google's one-time sign-in code and state** are no longer written to request logs.
+
+### Fixed
+
+- **Gallery past the last page:** the API reports the real `total` instead of 0, and the site says there's no such page and offers page 1, instead of "No artworks match".
+- **A failed logout** shows a message instead of failing silently; the button is disabled while it runs.
+- **`EMAIL_TRANSPORT=resend` now also requires `PUBLIC_URL`,** so emails never say "log in at /login".
+- **A Google callback with no sign-in in progress** no longer stores an empty session row.
+- **The header on phones** is one row again (73px instead of 163px). The "Commission a piece" button was meant to hide there, but the shared button style loaded later and overrode the rule.
+- **Accessibility:**
+  - keyboard focus stays inside the artwork dialog;
+  - the gallery search box and tag menu borders went from about 1.2:1 to about 6:1 contrast;
+  - every commission form error (medium, delivery and rush included) is shown and linked to its field for screen readers.
+
+### Changed
+
+- **Client test coverage:** `npm run test:coverage` in `client/` (`@vitest/coverage-v8`), now run by CI. It measures 91% of lines and 80% of branches, with a floor of 88% / 76%. The WebGL scene is excluded (jsdom can't run it), but its layout math is tested.
+- **Code tidy-up:**
+  - the commission event queries name their columns instead of using `SELECT *`;
+  - removed two unused gallery repository functions, and type casts in the Google service (it never returns the password hash);
+  - corrected comments that described code that doesn't exist.
+- **Docs:**
+  - **README:** the API table is whole again, plus three missing error codes, the correct `adapters/` description, and a note to run one server test suite at a time;
+  - **Other docs:** corrections to the TypeScript guide, the architecture module map, and two constraints in the data model;
+  - **Backlog:** the migration-tool advisory (below) recorded; a resolved dev-only advisory removed.
+
+### Checked
+
+- **Flaky tests:** none found in 20 full server runs, 8 of them in shuffled order. The one earlier failure matched two runs sharing the test database at once.
+- **Lint and TODOs:** no lint warnings and no TODO markers in either package.
+- **Tests:** 14 new server tests (699 total) and 5 new client tests (54 total), covering:
+  - each fix above;
+  - missing 401 and 400 cases on the quote, events, and admin routes;
+  - the request logger;
+  - the "on" case for `/auth/providers`.
+
+  The visible changes were also checked in Chrome at desktop and phone widths.
+- **Dependencies:** the client has no advisories. The server has 3 moderate ones, all inside `node-pg-migrate` (`glob`, `minimatch`). They run only during migrations, on our own patterns, so they're left for an upstream update (see the backlog).
+
 ## [0.7.0] - 2026-11-21 (Milestone 5c: verified sign-up and Google sign-in)
 
 ### Added

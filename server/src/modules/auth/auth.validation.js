@@ -31,11 +31,19 @@ export const signupCompleteBody = z.object({
   displayName: z.string().trim().min(1).max(100),
 });
 
+/**
+ * A path on this site: one leading slash, then no backslash, whitespace or control
+ * character anywhere. Browsers read `/\evil.example` as `//evil.example` (another site),
+ * and drop tabs and newlines from URLs, so `/<tab>/evil.example` would become it too.
+ * The client's `safeNextPath` applies the same rule.
+ */
+export const SAME_SITE_PATH = /^\/(?![/\\])[^\\\s\p{Cc}]*$/u;
+
 /** Where to return after Google sign-in: a same-site path only, never another site. */
 export const googleStartQuery = z.object({
   next: z
     .string()
-    .regex(/^\/(?!\/)/, 'must be a path on this site')
+    .regex(SAME_SITE_PATH, 'must be a path on this site')
     .max(500)
     .optional()
     .catch(undefined),

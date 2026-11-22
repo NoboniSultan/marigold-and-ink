@@ -4,6 +4,9 @@ const COLUMNS = `id, client_id, size, medium, subject_count, fulfillment_type, i
   status, revision_count, revision_limit, quoted_total_cents, deposit_cents, balance_cents,
   created_at, updated_at`;
 
+const EVENT_COLUMNS = `id, commission_id, from_status, to_status, actor_type, actor_user_id,
+  reason, metadata, created_at`;
+
 function toCommission(row) {
   if (!row) return null;
   return {
@@ -127,7 +130,7 @@ export async function insertEvent(event, client = pool) {
     `INSERT INTO commission_events
        (commission_id, from_status, to_status, actor_type, actor_user_id, reason, metadata)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
+     RETURNING ${EVENT_COLUMNS}`,
     [
       event.commissionId,
       event.fromStatus,
@@ -143,7 +146,7 @@ export async function insertEvent(event, client = pool) {
 
 export async function listEvents(commissionId, client = pool) {
   const { rows } = await client.query(
-    `SELECT * FROM commission_events WHERE commission_id = $1 ORDER BY created_at, id`,
+    `SELECT ${EVENT_COLUMNS} FROM commission_events WHERE commission_id = $1 ORDER BY created_at, id`,
     [commissionId],
   );
   return rows.map(toEvent);

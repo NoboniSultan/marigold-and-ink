@@ -65,6 +65,8 @@ export function GalleryGrid({ filters, onFiltersChange, onOpen, openSlug }: Prop
 
   const total = artworks.data?.meta.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // An old link or a hand-edited URL can ask for a page that no longer exists.
+  const pastTheEnd = total > 0 && filters.page > pages;
 
   return (
     <div className={styles.wrapper}>
@@ -121,6 +123,15 @@ export function GalleryGrid({ filters, onFiltersChange, onOpen, openSlug }: Prop
         <Loading label="Loading artworks" />
       ) : artworks.isError ? (
         <ErrorMessage message="The gallery couldn't load." onRetry={() => artworks.refetch()} />
+      ) : pastTheEnd ? (
+        <div className={styles.empty}>
+          <p>
+            There's no page {filters.page}; these results end at page {pages}.
+          </p>
+          <button type="button" onClick={() => onFiltersChange({ page: 1 })}>
+            Go to page 1
+          </button>
+        </div>
       ) : artworks.data.data.length === 0 ? (
         <p className={styles.empty}>No artworks match. Try another search or category.</p>
       ) : (
@@ -154,7 +165,7 @@ export function GalleryGrid({ filters, onFiltersChange, onOpen, openSlug }: Prop
         </ul>
       )}
 
-      {pages > 1 && (
+      {pages > 1 && !pastTheEnd && (
         <nav className={styles.pagination} aria-label="Gallery pages">
           <button
             type="button"

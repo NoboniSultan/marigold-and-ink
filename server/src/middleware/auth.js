@@ -35,8 +35,10 @@ export function requireRole(...roles) {
  * Use after requireAuth. `getOwnerId(req)` returns (or resolves to) the ID of the user
  * who owns the requested resource; clients may only proceed if it is theirs, admins always.
  *
- *   requireOwnerOrAdmin((req) => req.validated.params.id)                        // a user record
- *   requireOwnerOrAdmin((req) => commissionsService.getOwnerId(req.params.id))   // milestone 4
+ *   requireOwnerOrAdmin((req) => req.validated.params.id)   // a user record (users.routes.js)
+ *
+ * Commissions check ownership in their service instead (getCommissionForUser), because
+ * they need the row anyway.
  */
 export function requireOwnerOrAdmin(getOwnerId) {
   return async (req, _res, next) => {

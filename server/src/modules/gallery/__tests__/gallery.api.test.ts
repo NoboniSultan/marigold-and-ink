@@ -61,6 +61,15 @@ describe('GET /api/v1/artworks (public)', () => {
     expect(res.body.meta).toEqual({ page: 2, pageSize: 1, total: 2 });
   });
 
+  it('still reports the real total on a page past the end (filters applied)', async () => {
+    const all = await request(app).get('/api/v1/artworks?page=99');
+    const tagged = await request(app).get('/api/v1/artworks?tag=animals&page=99');
+
+    expect(all.body.data).toEqual([]);
+    expect(all.body.meta).toEqual({ page: 99, pageSize: 20, total: 2 });
+    expect(tagged.body.meta.total).toBe(1);
+  });
+
   it('filters by category', async () => {
     const res = await request(app).get('/api/v1/artworks?category=studies');
     expect(titles(res)).toEqual(['Starry Night']);
@@ -268,7 +277,7 @@ describe('GET /api/v1/admin/artworks', () => {
     expect((await agent.get('/api/v1/admin/artworks?status=hidden')).status).toBe(400);
   });
 
-  it('gets one artwork by id, or 404', async () => {
+  it('gets one artwork by id, 404 for a missing one, 400 for a bad id', async () => {
     const agent = await admin();
     const { rows } = await pool.query(`SELECT id FROM artworks WHERE slug = 'draft-piece'`);
 
@@ -276,6 +285,7 @@ describe('GET /api/v1/admin/artworks', () => {
       'draft-piece',
     );
     expect((await agent.get('/api/v1/admin/artworks/999999')).status).toBe(404);
+    expect((await agent.get('/api/v1/admin/artworks/abc')).status).toBe(400);
   });
 });
 
@@ -516,6 +526,21 @@ describe('admin tags', () => {
 
     expect((await patch(tag.id)).body.data).toMatchObject({ name: 'Renamed', slug: tag.slug });
     expect((await patch(999999)).status).toBe(404);
+  });
+
+  it('rejects an invalid rename (400)', async () => {
+    const tag = await createTag();
+    const patch = async (body: object) =>
+      (await admin())
+        .patch(`/api/v1/admin/tags/${tag.id}`)
+        .set('Origin', TRUSTED_ORIGIN)
+        .send(body);
+
+    for (const body of [{}, { name: '' }, { name: 42 }]) {
+      const res = await patch(body);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    }
   });
 
   it('deletes a tag, or answers 404', async () => {

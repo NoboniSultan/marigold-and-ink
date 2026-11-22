@@ -219,6 +219,7 @@ erDiagram
 | `auth_identities_provider_user_key` | UNIQUE `(provider, provider_user_id)` | One Google account signs in to exactly one user. Users are matched on Google's permanent `sub`, never on email. |
 | `auth_identities_user_provider_key` | UNIQUE `(user_id, provider)` | A user links at most one Google account. |
 | `auth_identities_provider_check` | CHECK | Only `google` for now. |
+| `auth_identities_provider_user_id_check` | CHECK | The provider's account ID is 1–255 characters, so an empty ID can never match. |
 | `auth_identities.user_id` | FK, `ON DELETE CASCADE` | A sign-in method means nothing without its user and holds no money or history. |
 | `email_verifications_pkey` | PRIMARY KEY `(email)` | At most one pending code per address: a new code replaces the old one. |
 | `email_verifications_code_hash_check` | CHECK | A SHA-256 hex digest: only an HMAC of the code is stored, never the code. |
@@ -342,6 +343,7 @@ Only the tables exist so far; the endpoints come in a later phase.
 | Name | Type | Why |
 | --- | --- | --- |
 | `charities_name_key` | UNIQUE | No duplicate charities. |
+| `charities_name_check` | CHECK | The name is 1–200 characters once spaces are trimmed (never blank). |
 | `charities_website_url_check` | CHECK | Must be an http(s) URL. |
 | `charities_one_active_idx` | Partial UNIQUE on `(true) WHERE is_active` | At most one active charity, so "the currently active charity" is never ambiguous. Every active row has the same index key (`true`), so a second active row is a duplicate. |
 | `donations_status_check` | CHECK | `pending`, `owed`, `paid`, or `reversed`. |

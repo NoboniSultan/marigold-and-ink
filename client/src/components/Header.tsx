@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthContext.tsx';
 import { COPY } from '../content/copy.ts';
@@ -10,10 +11,21 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutFailed, setLogoutFailed] = useState(false);
 
   async function handleLogout() {
-    await logout();
-    navigate('/');
+    setLoggingOut(true);
+    setLogoutFailed(false);
+    try {
+      await logout();
+      navigate('/');
+    } catch {
+      // Still logged in (offline, or the server didn't answer): say so rather than nothing.
+      setLogoutFailed(true);
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   return (
@@ -41,7 +53,12 @@ export function Header() {
             About
           </NavLink>
           {user ? (
-            <button type="button" className={styles.navButton} onClick={handleLogout}>
+            <button
+              type="button"
+              className={styles.navButton}
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
               Log out
             </button>
           ) : (
@@ -57,6 +74,11 @@ export function Header() {
           </Link>
         </nav>
       </div>
+      {logoutFailed && user && (
+        <p className={styles.alert} role="alert">
+          We couldn't log you out. Check your connection and try again.
+        </p>
+      )}
     </header>
   );
 }

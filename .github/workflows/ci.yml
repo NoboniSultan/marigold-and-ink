@@ -130,8 +130,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      # Fails if coverage drops below the thresholds in vite.config.ts.
+      - name: Test (with coverage)
+        run: npm run test:coverage
 
       # The same build Render runs; fails on type errors too (`tsc --noEmit && vite build`).
       - name: Build

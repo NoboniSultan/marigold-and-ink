@@ -109,6 +109,25 @@ describe('Gallery', () => {
     );
   });
 
+  it('explains a page past the end and offers page 1, instead of "no artworks match"', async () => {
+    api({
+      extra: (call) =>
+        call.path === '/artworks' && call.params.get('page') === '9'
+          ? { body: { data: [], meta: { page: 9, pageSize: 24, total: 30 } } }
+          : undefined,
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoute('/gallery?page=9');
+
+    expect(await screen.findByText(/no page 9; these results end at page 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/No artworks match/)).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Gallery pages' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Go to page 1' }));
+    expect(await screen.findByRole('button', { name: 'Open Embrace' })).toBeInTheDocument();
+    expect(router.state.location.search).not.toContain('page=');
+  });
+
   it('opens an artwork in a dialog (?art= in the URL) and closes it with Escape', async () => {
     api();
     const user = userEvent.setup();
@@ -124,6 +143,26 @@ describe('Gallery', () => {
     // into its card. jsdom has no layout, so that shared-layout exit never finishes here;
     // the removal itself is checked in a real browser, see the PR checklist.)
     await waitFor(() => expect(router.state.location.search).not.toContain('art='));
+  });
+
+  it('keeps keyboard focus inside the open dialog, both directions', async () => {
+    api();
+    const user = userEvent.setup();
+    renderRoute('/gallery?mode=grid&art=fawn');
+
+    const dialog = await screen.findByRole('dialog', { name: 'Fawn' });
+    const close = within(dialog).getByRole('button', { name: 'Close' });
+    const fullPage = within(dialog).getByRole('link', { name: 'Open the full page' });
+    await waitFor(() => expect(close).toHaveFocus());
+
+    await user.tab(); // the close button is last in the dialog, so Tab wraps to the first
+    expect(fullPage).toHaveFocus();
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(fullPage).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(close).toHaveFocus();
   });
 
   it('opens the dialog from a shared link (?art=)', async () => {
@@ -255,6 +294,55 @@ describe('Commission', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent("A4 ink portraits aren't offered");
   });
+
+  it('shows every field error next to its field, linked for screen readers', async () => {
+    const issues = {
+      medium: 'Choose a medium',
+      size: 'Choose a size',
+      subjectCount: 'Must be at least 1',
+      fulfillmentType: 'Choose how it is delivered',
+      isRush: 'Rush is not available',
+      notes: 'Too long',
+    };
+    api({
+      user: USER,
+      extra: (call) =>
+        call.method === 'POST'
+          ? {
+              status: 400,
+              body: {
+                error: {
+                  code: 'VALIDATION_ERROR',
+                  message: 'Invalid request',
+                  details: Object.entries(issues).map(([path, message]) => ({ path, message })),
+                },
+              },
+            }
+          : undefined,
+    });
+    const user = userEvent.setup();
+    renderRoute('/commission');
+
+    await user.click(await screen.findByRole('button', { name: 'Send request' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Please check the highlighted fields',
+    );
+    const controls = {
+      medium: screen.getByLabelText('Medium'),
+      size: screen.getByLabelText('Size'),
+      subjectCount: screen.getByLabelText('Number of subjects'),
+      fulfillmentType: screen.getByRole('group', { name: 'Delivery' }),
+      isRush: screen.getByLabelText('Rush service'),
+      notes: screen.getByLabelText('Notes'),
+    };
+    for (const [field, control] of Object.entries(controls)) {
+      expect(control).toHaveAccessibleDescription(
+        expect.stringContaining(issues[field as keyof typeof issues]),
+      );
+    }
+    expect(controls.medium).toHaveAttribute('aria-invalid', 'true');
+  });
 });
 
 describe('Login and register', () => {
@@ -293,6 +381,38 @@ describe('Login and register', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/about'));
     expect(await screen.findByRole('button', { name: 'Log out' })).toBeInTheDocument();
+  });
+
+  it('logs out and goes home', async () => {
+    api({
+      user: USER,
+      extra: (call) => (call.path === '/auth/logout' ? { status: 204 } : undefined),
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoute('/gallery');
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }));
+
+    expect(await screen.findByRole('link', { name: 'Log in' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('says so when logging out fails, and stays logged in', async () => {
+    api({
+      user: USER,
+      extra: (call) =>
+        call.path === '/auth/logout'
+          ? { status: 500, body: { error: { code: 'INTERNAL_ERROR', message: 'Oops' } } }
+          : undefined,
+    });
+    const user = userEvent.setup();
+    const { router } = renderRoute('/gallery');
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't log you out");
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeEnabled();
+    expect(router.state.location.pathname).toBe('/gallery');
   });
 
   it('signs up in two steps: email, then the code with name and password', async () => {
@@ -445,7 +565,10 @@ describe('Not found and redirects', () => {
 
   it('only allows same-site paths after login', () => {
     expect(safeNextPath('/commission')).toBe('/commission');
+    expect(safeNextPath('/gallery?tag=floral&page=2')).toBe('/gallery?tag=floral&page=2');
     expect(safeNextPath('//evil.example')).toBe('/');
+    expect(safeNextPath('/\\evil.example')).toBe('/'); // browsers read \ as /
+    expect(safeNextPath('/\t/evil.example')).toBe('/'); // browsers drop tabs
     expect(safeNextPath('https://evil.example')).toBe('/');
     expect(safeNextPath(null)).toBe('/');
   });

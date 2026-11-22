@@ -9,14 +9,38 @@ import styles from './ArtworkOverlay.module.css';
 
 export const EASE = [0.4, 0, 0.2, 1] as const;
 
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A modal dialog keeps keyboard focus inside it: Tab from the last control wraps to the
+ * first, Shift+Tab from the first wraps to the last, and focus found outside is brought back.
+ */
+function keepFocusInside(dialog: HTMLElement, event: KeyboardEvent) {
+  const focusable = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)];
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (!first || !last) return;
+  const active = document.activeElement;
+  const outside = !dialog.contains(active);
+  if (event.shiftKey && (outside || active === first)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (outside || active === last)) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 /**
  * Full-screen detail view. Its image shares a `layoutId` with the grid card's image, so
  * Motion morphs the card into place (and back on close). Details fade in after the morph.
- * Closes with the button, Escape, or a click on the backdrop; the page behind can't scroll.
+ * Closes with the button, Escape, or a click on the backdrop; the page behind can't scroll,
+ * and keyboard focus stays inside until it closes.
  */
 export function ArtworkOverlay({ artwork, onClose }: { artwork: Artwork; onClose: () => void }) {
   const reduce = usePrefersReducedMotion();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   useScrollLock(true);
 
   useEffect(() => {
@@ -25,6 +49,7 @@ export function ArtworkOverlay({ artwork, onClose }: { artwork: Artwork; onClose
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
+      if (event.key === 'Tab' && dialogRef.current) keepFocusInside(dialogRef.current, event);
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -45,6 +70,7 @@ export function ArtworkOverlay({ artwork, onClose }: { artwork: Artwork; onClose
         transition={{ duration: 0.25, ease: EASE }}
       />
       <div
+        ref={dialogRef}
         className={styles.dialog}
         role="dialog"
         aria-modal="true"

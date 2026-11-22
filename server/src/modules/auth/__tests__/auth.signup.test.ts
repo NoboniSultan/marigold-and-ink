@@ -126,6 +126,12 @@ describe('POST /api/v1/auth/signup/start', () => {
     expect(providers.body.data).toEqual({ google: false, emailSignup: false });
   });
 
+  it('is listed as available when an email service is configured', async () => {
+    const providers = await request(app).get('/api/v1/auth/providers');
+
+    expect(providers.body.data).toEqual({ google: false, emailSignup: true });
+  });
+
   it('rejects an invalid email (400) and cross-site requests (403)', async () => {
     expect((await post(request(app), '/signup/start').send({ email: 'nope' })).status).toBe(400);
     const crossSite = await request(app)
@@ -214,12 +220,18 @@ describe('POST /api/v1/auth/signup/complete', () => {
     expect(res.body.error.code).toBe('CODE_EXPIRED');
   });
 
-  it('lets the owner of an old, unverified account claim it with a code (same account, new password)', async () => {
+  it('lets the owner of an old, unverified account claim it with a code (same account, new password, other sessions signed out)', async () => {
     const old = await createUserWithPassword({ email: ADDRESS, emailVerifiedAt: null });
+    // Whoever set the old password is still logged in somewhere.
+    await pool.query(
+      `INSERT INTO sessions (sid, sess, expire) VALUES ('squatter', $1, now() + interval '1 day')`,
+      [JSON.stringify({ cookie: {}, userId: old.id })],
+    );
     await start();
     expect(email.lastCode()).toMatch(/^\d{6}$/);
+    const agent = request.agent(app);
 
-    const res = await post(request(app), '/signup/complete').send({
+    const res = await post(agent, '/signup/complete').send({
       email: ADDRESS,
       code: email.lastCode(),
       ...details,
@@ -227,6 +239,8 @@ describe('POST /api/v1/auth/signup/complete', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data.id).toBe(old.id);
+    expect((await pool.query(`SELECT 1 FROM sessions WHERE sid = 'squatter'`)).rowCount).toBe(0);
+    expect((await agent.get('/api/v1/auth/session')).body.data.id).toBe(old.id);
     const { rows } = await pool.query(
       'SELECT password_hash, email_verified_at FROM users WHERE id = $1',
       [old.id],

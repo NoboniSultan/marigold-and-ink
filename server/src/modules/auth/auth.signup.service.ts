@@ -24,6 +24,7 @@ import { generateCode, hashCode, hashesMatch } from '../../lib/verificationCode.
 import { logger } from '../../lib/logger.js';
 import type { EmailSender } from '../../adapters/email.ts';
 import * as usersService from '../users/users.service.ts';
+import type { UserRecord } from '../users/users.service.ts';
 import * as authRepository from './auth.repository.ts';
 import { alreadyRegisteredEmail, signupCodeEmail } from './auth.emails.ts';
 
@@ -79,7 +80,7 @@ export async function startSignup(
 }
 
 type CheckResult =
-  | { ok: true; user: unknown }
+  | { ok: true; user: UserRecord }
   | { ok: false; reason: 'expired' }
   | { ok: false; reason: 'incorrect'; remainingAttempts: number }
   | { ok: false; reason: 'taken' };
@@ -94,7 +95,7 @@ export async function completeSignup({
   code: string;
   password: string;
   displayName: string;
-}) {
+}): Promise<UserRecord> {
   // Hash first: bcrypt is deliberately slow, and shouldn't hold the row lock below.
   const passwordHash = await hashPassword(password);
 
@@ -119,20 +120,25 @@ export async function completeSignup({
 
     const existing = await usersService.findForAuthByEmail(email, { client: tx, forUpdate: true });
     if (existing?.emailVerifiedAt) return { ok: false, reason: 'taken' };
-    const user = existing
-      ? await usersService.claimUnverified(
-          existing.id,
-          { passwordHash, displayName },
-          { client: tx },
-        )
-      : await usersService.createUser(
-          { email, passwordHash, displayName, role: 'client', emailVerifiedAt: new Date() },
-          { client: tx },
-        );
+    if (existing) {
+      // Whoever set the old password may still be logged in; the email's proven owner is
+      // taking the account over, so every earlier session ends (as with Google; ADR 0010).
+      await authRepository.deleteSessionsForUser(existing.id, tx);
+      const user = await usersService.claimUnverified(
+        existing.id,
+        { passwordHash, displayName },
+        { client: tx },
+      );
+      return { ok: true, user };
+    }
+    const user = await usersService.createUser(
+      { email, passwordHash, displayName, role: 'client', emailVerifiedAt: new Date() },
+      { client: tx },
+    );
     return { ok: true, user };
   });
 
-  if (result.ok) return result.user as { id: number };
+  if (result.ok) return result.user;
   if (result.reason === 'taken') {
     throw new ConflictError('An account with this email already exists. Please log in.', {
       code: 'EMAIL_TAKEN',

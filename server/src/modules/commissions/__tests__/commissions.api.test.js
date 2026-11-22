@@ -387,6 +387,15 @@ describe('GET /api/v1/commissions/:id/events', () => {
   it('returns 401 without a session', async () => {
     expect((await request(app).get('/api/v1/commissions/1/events')).status).toBe(401);
   });
+
+  it('returns 400 for a bad id', async () => {
+    const { agent } = await loggedInAgent(app);
+
+    const res = await agent.get('/api/v1/commissions/abc/events');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
 });
 
 describe('consistency with the database', () => {

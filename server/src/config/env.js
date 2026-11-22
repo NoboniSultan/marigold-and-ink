@@ -83,7 +83,8 @@ function groupProblems(env) {
     );
   }
   if (transport === 'resend') {
-    for (const key of ['RESEND_API_KEY', 'EMAIL_FROM']) {
+    // PUBLIC_URL too: real emails link back to the site, and a bare "/login" isn't a link.
+    for (const key of ['RESEND_API_KEY', 'EMAIL_FROM', 'PUBLIC_URL']) {
       if (!env[key]) problems.push(`✖ is required when EMAIL_TRANSPORT=resend\n  → at ${key}`);
     }
   }
