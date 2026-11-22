@@ -91,8 +91,10 @@
   .wordmark {
     display: none;
   }
-  /* The sticky header stays one row on phones; the Home hero and artwork pages carry the CTA. */
-  .cta {
+  /* The sticky header stays one row on phones; the Home hero and artwork pages carry the CTA.
+     `.nav .cta`, not `.cta`: the CTA also has the shared button class, whose `display` would
+     win a tie, because Button.module.css loads after this file. */
+  .nav .cta {
     display: none;
   }
   .nav {
