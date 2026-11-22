@@ -294,6 +294,53 @@ describe('Commission', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent("A4 ink portraits aren't offered");
   });
+
+  it('shows every field error next to its field, linked for screen readers', async () => {
+    const issues = {
+      medium: 'Choose a medium',
+      size: 'Choose a size',
+      subjectCount: 'Must be at least 1',
+      fulfillmentType: 'Choose how it is delivered',
+      isRush: 'Rush is not available',
+      notes: 'Too long',
+    };
+    api({
+      user: USER,
+      extra: (call) =>
+        call.method === 'POST'
+          ? {
+              status: 400,
+              body: {
+                error: {
+                  code: 'VALIDATION_ERROR',
+                  message: 'Invalid request',
+                  details: Object.entries(issues).map(([path, message]) => ({ path, message })),
+                },
+              },
+            }
+          : undefined,
+    });
+    const user = userEvent.setup();
+    renderRoute('/commission');
+
+    await user.click(await screen.findByRole('button', { name: 'Send request' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Please check the highlighted fields');
+    const controls = {
+      medium: screen.getByLabelText('Medium'),
+      size: screen.getByLabelText('Size'),
+      subjectCount: screen.getByLabelText('Number of subjects'),
+      fulfillmentType: screen.getByRole('group', { name: 'Delivery' }),
+      isRush: screen.getByLabelText('Rush service'),
+      notes: screen.getByLabelText('Notes'),
+    };
+    for (const [field, control] of Object.entries(controls)) {
+      expect(control).toHaveAccessibleDescription(
+        expect.stringContaining(issues[field as keyof typeof issues]),
+      );
+    }
+    expect(controls.medium).toHaveAttribute('aria-invalid', 'true');
+  });
 });
 
 describe('Login and register', () => {

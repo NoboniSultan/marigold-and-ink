@@ -16,6 +16,20 @@ const FULFILLMENT_LABELS: Record<FulfillmentType, string> = {
 
 const NOTES_MAX = 5000;
 
+/** Joins the ids that describe a control, or undefined if there are none. */
+function describedBy(...ids: (string | false | undefined)[]): string | undefined {
+  return ids.filter(Boolean).join(' ') || undefined;
+}
+
+/** A field's error, with the id its control points to (aria-describedby), as in FormField. */
+function FieldError({ id, message }: { id: string; message: string | undefined }) {
+  return message ? (
+    <span id={id} className={styles.fieldError}>
+      {message}
+    </span>
+  ) : null;
+}
+
 function CommissionForm({ options }: { options: CommissionOptions }) {
   const mediums = [...new Set(options.combinations.map((c) => c.medium))];
   const [medium, setMedium] = useState(mediums[0] ?? '');
@@ -86,13 +100,20 @@ function CommissionForm({ options }: { options: CommissionOptions }) {
 
       <div className={styles.field}>
         <label htmlFor="medium">Medium</label>
-        <select id="medium" value={medium} onChange={(e) => setMedium(e.target.value)}>
+        <select
+          id="medium"
+          value={medium}
+          onChange={(e) => setMedium(e.target.value)}
+          aria-invalid={fields.medium ? true : undefined}
+          aria-describedby={describedBy(fields.medium && 'medium-error')}
+        >
           {mediums.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
           ))}
         </select>
+        <FieldError id="medium-error" message={fields.medium} />
       </div>
 
       <div className={styles.field}>
@@ -102,6 +123,7 @@ function CommissionForm({ options }: { options: CommissionOptions }) {
           value={chosenSize}
           onChange={(e) => setSize(e.target.value)}
           aria-invalid={fields.size ? true : undefined}
+          aria-describedby={describedBy(fields.size && 'size-error')}
         >
           {sizes.map((s) => (
             <option key={s} value={s}>
@@ -109,7 +131,7 @@ function CommissionForm({ options }: { options: CommissionOptions }) {
             </option>
           ))}
         </select>
-        {fields.size && <span className={styles.fieldError}>{fields.size}</span>}
+        <FieldError id="size-error" message={fields.size} />
       </div>
 
       <div className={styles.field}>
@@ -123,32 +145,54 @@ function CommissionForm({ options }: { options: CommissionOptions }) {
           max={options.multipleSubjects ? 20 : 1}
           defaultValue={1}
           readOnly={!options.multipleSubjects}
-          aria-describedby={options.multipleSubjects ? undefined : 'subjects-hint'}
           aria-invalid={fields.subjectCount ? true : undefined}
+          aria-describedby={describedBy(
+            !options.multipleSubjects && 'subjects-hint',
+            fields.subjectCount && 'subjectCount-error',
+          )}
         />
         {!options.multipleSubjects && (
           <span id="subjects-hint" className={styles.hint}>
             One subject per request for now.
           </span>
         )}
-        {fields.subjectCount && <span className={styles.fieldError}>{fields.subjectCount}</span>}
+        <FieldError id="subjectCount-error" message={fields.subjectCount} />
       </div>
 
-      <fieldset className={styles.fieldset}>
+      {/* A radio group's error is linked to the group, which screen readers announce on entry. */}
+      <fieldset
+        className={styles.fieldset}
+        aria-describedby={describedBy(fields.fulfillmentType && 'fulfillmentType-error')}
+      >
         <legend className={styles.legend}>Delivery</legend>
         {options.fulfillmentTypes.map((type, i) => (
           <label key={type} className={styles.choice}>
-            <input type="radio" name="fulfillmentType" value={type} defaultChecked={i === 0} />
+            <input
+              type="radio"
+              name="fulfillmentType"
+              value={type}
+              defaultChecked={i === 0}
+              aria-invalid={fields.fulfillmentType ? true : undefined}
+            />
             {FULFILLMENT_LABELS[type]}
           </label>
         ))}
+        <FieldError id="fulfillmentType-error" message={fields.fulfillmentType} />
       </fieldset>
 
       {options.rushAvailable && (
-        <label className={styles.choice}>
-          <input type="checkbox" name="isRush" />
-          Rush service
-        </label>
+        <div className={styles.field}>
+          <label className={styles.choice}>
+            <input
+              type="checkbox"
+              name="isRush"
+              aria-invalid={fields.isRush ? true : undefined}
+              aria-describedby={describedBy(fields.isRush && 'isRush-error')}
+            />
+            Rush service
+          </label>
+          <FieldError id="isRush-error" message={fields.isRush} />
+        </div>
       )}
 
       <div className={styles.field}>
@@ -157,13 +201,13 @@ function CommissionForm({ options }: { options: CommissionOptions }) {
           id="notes"
           name="notes"
           maxLength={NOTES_MAX}
-          aria-describedby="notes-hint"
           aria-invalid={fields.notes ? true : undefined}
+          aria-describedby={describedBy('notes-hint', fields.notes && 'notes-error')}
         />
         <span id="notes-hint" className={styles.hint}>
           Tell the artist about the subject, style, and anything else that matters.
         </span>
-        {fields.notes && <span className={styles.fieldError}>{fields.notes}</span>}
+        <FieldError id="notes-error" message={fields.notes} />
       </div>
 
       <button
