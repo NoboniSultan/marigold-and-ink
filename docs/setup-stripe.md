@@ -34,6 +34,14 @@ PUBLIC_URL=http://localhost:5173       # where Stripe sends the client back
 
 ## 4. Run everything (three terminals)
 
+First, bring your dev database up to date. Payments added new columns, and without them the commission page says "Your payments couldn't load" (the API answers 500). Run this once after pulling, from the repo folder with Docker running:
+
+```sh
+cd server && npm run migrate:up
+```
+
+It prints the migrations it applied, or none if you're already up to date. (The tests use the separate test database, which migrates itself, so they pass either way.)
+
 ```sh
 # Terminal 1: forward Stripe's webhooks straight to the API (port 3000)
 stripe listen \
