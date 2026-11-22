@@ -1,6 +1,21 @@
 import { logger as defaultLogger } from '../lib/logger.js';
 
 /**
+ * Paths whose query string carries one-time secrets and is never logged. Google's callback
+ * brings a sign-in code and state; they're single-use, but logs are kept longer and seen
+ * more widely than the sign-in they belong to.
+ */
+const SECRET_QUERY_PATHS = new Set(['/api/v1/auth/google/callback']);
+
+/** The URL to log: as requested, but with the query string hidden on SECRET_QUERY_PATHS. */
+export function loggablePath(originalUrl) {
+  const queryStart = originalUrl.indexOf('?');
+  if (queryStart === -1) return originalUrl;
+  const path = originalUrl.slice(0, queryStart);
+  return SECRET_QUERY_PATHS.has(path) ? `${path}?[REDACTED]` : originalUrl;
+}
+
+/**
  * Logs one line per request when the response finishes: method, path, status, duration.
  * 5xx responses log at error level, 4xx at warn, everything else at info.
  */
@@ -16,7 +31,7 @@ export function requestLogger({ logger = defaultLogger } = {}) {
         {
           requestId: req.id,
           method: req.method,
-          path: req.originalUrl,
+          path: loggablePath(req.originalUrl),
           statusCode: res.statusCode,
           durationMs: Math.round(durationMs * 10) / 10,
         },
