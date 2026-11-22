@@ -325,7 +325,9 @@ describe('Commission', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Send request' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Please check the highlighted fields');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Please check the highlighted fields',
+    );
     const controls = {
       medium: screen.getByLabelText('Medium'),
       size: screen.getByLabelText('Size'),
