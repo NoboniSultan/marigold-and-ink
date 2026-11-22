@@ -119,7 +119,7 @@ Each layer does one job. The controller only translates HTTP. The quotes service
 
 ### Module dependencies
 
-`quotes` → `commissions`, `pricing`. `commissions` → `pricing`. `auth` → `users`. `pricing`, `users`, `gallery`, and `about` depend on no other module. The content seed (`db/seeds/content.ts`) calls the `gallery` and `about` services. Dependencies run one way: no module imports a module that imports it back, and no module reaches into another's repository.
+`quotes` → `commissions`, `pricing`. `payments` → `commissions`. `commissions` → `pricing`. `auth` → `users`. `pricing`, `users`, `gallery`, and `about` depend on no other module. The content seed (`db/seeds/content.ts`) calls the `gallery` and `about` services. Dependencies run one way: no module imports a module that imports it back, and no module reaches into another's repository. When `commissions` needs something from `payments` (closing open Stripe pages when a commission is cancelled), `createApp` wires a hook (`app.locals.onCommissionStatusChange`), so the dependency still points one way.
 
 ## Content and images
 
@@ -171,5 +171,5 @@ flowchart LR
 | quotes | generate, adjust, send, and view quotes (uses commissions + pricing) | 4 |
 | gallery | artworks and tags: public listing, search, admin CRUD, syncing `content/artworks.json` | 5 |
 | about | the About page content from `content/about.json` | 5 |
-| payments | Stripe Checkout sessions, webhooks, refunds | 7 |
+| payments | Stripe Checkout for the deposit and balance, the Stripe webhook, admin refunds ([ADR 0011](decisions/0011-stripe-payments.md); uses commissions) | 7 |
 | donations | donation calculator, ledger, charities, public totals | 8 |

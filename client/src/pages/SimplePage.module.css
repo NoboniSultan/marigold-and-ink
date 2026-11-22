@@ -139,3 +139,25 @@
   text-decoration-color: transparent;
   cursor: default;
 }
+
+/* Label / value pairs (a commission's details), as on the artwork page. */
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-6);
+}
+
+.facts dt {
+  color: var(--color-gray);
+}
+
+.facts dd {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--space-6);
+}

@@ -53,3 +53,8 @@ export interface Commission {
   createdAt: string;
   updatedAt: string;
 }
+
+/** GET /commissions/:id: the commission plus the status changes this user can make now. */
+export interface CommissionDetails extends Commission {
+  availableTransitions: CommissionStatus[];
+}

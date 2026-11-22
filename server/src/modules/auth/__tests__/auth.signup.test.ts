@@ -38,7 +38,7 @@ let app: ReturnType<typeof createApp>;
 beforeEach(async () => {
   await truncateAllTables();
   email = fakeEmail();
-  app = createApp({ adapters: { email: email.sender, google: null } });
+  app = createApp({ adapters: { email: email.sender, google: null, payments: null } });
 });
 
 const post = (client: request.Agent | ReturnType<typeof request>, path: string) =>
@@ -116,7 +116,7 @@ describe('POST /api/v1/auth/signup/start', () => {
   });
 
   it('is unavailable (503) when no email service is configured', async () => {
-    const noEmail = createApp({ adapters: { email: null, google: null } });
+    const noEmail = createApp({ adapters: { email: null, google: null, payments: null } });
 
     const res = await post(request(noEmail), '/signup/start').send({ email: ADDRESS });
     const providers = await request(noEmail).get('/api/v1/auth/providers');

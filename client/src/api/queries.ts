@@ -8,10 +8,13 @@ import {
   artworksApi,
   authApi,
   commissionsApi,
+  paymentsApi,
   type ArtworkFilters,
 } from './endpoints.ts';
 
 export const queryKeys = {
+  commission: (id: number) => ['commission', id] as const,
+  payments: (commissionId: number) => ['payments', commissionId] as const,
   me: ['me'] as const,
   artworks: (filters: ArtworkFilters) => ['artworks', filters] as const,
   artwork: (slug: string) => ['artwork', slug] as const,
@@ -80,4 +83,24 @@ export function useProviders() {
 /** Where "Continue with Google" goes: a full-page navigation to the server, then Google. */
 export function googleStartUrl(next: string): string {
   return `/api/v1/auth/google/start?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * One commission. `pollMs` refetches on that interval while set: the page uses it right
+ * after Stripe sends the client back, until the webhook has moved the status on.
+ */
+export function useCommission(id: number, { pollMs }: { pollMs?: number | false } = {}) {
+  return useQuery({
+    queryKey: queryKeys.commission(id),
+    queryFn: ({ signal }) => commissionsApi.get(id, signal),
+    refetchInterval: pollMs ?? false,
+  });
+}
+
+export function usePayments(commissionId: number, { pollMs }: { pollMs?: number | false } = {}) {
+  return useQuery({
+    queryKey: queryKeys.payments(commissionId),
+    queryFn: ({ signal }) => paymentsApi.list(commissionId, signal),
+    refetchInterval: pollMs ?? false,
+  });
 }

@@ -12,6 +12,7 @@ import { GalleryPage } from './pages/GalleryPage.tsx';
 import { ArtworkPage } from './pages/ArtworkPage.tsx';
 import { AboutPage } from './pages/AboutPage.tsx';
 import { CommissionPage } from './pages/CommissionPage.tsx';
+import { CommissionStatusPage } from './pages/CommissionStatusPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { RegisterPage } from './pages/RegisterPage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
@@ -30,6 +31,15 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <CommissionPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        // Stripe sends the client back here after paying (?payment=success|cancelled).
+        path: 'commissions/:id',
+        element: (
+          <RequireAuth>
+            <CommissionStatusPage />
           </RequireAuth>
         ),
       },

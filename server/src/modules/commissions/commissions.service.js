@@ -103,6 +103,17 @@ export async function changeStatus(id, user, { toStatus, reason }) {
  *
  * Pass `client` to join a transaction the caller already opened (the quote flow and
  * the Stripe webhook do this so their own writes commit or roll back together with it).
+ *
+ * @param {{
+ *   commissionId: number,
+ *   toStatus: string,
+ *   actor: import('./commissions.stateMachine.ts').Actor,
+ *   via?: import('./commissions.stateMachine.ts').TransitionFlow,
+ *   reason?: string,
+ *   metadata?: Record<string, unknown>,
+ *   extraChanges?: Record<string, unknown>,
+ * }} transition
+ * @param {{ client?: import('pg').PoolClient }} [options]
  */
 export async function applyTransition(
   { commissionId, toStatus, actor, via, reason, metadata, extraChanges = {} },

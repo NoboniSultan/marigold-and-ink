@@ -55,7 +55,7 @@ let app: ReturnType<typeof createApp>;
 beforeEach(async () => {
   await truncateAllTables();
   fake = fakeGoogle();
-  app = createApp({ adapters: { email: null, google: fake.google } });
+  app = createApp({ adapters: { email: null, google: fake.google, payments: null } });
 });
 
 /** Runs the browser's side of the flow: start, then Google redirects back to the callback. */
@@ -253,7 +253,7 @@ describe('Google sign-in', () => {
   });
 
   it('is off when Google is not configured', async () => {
-    const off = createApp({ adapters: { email: null, google: null } });
+    const off = createApp({ adapters: { email: null, google: null, payments: null } });
 
     const start = await request(off).get('/api/v1/auth/google/start');
     const providers = await request(off).get('/api/v1/auth/providers');

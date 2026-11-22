@@ -261,6 +261,10 @@ describe('Commission', () => {
     await user.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(await screen.findByRole('heading', { name: 'Request received' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View your request' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/commissions\/\d+$/),
+    );
     expect(calls.find((c) => c.method === 'POST')!.body).toEqual({
       medium: 'ink',
       size: 'A4',
