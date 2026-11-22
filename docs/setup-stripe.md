@@ -36,10 +36,14 @@ PUBLIC_URL=http://localhost:5173       # where Stripe sends the client back
 
 ```sh
 # Terminal 1: forward Stripe's webhooks straight to the API (port 3000)
-stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe
+stripe listen \
+  --events checkout.session.completed,checkout.session.expired,refund.created,refund.updated,refund.failed \
+  --forward-to localhost:3000/api/v1/webhooks/stripe
 ```
 
-It prints `Your webhook signing secret is whsec_…`. Put that in `.env` as `STRIPE_WEBHOOK_SECRET` (it stays the same between runs). Keep this terminal open.
+`--events` lists the five events the app handles (the same ones as the Render endpoint in step 6). Recent Stripe CLI versions refuse to start without it ("must specify events to forward").
+
+It prints `Your webhook signing secret is whsec_…`. Put that in `.env` as `STRIPE_WEBHOOK_SECRET` (it stays the same between runs), then start or restart the API, which reads `.env` only at startup. Keep this terminal open.
 
 ```sh
 # Terminal 2: the API          # Terminal 3: the site

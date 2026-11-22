@@ -196,8 +196,12 @@ Stripe can't reach `localhost`, so the [Stripe CLI](https://docs.stripe.com/stri
 
 ```sh
 stripe login
-stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe
+stripe listen \
+  --events checkout.session.completed,checkout.session.expired,refund.created,refund.updated,refund.failed \
+  --forward-to localhost:3000/api/v1/webhooks/stripe
 ```
+
+`--events` is required by recent Stripe CLI versions; these are the five events the app handles.
 
 Put the `whsec_…` it prints in `.env` as `STRIPE_WEBHOOK_SECRET`, along with a test `STRIPE_SECRET_KEY` (`sk_test_…`), `PAYMENT_CURRENCY`, and `PUBLIC_URL`, then pay with the test card `4242 4242 4242 4242`. [docs/setup-stripe.md](docs/setup-stripe.md) walks through a full test deposit, a replayed event (`stripe events resend evt_…`, which changes nothing), and a refund.
 
