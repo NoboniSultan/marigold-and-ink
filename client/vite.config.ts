@@ -29,5 +29,23 @@ export default defineConfig({
     setupFiles: ['src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     css: { modules: { classNameStrategy: 'non-scoped' } },
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/test/**',
+        'src/main.tsx', // entry point: only mounts <App />
+        'src/vite-env.d.ts',
+        // The 3D scene needs WebGL, which jsdom doesn't have; it's checked in a real browser
+        // (PR checklist). Its pure layout math (explore/layout.ts) is unit-tested.
+        'src/features/gallery/explore/ExploreCanvas.tsx',
+        'src/features/gallery/explore/ExploreScene.tsx',
+      ],
+      reporter: ['text', 'html', 'lcov'],
+      // `npm run test:coverage` (and therefore CI) fails if coverage drops below these: a
+      // floor just under what milestone 6 measured (91% lines, 80% branches).
+      thresholds: { lines: 88, statements: 85, functions: 78, branches: 76 },
+    },
   },
 });
