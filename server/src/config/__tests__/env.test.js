@@ -164,6 +164,7 @@ describe('loadConfig: Stripe payments', () => {
   });
 
   it('reads the keys and lowercases the currency', () => {
+    expect(loadConfig(stripeEnv).paymentCurrency).toBe('usd');
     expect(loadConfig(stripeEnv).stripe).toEqual({
       secretKey: 'sk_test_abc123',
       webhookSecret: 'whsec_abc123',
@@ -181,7 +182,10 @@ describe('loadConfig: Stripe payments', () => {
   );
 
   it('allows the currency alone (set in advance), but no partial Stripe setup', () => {
-    expect(loadConfig({ ...validEnv, PAYMENT_CURRENCY: 'usd' }).stripe).toBeNull();
+    expect(loadConfig({ ...validEnv, PAYMENT_CURRENCY: 'usd' })).toMatchObject({
+      stripe: null,
+      paymentCurrency: 'usd',
+    });
   });
 
   it('refuses part of the group, and payments without PUBLIC_URL', () => {

@@ -219,6 +219,8 @@ export function loadConfig(rawEnv) {
       }
       return transport === 'log' ? Object.freeze({ transport }) : null;
     })(),
+    // The shop's currency, known even before payments are switched on (to show prices).
+    paymentCurrency: e.PAYMENT_CURRENCY ?? null,
     // null = payments are off (payment routes answer 503 PAYMENTS_UNAVAILABLE).
     stripe: e.STRIPE_SECRET_KEY
       ? Object.freeze({

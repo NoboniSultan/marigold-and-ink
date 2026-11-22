@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
+import type { PaymentsMeta } from '@shared/types/payment.ts';
 import type { AppAdapters } from '../../adapters/index.ts';
 import { WebhookSignatureError } from '../../adapters/stripe/stripeGateway.ts';
 import { config } from '../../config/env.js';
@@ -26,9 +27,9 @@ export async function list(req: Request, res: Response) {
     data: payments,
     meta: {
       paymentsEnabled: gateway(req) !== null && config.stripe !== null,
-      currency: config.stripe?.currency ?? null,
+      currency: config.paymentCurrency,
     },
-  });
+  } satisfies { data: unknown[]; meta: PaymentsMeta });
 }
 
 /** POST /admin/commissions/:id/refunds */
