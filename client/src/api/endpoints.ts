@@ -2,7 +2,13 @@
 import type { AboutContent } from '@shared/types/about.ts';
 import type { ApiResponse, PaginatedResponse } from '@shared/types/api.ts';
 import type { Artwork, CategoryCount, Tag } from '@shared/types/artwork.ts';
-import type { Commission, CommissionOptions, CommissionRequest } from '@shared/types/commission.ts';
+import type {
+  Commission,
+  CommissionDetails,
+  CommissionOptions,
+  CommissionRequest,
+} from '@shared/types/commission.ts';
+import type { CheckoutStart, PaymentsResponse } from '@shared/types/payment.ts';
 import type {
   AuthProviders,
   LoginRequest,
@@ -63,4 +69,18 @@ export const commissionsApi = {
     data(request<ApiResponse<CommissionOptions>>('/pricing/options', { signal })),
   create: (body: CommissionRequest) =>
     data(request<ApiResponse<Commission>>('/commissions', { method: 'POST', body })),
+  get: (id: number, signal?: AbortSignal) =>
+    data(request<ApiResponse<CommissionDetails>>(`/commissions/${id}`, { signal })),
+};
+
+export const paymentsApi = {
+  list: (commissionId: number, signal?: AbortSignal) =>
+    request<PaymentsResponse>(`/commissions/${commissionId}/payments`, { signal }),
+  /** Returns Stripe's Checkout URL; the browser then goes there to pay. */
+  start: (commissionId: number, type: 'deposit' | 'final') =>
+    data(
+      request<ApiResponse<CheckoutStart>>(`/commissions/${commissionId}/payments/${type}`, {
+        method: 'POST',
+      }),
+    ),
 };

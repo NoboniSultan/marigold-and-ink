@@ -78,7 +78,8 @@ function CommissionForm({ options }: { options: CommissionOptions }) {
         </p>
         <p>The next step is a quote. Nothing is charged before you accept it.</p>
         <p>
-          <Link to="/gallery">Back to the gallery</Link>
+          <Link to={`/commissions/${created.id}`}>View your request</Link> or go{' '}
+          <Link to="/gallery">back to the gallery</Link>.
         </p>
       </div>
     );
