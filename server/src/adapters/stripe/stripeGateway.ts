@@ -174,15 +174,24 @@ async function callStripe<T>(what: string, call: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * `fetch` is only for tests: they pass one that records the request and answers like
+ * Stripe, so the real request building is checked without calling Stripe.
+ */
 export function createStripeGateway({
   secretKey,
   webhookSecret,
+  fetch,
 }: {
   secretKey: string;
   webhookSecret: string;
+  fetch?: typeof globalThis.fetch;
 }): PaymentGateway {
   // Retries are safe because every create call carries an idempotency key.
-  const stripe = new Stripe(secretKey, { maxNetworkRetries: 2 });
+  const stripe = new Stripe(secretKey, {
+    maxNetworkRetries: fetch ? 0 : 2,
+    ...(fetch ? { httpClient: Stripe.createFetchHttpClient(fetch) } : {}),
+  });
 
   return {
     async createCheckoutSession(request, { idempotencyKey }) {

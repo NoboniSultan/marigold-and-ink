@@ -30,6 +30,13 @@ export default defineConfig({
       // Test-only business values (deliberately unlike any real price policy).
       DEPOSIT_PERCENT: '40',
       COMMISSION_REVISION_LIMIT: '2',
+      // Payments switched on with dummy values. Payment tests pass a fake gateway
+      // (tests/helpers/stripe.ts), so nothing ever reaches Stripe; the webhook secret matches
+      // the one the helper signs with.
+      PUBLIC_URL: 'https://marigold.test',
+      STRIPE_SECRET_KEY: 'sk_test_never_used_in_tests',
+      STRIPE_WEBHOOK_SECRET: 'whsec_test_secret_for_tests',
+      PAYMENT_CURRENCY: 'usd',
       // Small fixture content and images (tests/fixtures), so tests never depend on the
       // owner's real photos. content.real.test.ts validates the real files separately.
       CONTENT_DIR: path.join(import.meta.dirname, 'tests/fixtures/content'),
@@ -46,8 +53,7 @@ export default defineConfig({
       exclude: ['src/server.js', 'src/db/migrate.js', 'src/db/seed.js', 'src/**/__tests__/**'],
       reporter: ['text', 'html', 'lcov'],
       // `npm run test:coverage` (and therefore CI) fails if coverage drops below these.
-      // Money-critical pure logic must be fully covered; payments and donations are
-      // added in milestones 7 and 8.
+      // Money-critical code must be fully covered (donations are added in milestone 8).
       thresholds: {
         lines: 90,
         branches: 85,
@@ -64,6 +70,19 @@ export default defineConfig({
           lines: 100,
         },
         'src/lib/money.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'src/modules/payments/payments.{service,webhooks,repository}.ts': {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        // Two defensive branches (a non-Error thrown by the SDK) aren't worth faking.
+        'src/adapters/stripe/stripeGateway.ts': {
+          statements: 100,
+          branches: 95,
+          functions: 100,
+          lines: 100,
+        },
       },
     },
   },
