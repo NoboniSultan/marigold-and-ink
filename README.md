@@ -139,7 +139,7 @@ npm run migrate:down -- all            # revert everything
 npm run migrate:create -- add-thing    # new timestamped .sql file to fill in
 ```
 
-The test database is migrated automatically before every test run.
+The test database is migrated automatically before every test run. Run one server test suite at a time: every test empties the shared test database first, so two runs at once (say, a watch session and a full run) wipe each other's data and fail at random. Within one run, test files already run one after another.
 
 The server validates its environment at startup. If a variable is missing or invalid, it lists every problem and exits instead of starting half-configured.
 
