@@ -177,6 +177,7 @@ npm run typecheck       # TypeScript (tsc, no output files)
 
 cd ../client
 npm test                # Vitest + Testing Library (page smoke tests, typewriter, 3D layout, API client)
+npm run test:coverage   # same, with coverage; HTML report in client/coverage/index.html
 npm run lint && npm run typecheck && npm run build
 ```
 

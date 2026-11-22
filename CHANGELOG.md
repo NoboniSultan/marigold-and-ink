@@ -21,6 +21,7 @@ No new features. A review of open TODOs, flaky tests, lint warnings, missing tes
 - **A failed logout** shows a message instead of failing silently; the button is disabled while it runs.
 - **`EMAIL_TRANSPORT=resend` now also requires `PUBLIC_URL`,** so emails never say "log in at /login".
 - **A Google callback with no sign-in in progress** no longer stores an empty session row.
+- **The header on phones** is one row again (73px instead of 163px). The "Commission a piece" button was meant to hide there, but the shared button style loaded later and overrode the rule.
 - **Accessibility:**
   - keyboard focus stays inside the artwork dialog;
   - the gallery search box and tag menu borders went from about 1.2:1 to about 6:1 contrast;
@@ -28,6 +29,7 @@ No new features. A review of open TODOs, flaky tests, lint warnings, missing tes
 
 ### Changed
 
+- **Client test coverage:** `npm run test:coverage` in `client/` (`@vitest/coverage-v8`), now run by CI. It measures 91% of lines and 80% of branches, with a floor of 88% / 76%. The WebGL scene is excluded (jsdom can't run it), but its layout math is tested.
 - **Code tidy-up:**
   - the commission event queries name their columns instead of using `SELECT *`;
   - removed two unused gallery repository functions, and type casts in the Google service (it never returns the password hash);
