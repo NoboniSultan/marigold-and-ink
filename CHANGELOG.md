@@ -5,6 +5,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-22 (Milestone 7: Stripe payments, test mode)
+
+### Added
+
+- **Stripe Checkout for the deposit and the balance:**
+  - `POST /commissions/:id/payments/deposit` (while `quoted`) and `.../final` (while `awaiting_final_payment`), for the commission's own client only;
+  - the amount always comes from the stored quote, never the request;
+  - a second click while the page is open gets the same page back;
+  - cards only, in USD (the owner's choice).
+- **The Stripe webhook** (`POST /webhooks/stripe`):
+  - raw body, signature checked, no session or Origin check;
+  - each event is handled once, in one transaction that first records its ID. A duplicate delivery does nothing, and a failure rolls back for Stripe to retry;
+  - a paid deposit moves the commission to `deposit_paid`. A paid balance moves it to `ready_to_ship` (physical, mixed media) or `delivered` (digital). An expired page is recorded;
+  - **a payment that arrives after the commission was cancelled is refunded automatically** (the owner's choice), and cancelling a quoted commission closes its open Stripe page.
+- **Refunds:**
+  - `POST /admin/commissions/:id/refunds`, full or partial, capped at what's left, with a required reason and the requesting admin recorded;
+  - refunds made in the Stripe Dashboard are recorded from the webhook;
+  - **the commission becomes `refunded` only once everything paid has been refunded** (the owner's choice). Partial refunds, and refunds after the final payment, move money only.
+- `GET /commissions/:id/payments`: the payment history (refund notes are admin-only), plus whether online payment is on and the currency.
+- **Stripe adapter** (`stripe` 23.1.0): the only code that imports the SDK. Every create call carries an idempotency key, and config refuses live keys.
+- **Site:** a commission page (`/commissions/:id`) with the status, details, price, payments, and a "Pay deposit" / "Pay balance" button. Back from Stripe, it confirms the payment (re-checking until the webhook arrives) or notes a cancel. The request form's confirmation links to it.
+- **Configuration:** `STRIPE_SECRET_KEY` (test keys only), `STRIPE_WEBHOOK_SECRET`, `PAYMENT_CURRENCY` (`usd` in `render.yaml`). Payments stay off until both secrets are set.
+- **Migration:** `payments.checkout_url`, `checkout_expires_at` (to reuse an open page), `reason`, and `requested_by_user_id` (for refunds), with constraints.
+- **Docs:** ADR 0011, `docs/setup-stripe.md` (a local test deposit with the Stripe CLI, and going live in test mode), and README sections for local webhook testing, the endpoints, and the error codes.
+- **Tests:** 69 new server tests (768 total) and 11 new client tests (65 total). They cover:
+  - valid and invalid signatures;
+  - **a replayed webhook with no extra effect**;
+  - the deposit and final payment flows;
+  - wrong-state payments (refused at checkout, auto-refunded by the webhook);
+  - a rollback when a step fails, followed by a successful retry;
+  - refunds: full, partial, pending then confirmed, failed, and from the Dashboard;
+  - the cancel hook.
+
+  The real adapter's requests (parameters and idempotency headers) are checked offline through the SDK's fetch client. The payments service, webhook handler, and repository have 100% coverage thresholds.
+
+### Changed
+
+- `applyTransition` has a JSDoc type, so TypeScript callers see which fields are optional.
+
 ## [0.7.1] - 2026-11-22 (Milestone 6: review and fixes)
 
 No new features. A review of open TODOs, flaky tests, lint warnings, missing tests and docs, plus a security, accessibility and code review; only the approved fixes were made.
