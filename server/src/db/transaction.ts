@@ -9,7 +9,7 @@ import { pool } from './pool.js';
  *
  * Usage:
  *   await withTransaction(async (client) => {
- *     await commissionsRepository.updateStatus(id, status, client);
+ *     await commissionsRepository.update(id, { status }, client);
  *     await commissionsRepository.insertEvent(event, client);
  *   });
  *
