@@ -192,16 +192,21 @@ describe('PATCH /commissions/:id/quote (admin adjustment)', () => {
     expect(res.body.error.code).toBe('QUOTE_NOT_EDITABLE');
   });
 
-  it('is admin only', async () => {
+  it('is admin only (403 for a client, 401 without a session)', async () => {
     const { agent, user } = await loggedInAgent(app);
     const commission = await inquiry({ clientId: user.id });
+    const body = { adjustedAmountCents: 1, adjustmentNote: 'cheap' };
 
-    const res = await adjust(agent, commission.id, {
-      adjustedAmountCents: 1,
-      adjustmentNote: 'cheap',
-    });
+    expect((await adjust(agent, commission.id, body)).status).toBe(403);
+    expect((await adjust(request(app), commission.id, body)).status).toBe(401);
+  });
 
-    expect(res.status).toBe(403);
+  it('returns 400 for a bad id', async () => {
+    const { agent } = await loggedInAgent(app, { role: 'admin' });
+
+    const res = await adjust(agent, 'abc', { adjustedAmountCents: 1, adjustmentNote: 'x' });
+
+    expect(res.status).toBe(400);
   });
 });
 
@@ -296,11 +301,18 @@ describe('POST /commissions/:id/quote/send', () => {
     expect(rows[0]).toEqual({ status: 'draft', sent_at: null }); // markSent was rolled back
   });
 
-  it('is admin only', async () => {
+  it('is admin only (403 for a client, 401 without a session)', async () => {
     const { agent, user } = await loggedInAgent(app);
     const commission = await inquiry({ clientId: user.id });
 
     expect((await send(agent, commission.id)).status).toBe(403);
+    expect((await send(request(app), commission.id)).status).toBe(401);
+  });
+
+  it('returns 400 for a bad id', async () => {
+    const { agent } = await loggedInAgent(app, { role: 'admin' });
+
+    expect((await send(agent, 'abc')).status).toBe(400);
   });
 });
 
@@ -335,5 +347,14 @@ describe('GET /commissions/:id/quote', () => {
 
     expect((await agent.get(quoteUrl(other.id))).status).toBe(403);
     expect((await request(app).get(quoteUrl(other.id))).status).toBe(401);
+  });
+
+  it('returns 400 for a bad id', async () => {
+    const { agent } = await loggedInAgent(app);
+
+    const res = await agent.get(quoteUrl('abc'));
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
