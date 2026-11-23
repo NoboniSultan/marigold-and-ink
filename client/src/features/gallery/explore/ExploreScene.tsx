@@ -3,13 +3,14 @@
  * Scrolling, dragging, or the arrow keys set a target angle; every frame the cylinder eases
  * (lerps) toward it, so movement stays smooth however jerky the input is.
  */
-import { Suspense, useRef, useState, type RefObject } from 'react';
+import { Suspense, useMemo, useRef, useState, type RefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import { DepthOfField, EffectComposer } from '@react-three/postprocessing';
 import { MathUtils, SRGBColorSpace, type Group, type Mesh, type MeshBasicMaterial } from 'three';
 import type { Artwork } from '@shared/types/artwork.ts';
 import { layoutSlots } from './layout.ts';
+import { mixTones } from '../mixTones.ts';
 
 export const RADIUS = 5;
 const ROW_HEIGHT = 2.3;
@@ -119,8 +120,10 @@ export function ExploreScene({ artworks, onOpen, targetRotation }: SceneProps) {
     );
   });
 
-  // Two staggered rows around the full circle (see layout.ts for how pieces are placed).
-  const { perRow, slots } = layoutSlots(artworks.length);
+  // Black-and-white and coloured pieces mixed, then two staggered rows around the full
+  // circle (see layout.ts for how pieces are placed).
+  const ordered = useMemo(() => mixTones(artworks, (a) => a.image.monochrome), [artworks]);
+  const { perRow, slots } = layoutSlots(ordered.length);
   const step = (Math.PI * 2) / perRow;
   const maxWidth = step * RADIUS * 0.82;
 
@@ -131,7 +134,7 @@ export function ExploreScene({ artworks, onOpen, targetRotation }: SceneProps) {
           return (
             <Suspense key={`${row}-${column}`} fallback={null}>
               <Card
-                artwork={artworks[artwork]!}
+                artwork={ordered[artwork]!}
                 angle={column * step + (row ? step / 2 : 0)}
                 y={row ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2}
                 maxWidth={maxWidth}

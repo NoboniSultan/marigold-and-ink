@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useState, type CSSProperties } from 'react';
 import { motion } from 'motion/react';
 import type { Artwork } from '@shared/types/artwork.ts';
 import { useArtworks, useCategories, useTags } from '../../api/queries.ts';
@@ -137,7 +137,16 @@ export function GalleryGrid({ filters, onFiltersChange, onOpen, openSlug }: Prop
       ) : (
         <ul className={styles.grid} aria-busy={artworks.isPlaceholderData}>
           {artworks.data.data.map((artwork) => (
-            <li key={artwork.id}>
+            <li
+              key={artwork.id}
+              className={styles.item}
+              // The image's own shape sets the card's width share (see .item in the CSS).
+              style={
+                {
+                  '--ratio': artwork.image.thumb.width / artwork.image.thumb.height,
+                } as CSSProperties
+              }
+            >
               <button
                 type="button"
                 className={styles.card}

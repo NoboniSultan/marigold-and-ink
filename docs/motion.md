@@ -45,7 +45,7 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 
 `features/home/FeaturedCarousel.tsx`
 
-- The first 5 published artworks. **No autoplay:** visitors move it with the arrows, the arrow keys, or a swipe (drag past 60px).
+- 5 published artworks: the first five once black-and-white and coloured pieces are mixed (`features/gallery/mixTones.ts`), since the gallery's own order puts black and white first. Up to 84% of the window's height on desktop (max 56rem). **No autoplay:** visitors move it with the arrows, the arrow keys, or a swipe (drag past 60px).
 - **Three layers per slide**, with these timings:
 
   | Layer | Arriving | Leaving |
@@ -74,6 +74,7 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 - **Closing:** the close button, **Escape**, or a click on the backdrop. The page behind can't scroll (`useScrollLock`).
 - **In the URL:** `?art=slug`, so a view can be shared and Back closes it.
 - **Hover:** the card image scales 1.03.
+- **Layout (milestone 7e):** justified rows. Each image is shown whole at its own proportions (never cropped), and every row fills the width: a card's flex basis is its ratio × the row height (11rem on phones, 14rem, then 17rem), and it grows by its ratio, so a row's images share one height. Reading order stays left to right, so black-and-white pieces, which come first, read first.
 - **Reduced motion:** no morph (no `layoutId`); the overlay fades.
 
 ### Gallery: Explore mode (3D)
@@ -82,7 +83,8 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 
 - **The room:** artworks on the inside of a cylinder (radius 5), facing the camera at its center, in two staggered rows.
   - A small collection repeats around the room (at least 9 per row); copies of a piece sit evenly apart and never side by side.
-  - Each card keeps its artwork's proportions.
+  - Each card shows its whole image at its own proportions (never cropped).
+  - **Mixed tones (milestone 7e):** black-and-white and coloured pieces are spread evenly through each other (`features/gallery/mixTones.ts`), so neither kind bunches up.
 - **Turning:** the wheel (captured over the scene only), dragging, or the arrow keys set a target angle. Every frame, `useFrame` eases the cylinder toward it with frame-rate-independent lerp (`1 − e^(−6·Δt)`).
 - **Hover:** a card scales to 1.08, brightens, and tilts toward the cursor, all eased per frame.
 - **Click:** a card opens the same detail overlay as Grid mode.

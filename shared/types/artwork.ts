@@ -34,6 +34,8 @@ export interface Artwork {
     /** Up to 2000px on the long edge: detail view, srcset. */
     large: ImageVariant;
     alt: string;
+    /** Black and white: first in the grid, mixed with coloured pieces in 3D. */
+    monochrome: boolean;
   };
   tags: Tag[];
 }

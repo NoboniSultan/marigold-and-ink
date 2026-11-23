@@ -72,7 +72,8 @@ describe('Home', () => {
 
     const carousel = await screen.findByRole('region', { name: 'Featured work' });
     expect(await within(carousel).findByRole('heading', { name: 'Embrace' })).toBeInTheDocument();
-    expect(calls.find((c) => c.path === '/artworks')!.params.get('pageSize')).toBe('5');
+    // The whole gallery, so black-and-white and coloured pieces can be mixed (mixTones).
+    expect(calls.find((c) => c.path === '/artworks')!.params.get('pageSize')).toBe('100');
 
     await user.click(within(carousel).getByRole('button', { name: 'Next piece' }));
     expect(await within(carousel).findByRole('heading', { name: 'Fawn' })).toBeInTheDocument();
@@ -212,9 +213,11 @@ describe('About', () => {
     renderRoute('/about');
 
     expect(await screen.findByText('Second paragraph.')).toBeInTheDocument();
+    // The opening subheading becomes the page title, replacing "About".
     expect(
-      screen.getByRole('heading', { level: 2, name: 'A little about me' }),
+      screen.getByRole('heading', { level: 1, name: 'A little about me' }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'About' })).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'The artist with flowers' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'At the painted bench' })).toBeInTheDocument();
   });

@@ -27,6 +27,8 @@ const manifestImageSchema = z.object({
   source: z.string().min(1),
   /** SHA-256 of the original, so unchanged photos are skipped on the next run. */
   sourceHash: z.string().regex(/^[0-9a-f]{64}$/),
+  /** Measured by `npm run media`: almost no strongly coloured pixels (black and white). */
+  monochrome: z.boolean().optional(),
   thumb: imageVariantSchema,
   large: imageVariantSchema,
 });

@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import {
   SETTINGS,
   imageKeyFor,
+  isMonochrome,
   listSources,
   processCollection,
   removeStaleFiles,
@@ -96,6 +97,47 @@ describe('renderVariants', () => {
   });
 });
 
+describe('isMonochrome', () => {
+  /** A drawing: background colour plus a dark area covering `inkShare` of the image. */
+  async function drawing(background: string, ink: string, inkShare = 0.3) {
+    const size = 100;
+    const inkHeight = Math.round(size * inkShare);
+    return sharp({ create: { width: size, height: size, channels: 3, background } })
+      .composite([
+        {
+          input: await sharp({
+            create: { width: size, height: inkHeight, channels: 3, background: ink },
+          })
+            .png()
+            .toBuffer(),
+          top: 0,
+          left: 0,
+        },
+      ])
+      .png()
+      .toBuffer();
+  }
+
+  it('calls pencil on white, and ink on cream or toned paper, black and white', async () => {
+    expect(await isMonochrome(await drawing('#ffffff', '#222222'))).toBe(true);
+    expect(await isMonochrome(await drawing('#f3ead8', '#1a1a1a'))).toBe(true);
+    expect(await isMonochrome(await drawing('#d8c3a5', '#3b2a1a'))).toBe(true);
+  });
+
+  it('calls strongly tinted paper colour (the content file can override it)', async () => {
+    expect(await isMonochrome(await drawing('#c9a77c', '#3b2a1a'))).toBe(false);
+  });
+
+  it('calls a painted piece colour, even when most of it is white', async () => {
+    expect(await isMonochrome(await drawing('#ffffff', '#1d4fd8', 0.1))).toBe(false);
+    expect(await isMonochrome(await drawing('#ff965b', '#2a7a3b'))).toBe(false);
+  });
+
+  it('allows a speck of colour (a signature, a stamp)', async () => {
+    expect(await isMonochrome(await drawing('#ffffff', '#d62828', 0.01))).toBe(true);
+  });
+});
+
 describe('imageKeyFor', () => {
   it.each([
     ['IMG_0177.heic', 'img-0177'],
@@ -137,6 +179,7 @@ describe('processCollection', () => {
     expect(result.processed).toEqual(['fawn']);
     const entry = result.images.fawn!;
     expect(entry.source).toBe('Fawn.jpg');
+    expect(entry.monochrome).toBe(true); // a plain dark Ink-coloured photo
     expect(entry.thumb.src).toMatch(/^\/media\/artworks\/fawn\.thumb\.[0-9a-f]{8}\.webp$/);
     expect(entry.large.src).toMatch(/^\/media\/artworks\/fawn\.large\.[0-9a-f]{8}\.webp$/);
     expect((await readdir(path.join(mediaDir, 'artworks'))).sort()).toEqual(
@@ -154,6 +197,17 @@ describe('processCollection', () => {
 
     const forced = await run(first.images, true);
     expect(forced.processed).toEqual(['fawn']);
+  });
+
+  it('measures black and white for an unchanged image from before 7e, from its thumbnail', async () => {
+    await phonePhoto(path.join(sourceDir, 'fawn.jpg'), { orientation: 1 });
+    const first = await run();
+    const { monochrome: _measured, ...old } = first.images.fawn!;
+
+    const second = await run({ fawn: old });
+
+    expect(second.unchanged).toEqual(['fawn']);
+    expect(second.images.fawn).toEqual(first.images.fawn);
   });
 
   it('reprocesses an original whose content changed', async () => {

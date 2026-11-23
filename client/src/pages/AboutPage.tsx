@@ -12,6 +12,12 @@ export function AboutPage() {
   if (isPending) return <Loading label="Loading" />;
   if (isError) return <ErrorMessage message="This page couldn't load." onRetry={() => refetch()} />;
 
+  // The bio's opening subheading ("A little about me") is the page's title; without one,
+  // the page is simply "About".
+  const [first, ...rest] = about.bio;
+  const title = first && typeof first !== 'string' ? first.heading : 'About';
+  const blocks = first && typeof first !== 'string' ? rest : about.bio;
+
   return (
     <article className={styles.page}>
       <div className={styles.intro}>
@@ -24,8 +30,8 @@ export function AboutPage() {
           />
         </InkReveal>
         <div className={styles.bio}>
-          <h1>About</h1>
-          {about.bio.map((block, i) =>
+          <h1>{title}</h1>
+          {blocks.map((block, i) =>
             typeof block === 'string' ? <p key={i}>{block}</p> : <h2 key={i}>{block.heading}</h2>,
           )}
         </div>

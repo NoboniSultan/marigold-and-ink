@@ -1,17 +1,18 @@
 /**
- * Site text the owner writes. Everything starting with "PLACEHOLDER" is waiting for real
- * copy; replace the text and keep the structure. (Gallery and About content come from the
+ * Site text. Everything starting with "PLACEHOLDER" is waiting for the owner's copy; replace
+ * the text and keep the structure. The hero lines and button were written in milestone 7e,
+ * at the owner's request, from their About text. (Gallery and About content come from the
  * API, i.e. content/artworks.json and content/about.json.)
  */
 export const COPY = {
   /** The Home hero types each line, pauses, erases it, and types the next (2–4 short lines). */
   heroLines: [
-    'PLACEHOLDER: first typewriter line',
-    'PLACEHOLDER: second line',
-    'PLACEHOLDER: third line',
+    'Art you can hold onto.',
+    'Charcoal, ink, acrylic, and clay.',
+    'Every commission plants trees.',
   ],
   /** The main call-to-action button (Home and header). */
-  primaryCta: 'PLACEHOLDER: Commission a piece',
+  primaryCta: 'Commission a piece',
   /** One line in the footer about the share of every order that goes to charity. */
   charityLine: 'With every commission, 25% goes toward planting trees.',
   /**

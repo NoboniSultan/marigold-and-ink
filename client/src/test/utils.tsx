@@ -81,6 +81,7 @@ export function artwork(overrides: Partial<Artwork> & { slug: string; title: str
       thumb: variant(overrides.slug, 'thumb'),
       large: variant(overrides.slug, 'large'),
       alt: `${overrides.title}, ink`,
+      monochrome: false,
     },
     ...overrides,
   };
