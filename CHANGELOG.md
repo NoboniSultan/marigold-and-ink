@@ -9,20 +9,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ### Changed
 
-- **Explore is now a 3D sketchbook** (owner feedback: the cylinder room was overstimulating):
-  - an open book on a quiet desk, one artwork per spread: the piece on the right page, whole and at its own proportions, and its caption (title, medium and year, credit, "3 / 37") on the left;
-  - pages turn over the spine with a soft curl and shading (0.9 s, ease-in-out), one page at a time: one scroll gesture, a sideways swipe or drag, the arrow keys, or the buttons below the book, which show the title and "N of 37";
-  - clicking the open page opens the same detail overlay as Grid; at the first or last page, scrolling carries on down the page;
-  - phones frame the right-hand page, so one piece fills the stage;
-  - only pages near the open spread get textures; reduced motion changes pages without turning.
-- `@react-three/drei` and `@react-three/postprocessing` are no longer needed and were removed; the Explore chunk is about 248 KB gzipped (was about 285 KB).
-- **Owner feedback on the first sketchbook:**
-  - **less tilt** (0.45 → 0.3 rad);
-  - **paper-like pages:** each page is a strip of springs, so the edge lifts first, trails through the turn, and floats down; **dragging holds the page**, which follows the finger and carries on over (or falls back) when let go;
-  - **the book opens** every time Explore does: closed cover ("Marigold & Ink"), then the cover swings open as the book glides to the middle;
-  - **the owner's picks only:** a new `"sketchbook": false` in `content/artworks.json` (migration: `artworks.in_sketchbook`, default true; API: `inSketchbook`) leaves 19 pieces out of the book, which now holds 18. They're all still in the grid.
+- **Home's featured work is now a 3D sketchbook**, replacing the slideshow (it first replaced the gallery's overstimulating cylinder room, then moved to Home at the owner's request):
+  - a book on a quiet desk that **opens every time Home loads**: a closed Ink cover with the **Marigold & Ink logo** and name, then the cover swings over the spine as the book glides to the middle;
+  - one artwork per spread: the piece on the right page, whole and at its own proportions, and its caption (title, medium and year, credit, "3 / 18") on the left; seen at a gentle angle (0.3 rad);
+  - **pages move like paper:** each page is a strip of springs, so the edge lifts first, trails through the turn, and floats down. **Dragging holds the page**: it follows the finger and carries on over (or falls back) when let go. Sideways trackpad swipes, the arrow keys, and the buttons below the book (title and "N of 18") turn one page at a time;
+  - **vertical scrolling is never captured**, so the book doesn't trap anyone scrolling down Home;
+  - clicking the open page goes to that piece's page in the gallery;
+  - phones frame the right-hand page; without WebGL the same controls show the piece flat; reduced motion starts open and changes pages without turning;
+  - only pages near the open spread get textures, and the book (three.js) loads after the rest of Home, about 248 KB gzipped.
+- **The owner chooses what's in the book:** `"sketchbook": false` in `content/artworks.json` leaves a piece out (migration: `artworks.in_sketchbook`, default true; API: `inSketchbook`). 19 pieces are left out, so the book holds 18; every piece is still in the gallery.
+- **The gallery is grid-only:** the Grid / Explore toggle and `?mode` are gone.
 - **Pet Portrait 2 is now "Benito"** (owner's title), at `/gallery/benito`.
-- **Tests:** 21 client tests for the sketchbook (the paper model never passes through the book or stretches, the edge leads then trails, turns settle; turn and opening timing; dragging and release; one page per scroll gesture), replacing the cylinder's layout tests (101 client tests in all); 2 server tests for `sketchbook` in the content file and `inSketchbook` in the API (853 server tests in all).
+
+### Removed
+
+- The Home slideshow (`FeaturedCarousel`) and the gallery's 3D cylinder, with `@react-three/drei` and `@react-three/postprocessing`.
+
+### Added
+
+- **Tests:** 21 client tests for the sketchbook's arithmetic (the paper model never passes through the book or stretches, the edge leads then trails, turns settle; turn and opening timing; dragging and release; one page per swipe) and 2 Home page tests for the book's picks, controls, keys, and opening a piece, drawn flat as without WebGL (102 client tests in all), and 2 server tests for `sketchbook` in the content file and `inSketchbook` in the API (853 server tests in all).
 
 ## [0.9.0] - 2026-11-23 (Milestone 8: giving through Digital Humani)
 

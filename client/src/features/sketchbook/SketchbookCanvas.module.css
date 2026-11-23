@@ -1,4 +1,4 @@
-.explore {
+.sketchbook {
   position: relative;
   display: grid;
   gap: var(--space-4);
@@ -17,6 +17,25 @@
 
 .stage:active {
   cursor: grabbing;
+}
+
+/* Without WebGL: the open piece, flat on the desk. */
+.flat {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-8);
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.flat img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-ink) 22%, transparent);
 }
 
 .stage:focus-visible {

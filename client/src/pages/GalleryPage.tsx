@@ -1,19 +1,12 @@
-import { lazy, Suspense, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { AnimatePresence, LayoutGroup } from 'motion/react';
 import type { Artwork } from '@shared/types/artwork.ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, useArtwork } from '../api/queries.ts';
-import { Loading } from '../components/Loading.tsx';
-import { useMediaQuery, usePrefersReducedMotion } from '../hooks/useMediaQuery.ts';
 import { ArtworkOverlay } from '../features/gallery/ArtworkOverlay.tsx';
 import { GalleryGrid, type GridFilters } from '../features/gallery/GalleryGrid.tsx';
 import styles from './GalleryPage.module.css';
-
-// Code-split: three.js and the 3D scene download only when Explore is opened.
-const ExploreCanvas = lazy(() => import('../features/gallery/explore/ExploreCanvas.tsx'));
-
-type Mode = 'grid' | 'explore';
 
 /** Opens the overlay for a direct link (?art=slug) when the card isn't on screen. */
 function LinkedOverlay({ slug, onClose }: { slug: string; onClose: () => void }) {
@@ -22,23 +15,11 @@ function LinkedOverlay({ slug, onClose }: { slug: string; onClose: () => void })
 }
 
 /**
- * Everything on this page lives in the URL (?mode, ?category, ?tag, ?q, ?page, ?art), so
+ * Everything on this page lives in the URL (?category, ?tag, ?q, ?page, ?art), so
  * filtered views and open artworks can be shared, and Back closes the overlay.
  */
 export function GalleryPage() {
   const [params, setParams] = useSearchParams();
-  const isWide = useMediaQuery('(min-width: 64rem)');
-  const reduceMotion = usePrefersReducedMotion();
-
-  // Explore is the default only on wide screens without reduced motion.
-  const requested = params.get('mode');
-  const mode: Mode =
-    requested === 'grid' || requested === 'explore'
-      ? requested
-      : isWide && !reduceMotion
-        ? 'explore'
-        : 'grid';
-
   const filters: GridFilters = useMemo(
     () => ({
       category: params.get('category') ?? undefined,
@@ -90,39 +71,15 @@ export function GalleryPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.heading}>
-        <h1>Gallery</h1>
-        <div className={styles.modes} role="group" aria-label="View">
-          <button
-            type="button"
-            aria-pressed={mode === 'grid'}
-            onClick={() => update({ mode: 'grid' })}
-          >
-            Grid
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === 'explore'}
-            onClick={() => update({ mode: 'explore' })}
-          >
-            Explore
-          </button>
-        </div>
-      </div>
+      <h1 className={styles.heading}>Gallery</h1>
 
       <LayoutGroup>
-        {mode === 'grid' ? (
-          <GalleryGrid
-            filters={filters}
-            onFiltersChange={onFiltersChange}
-            onOpen={open}
-            openSlug={openSlug}
-          />
-        ) : (
-          <Suspense fallback={<Loading label="Loading the 3D gallery" />}>
-            <ExploreCanvas onOpen={open} />
-          </Suspense>
-        )}
+        <GalleryGrid
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          onOpen={open}
+          openSlug={openSlug}
+        />
 
         <AnimatePresence>
           {openSlug && <LinkedOverlay key={openSlug} slug={openSlug} onClose={close} />}

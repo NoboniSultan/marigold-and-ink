@@ -28,6 +28,11 @@ if (!window.matchMedia) {
     }) as MediaQueryList;
 }
 
+// jsdom has no canvas: answer "no context" quietly (as a browser without WebGL would), so
+// the sketchbook draws flat instead of jsdom logging "not implemented" for each check.
+HTMLCanvasElement.prototype.getContext = (() =>
+  null) as typeof HTMLCanvasElement.prototype.getContext;
+
 if (!('IntersectionObserver' in window)) {
   class NoopIntersectionObserver {
     observe() {}

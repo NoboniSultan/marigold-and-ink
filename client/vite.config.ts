@@ -37,11 +37,11 @@ export default defineConfig({
         'src/test/**',
         'src/main.tsx', // entry point: only mounts <App />
         'src/vite-env.d.ts',
-        // The 3D sketchbook needs WebGL and a 2D canvas, which jsdom doesn't have; it's checked
-        // in a real browser (PR checklist). Its arithmetic (explore/sketchbook.ts) is unit-tested.
-        'src/features/gallery/explore/ExploreCanvas.tsx',
-        'src/features/gallery/explore/Sketchbook.tsx',
-        'src/features/gallery/explore/pageTextures.ts',
+        // The 3D book needs WebGL and a 2D canvas, which jsdom doesn't have; it's checked in a
+        // real browser (PR checklist). Its arithmetic (sketchbook/sketchbook.ts) is unit-tested,
+        // and its controls (SketchbookCanvas.tsx) through Home's page tests, drawn flat.
+        'src/features/sketchbook/Sketchbook.tsx',
+        'src/features/sketchbook/pageTextures.ts',
       ],
       reporter: ['text', 'html', 'lcov'],
       // `npm run test:coverage` (and therefore CI) fails if coverage drops below these: a

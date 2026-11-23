@@ -1,7 +1,7 @@
 /**
  * Page smoke tests through the real routes, with a fake API. Animations are skipped
- * (MotionGlobalConfig), and matchMedia reports a narrow screen, so the gallery uses Grid.
- * The 3D Explore mode needs WebGL and is covered by the manual checklist in the PR.
+ * (MotionGlobalConfig). jsdom has no WebGL, so Home's sketchbook is drawn flat (the same
+ * controls, the open piece as an image); the 3D book is covered by the PR's manual checklist.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -66,35 +66,53 @@ describe('Home', () => {
     expect(screen.getAllByRole('link', { name: COPY.primaryCta }).length).toBeGreaterThan(0);
   });
 
-  it('steps through featured artworks with the arrows and the keyboard, wrapping around', async () => {
-    const calls = api();
+  it("pages through the owner's sketchbook picks, and opens a piece on its gallery page", async () => {
+    // Fawn isn't in the sketchbook; the others are (black-and-white and colour mixed).
+    const picks = ARTWORKS.map((a) => (a.slug === 'fawn' ? { ...a, inSketchbook: false } : a));
+    const calls = api({
+      extra: (call) => (call.path === '/artworks' ? page(picks) : undefined),
+    });
     const user = userEvent.setup();
-    renderRoute('/');
+    const { router } = renderRoute('/');
 
-    const carousel = await screen.findByRole('region', { name: 'Featured work' });
-    expect(await within(carousel).findByRole('heading', { name: 'Embrace' })).toBeInTheDocument();
-    // The whole gallery, so black-and-white and coloured pieces can be mixed (mixTones).
+    const book = await screen.findByRole('region', { name: 'Featured work' });
+    expect(await within(book).findByText('Embrace')).toBeInTheDocument();
+    // The whole gallery, so the picks can be found and mixed.
     expect(calls.find((c) => c.path === '/artworks')!.params.get('pageSize')).toBe('100');
+    expect(within(book).getByText('1 of 2')).toBeInTheDocument();
+    expect(within(book).getByRole('button', { name: 'Previous page' })).toBeDisabled();
 
-    await user.click(within(carousel).getByRole('button', { name: 'Next piece' }));
-    expect(await within(carousel).findByRole('heading', { name: 'Fawn' })).toBeInTheDocument();
+    await user.click(within(book).getByRole('button', { name: 'Next page' }));
+    expect(within(book).getByText('Starry Night')).toBeInTheDocument();
+    expect(within(book).getByText('2 of 2')).toBeInTheDocument();
+    expect(within(book).getByRole('button', { name: 'Next page' })).toBeDisabled();
 
-    await user.click(within(carousel).getByRole('button', { name: 'Previous piece' }));
-    await user.click(within(carousel).getByRole('button', { name: 'Previous piece' }));
-    expect(
-      await within(carousel).findByRole('heading', { name: 'Starry Night' }),
-    ).toBeInTheDocument();
-    expect(within(carousel).getByText('3 of 3: Starry Night')).toBeInTheDocument();
+    // The arrow keys turn pages too, and Enter opens the open piece.
+    const stage = within(book).getByRole('application');
+    stage.focus();
+    await user.keyboard('{ArrowLeft}');
+    expect(within(book).getByText('1 of 2')).toBeInTheDocument();
+    await user.keyboard('{Enter}');
+    expect(router.state.location.pathname).toBe('/gallery/embrace');
+  });
+
+  it('opens the piece on the open page when clicked', async () => {
+    api();
+    const { router } = renderRoute('/');
+
+    const book = await screen.findByRole('region', { name: 'Featured work' });
+    await userEvent.click(await within(book).findByRole('img', { name: /Embrace/ }));
+    expect(router.state.location.pathname).toBe('/gallery/embrace');
   });
 });
 
 describe('Gallery', () => {
-  it('lists artworks in Grid mode on small screens', async () => {
+  it('lists artworks in a grid, with no other view to switch to', async () => {
     api();
     renderRoute('/gallery');
 
     expect(await screen.findByRole('button', { name: 'Open Embrace' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Explore' })).not.toBeInTheDocument();
   });
 
   it('filters by category through the API', async () => {
@@ -150,7 +168,7 @@ describe('Gallery', () => {
   it('keeps keyboard focus inside the open dialog, both directions', async () => {
     api();
     const user = userEvent.setup();
-    renderRoute('/gallery?mode=grid&art=fawn');
+    renderRoute('/gallery?art=fawn');
 
     const dialog = await screen.findByRole('dialog', { name: 'Fawn' });
     const close = within(dialog).getByRole('button', { name: 'Close' });
@@ -169,7 +187,7 @@ describe('Gallery', () => {
 
   it('opens the dialog from a shared link (?art=)', async () => {
     api();
-    renderRoute('/gallery?mode=grid&art=fawn');
+    renderRoute('/gallery?art=fawn');
 
     expect(await screen.findByRole('dialog', { name: 'Fawn' })).toBeInTheDocument();
   });

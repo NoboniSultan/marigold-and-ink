@@ -1,20 +1,25 @@
 /**
- * Explore mode: the gallery as a 3D sketchbook to page through, one artwork at a time.
- * This file (and three.js with it) is loaded only when someone opens Explore: GalleryPage
- * imports it with React.lazy, so the grid and every other page never download the 3D code.
+ * The sketchbook on the Home page: the owner's chosen pieces (`inSketchbook`) as a 3D book
+ * to page through, one artwork at a time. This file (and three.js with it) is loaded on
+ * demand: Home imports it with React.lazy, so the main bundle doesn't carry the 3D code.
  *
- * It owns the open spread and the input: a scroll gesture, the arrow keys, or the buttons
- * each turn one page; a sideways drag or swipe lifts the page itself, which follows the
- * finger and carries on over (or falls back) when let go. Clicking the open page's artwork
- * opens it. The book shows the pieces the owner chose for it (`inSketchbook`).
+ * It owns the open spread and the input: a sideways trackpad swipe, the arrow keys, or the
+ * buttons each turn one page; a drag or touch swipe lifts the page itself, which follows
+ * the finger and carries on over (or falls back) when let go. Vertical scrolling is left
+ * alone, so the book never traps someone scrolling down the Home page. Clicking the open
+ * page's artwork opens it.
+ *
+ * Without WebGL (old devices, some privacy settings, and jsdom in tests) the same book is
+ * shown flat: the open piece as an image, with the same controls.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { Artwork } from '@shared/types/artwork.ts';
-import { useArtworks } from '../../../api/queries.ts';
-import { ErrorMessage, Loading } from '../../../components/Loading.tsx';
-import { usePrefersReducedMotion } from '../../../hooks/useMediaQuery.ts';
-import { mixTones } from '../mixTones.ts';
+import { useArtworks } from '../../api/queries.ts';
+import { ArtworkImage } from '../../components/ArtworkImage.tsx';
+import { ErrorMessage, Loading } from '../../components/Loading.tsx';
+import { usePrefersReducedMotion } from '../../hooks/useMediaQuery.ts';
+import { mixTones } from './mixTones.ts';
 import { Sketchbook } from './Sketchbook.tsx';
 import {
   DRAG_START,
@@ -25,11 +30,22 @@ import {
   wheelStep,
   type DragTurn,
 } from './sketchbook.ts';
-import styles from './ExploreCanvas.module.css';
+import styles from './SketchbookCanvas.module.css';
 
-export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) => void }) {
+/** Can this browser draw 3D? Asked once: a WebGL context is costly to create. */
+function supportsWebGL(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return Boolean(canvas.getContext('webgl2') ?? canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork) => void }) {
   const { data, isPending, isError, refetch } = useArtworks({ pageSize: 100 });
   const reduceMotion = usePrefersReducedMotion();
+  const [webgl] = useState(supportsWebGL);
   // The owner's picks for the book, black-and-white and coloured alternating so neither
   // kind bunches up.
   const artworks = useMemo(
@@ -47,9 +63,10 @@ export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) =
   const count = artworks.length;
   const turn = (step: number) => setSpread((current) => clampSpread(current + step, count));
 
-  // Scrolling over the book turns pages instead of scrolling the page, except at either
-  // end, where the scroll carries on down (or up) the page. React's onWheel is passive
-  // (it can't preventDefault), so a native listener is attached once the book exists.
+  // A sideways trackpad swipe turns a page (one per swipe); vertical scrolling scrolls the
+  // Home page as usual, and so does a sideways swipe at either end of the book. React's
+  // onWheel is passive (it can't preventDefault), so a native listener is attached once
+  // the book exists.
   const stage = useRef<HTMLDivElement>(null);
   const spreadRef = useRef(spread);
   useEffect(() => {
@@ -61,7 +78,8 @@ export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) =
     if (!ready || !element) return;
     let state = initialWheelState;
     const onWheel = (event: WheelEvent) => {
-      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return; // scrolling the page
+      const delta = event.deltaX;
       const atStart = spreadRef.current === 0 && delta < 0;
       const atEnd = spreadRef.current >= count - 1 && delta > 0;
       if (atStart || atEnd) return;
@@ -107,22 +125,22 @@ export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) =
     }
   }
 
-  if (isPending) return <Loading label="Loading artworks" />;
+  if (isPending) return <Loading label="Loading featured work" />;
   if (isError)
-    return <ErrorMessage message="The gallery couldn't load." onRetry={() => refetch()} />;
-  if (count === 0) return <p>No artworks in the sketchbook yet.</p>;
+    return <ErrorMessage message="Featured work couldn't load." onRetry={() => refetch()} />;
+  if (count === 0) return null; // nothing chosen for the book: Home shows just the hero
 
   const current = artworks[spread]!;
 
   return (
-    <div className={styles.explore}>
+    <div className={styles.sketchbook}>
       <div
         ref={stage}
         className={styles.stage}
         tabIndex={0}
         role="application"
         aria-roledescription="3D sketchbook"
-        aria-label="Explore the gallery as a sketchbook. Use the left and right arrow keys to turn the page, and Enter to open the artwork."
+        aria-label="A sketchbook of artworks. Use the left and right arrow keys to turn the page, and Enter to open the artwork."
         onKeyDown={(event) => {
           if (event.key === 'Enter') onOpen(current);
           else onKeyDown(event);
@@ -163,18 +181,25 @@ export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) =
         onPointerLeave={letGo}
         onPointerCancel={letGo /* the browser took the gesture over, e.g. to scroll the page */}
       >
-        <Canvas camera={{ fov: 32, near: 0.1, far: 40 }} dpr={[1, 2]} flat>
-          <Sketchbook
-            artworks={artworks}
-            spread={spread}
-            instant={reduceMotion}
-            dragTurn={dragTurn}
-            onOpen={onOpen}
-          />
-        </Canvas>
+        {webgl ? (
+          <Canvas camera={{ fov: 32, near: 0.1, far: 40 }} dpr={[1, 2]} flat>
+            <Sketchbook
+              artworks={artworks}
+              spread={spread}
+              instant={reduceMotion}
+              dragTurn={dragTurn}
+              onOpen={onOpen}
+            />
+          </Canvas>
+        ) : (
+          // No 3D: the open page, flat.
+          <button type="button" className={styles.flat} onClick={() => onOpen(current)}>
+            <ArtworkImage image={current.image} sizes="(min-width: 64rem) 40rem, 90vw" />
+          </button>
+        )}
         <p className={styles.hint} aria-hidden="true">
           <span className={styles.wide}>
-            Scroll, swipe, or use the arrows to turn the page · click a piece to open it
+            Drag, swipe, or use the arrows to turn the page · click a piece to open it
           </span>
           <span className={styles.narrow}>Swipe to turn · tap the piece to open it</span>
         </p>

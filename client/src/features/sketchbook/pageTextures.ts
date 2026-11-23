@@ -139,15 +139,23 @@ export async function artworkTexture(artwork: Artwork): Promise<CanvasTexture> {
   return toTexture(canvas, false);
 }
 
+/** The shop's logo (the same file as the footer's). */
+const LOGO_SRC = '/brand/logo-512.webp';
+
 /**
- * The front cover: Ink board with the shop's name, like a stamped title, and a short
- * Marigold rule (Marigold on Ink, never on white). `aspect` is the board's width / height.
+ * The front cover: Ink board with the logo, set in like a tipped-in plate, then the shop's
+ * name and a short Marigold rule (Marigold on Ink, never on white). `aspect` is the
+ * board's width / height.
  */
 export async function coverTexture(aspect: number): Promise<CanvasTexture> {
   const colors = readPalette();
   const marigold = token('--color-marigold');
   const titleFont = `400 76px ${colors.display}`;
-  await document.fonts.load(titleFont);
+  // The logo is optional: if it can't load, the cover still has the name.
+  const [logo] = await Promise.all([
+    loadImage(LOGO_SRC).catch(() => null),
+    document.fonts.load(titleFont),
+  ]);
 
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_WIDTH;
@@ -164,13 +172,25 @@ export async function coverTexture(aspect: number): Promise<CanvasTexture> {
   }
   context.globalAlpha = 1;
 
+  const centre = canvas.width / 2;
+  if (logo) {
+    const size = canvas.width * 0.42;
+    const top = canvas.height * 0.2;
+    context.shadowColor = 'rgba(0, 0, 0, 0.35)';
+    context.shadowBlur = 20;
+    context.shadowOffsetY = 6;
+    context.drawImage(logo, centre - size / 2, top, size, size);
+    context.shadowColor = 'transparent';
+  }
+
+  const titleY = canvas.height * (logo ? 0.66 : 0.42);
   context.fillStyle = colors.paper;
   context.font = titleFont;
   context.textAlign = 'center';
   context.textBaseline = 'alphabetic';
-  context.fillText('Marigold & Ink', canvas.width / 2, canvas.height * 0.42);
+  context.fillText('Marigold & Ink', centre, titleY);
   context.fillStyle = marigold;
-  context.fillRect(canvas.width / 2 - 40, canvas.height * 0.42 + 34, 80, 3);
+  context.fillRect(centre - 40, titleY + 34, 80, 3);
   return toTexture(canvas, false);
 }
 

@@ -157,7 +157,7 @@ flowchart LR
 
 - **Data:** components never call `fetch`. They use query hooks, which cache results and handle loading, errors, and retries.
 - **Auth:** `GET /auth/session` answers "who is logged in" (always 200). `RequireAuth` sends logged-out visitors to `/login?next=…`. That is a convenience; the API enforces access on every request.
-- **Animation:** see [motion.md](motion.md). The 3D Explore mode is code-split, so three.js downloads only when opened.
+- **Animation:** see [motion.md](motion.md). Home's 3D sketchbook is code-split, so three.js never ships in the main bundle.
 
 ## Module map
 

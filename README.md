@@ -22,7 +22,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Commission requests and state machine (audit trail, actor permissions, revision limit) | Built |
 | Pricing engine and quotes (generate, admin adjustment, send) | Built, with **placeholder prices** |
 | Public gallery API (search, filters, admin CRUD), image pipeline, About content | Built |
-| Website: Home (typewriter, carousel), Gallery (grid and 3D sketchbook), About, login, commission form | Built, with **placeholder copy** |
+| Website: Home (typewriter, 3D sketchbook), Gallery (grid), About, login, commission form | Built, with **placeholder copy** |
 | Accounts: email sign-up verified by a 6-digit code, "Continue with Google" | Built; email sending and Google need [setup](docs/setup-google-and-email.md) |
 | Stripe deposit and final payments, webhooks, refunds, commission page with "Pay" | Built, **test mode**; needs [setup](docs/setup-stripe.md) |
 | Account page: details, own commissions, name and password changes, account deletion | Built |
@@ -84,7 +84,7 @@ client/src/       React site (TypeScript)
   auth/           AuthContext, RequireAuth
   components/     Header, Footer, Layout, ArtworkImage, forms
   content/        copy.ts: site text the owner writes (placeholders for now)
-  features/       home (hero, carousel), gallery (grid, overlay, explore/ 3D sketchbook), about
+  features/       home (hero, sketchbook section), sketchbook (the 3D book), gallery (grid, overlay), about
   hooks/          useTypewriter, useMediaQuery, useScrollLock
   pages/          one component per route
   styles/         tokens.css (palette, type, motion), global.css
@@ -155,7 +155,7 @@ Originals stay on your machine; only processed images and the text are committed
 
 1. Copy photos into `media-source/artworks/` (or `media-source/about/` for the About photo). JPEG, PNG, WebP, and HEIC all work; HEIC needs macOS.
 2. From `server/`, run `npm run media`. It writes two WebP sizes per photo to `media/` (600px thumbnail, 2000px large), removes all photo metadata (including GPS location), and skips photos that haven't changed. Each new photo gets an entry in `content/artworks.json` with `"published": false` and `"to fill in"` placeholders.
-3. Edit `content/artworks.json`: set `title`, `slug` (the URL), `category`, `medium`, and optionally `year`, `credit`, `description`, `altText`, and `tags`. Set `"published": true` when it's ready. The order of entries is the gallery order, except that black-and-white pieces always come first: `npm run media` measures each photo, and an entry can override the result with `"monochrome": true` or `false` (for example, an ink drawing photographed on a wooden table). Every published piece is in the grid; `"sketchbook": false` leaves one out of Explore's 3D sketchbook.
+3. Edit `content/artworks.json`: set `title`, `slug` (the URL), `category`, `medium`, and optionally `year`, `credit`, `description`, `altText`, and `tags`. Set `"published": true` when it's ready. The order of entries is the gallery order, except that black-and-white pieces always come first: `npm run media` measures each photo, and an entry can override the result with `"monochrome": true` or `false` (for example, an ink drawing photographed on a wooden table). Every published piece is in the grid; `"sketchbook": false` leaves one out of the 3D sketchbook on Home.
 4. Run `npm run seed` to check it locally, then commit `media/` and `content/` and open a PR.
 
 The seed refuses to run, and the deploy with it, if anything doesn't add up: a photo without an entry, an entry without a photo, a published entry still saying "to fill in", or a duplicate slug. It prints every problem at once. CI runs the same checks.

@@ -68,7 +68,7 @@ const BOARD_Z = -0.025;
 /** A drag longer than this (in pixels) is a page turn, not a click. */
 const CLICK_SLOP = 6;
 /** If the cover's lettering is slow to load, open anyway after this long (seconds). */
-const COVER_WAIT = 1.2;
+const COVER_WAIT = 4;
 
 /** Creates a texture when `make` is given, and disposes it when it's no longer needed. */
 function useAsyncTexture(make: (() => Promise<CanvasTexture>) | null): CanvasTexture | null {
