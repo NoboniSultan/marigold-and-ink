@@ -7,6 +7,7 @@ import cors from 'cors';
 import { config } from './config/env.js';
 import { requestId } from './middleware/requestId.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { canonicalHost } from './middleware/canonicalHost.ts';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requireTrustedOrigin } from './middleware/originCheck.js';
@@ -27,8 +28,15 @@ const MEDIA_COLLECTIONS = ['artworks', 'about'];
  *
  * `adapters` are the third-party services (email, Google, Stripe). By default they're built
  * from config; tests pass fakes: createApp({ adapters: { email, google, payments } }).
+ *
+ * `canonicalUrl` is the one address the site answers page requests on (others redirect
+ * there). It's PUBLIC_URL in production only: in development PUBLIC_URL is the Vite site,
+ * not the API's own address.
  */
-export function createApp({ adapters = createDefaultAdapters() } = {}) {
+export function createApp({
+  adapters = createDefaultAdapters(),
+  canonicalUrl = config.nodeEnv === 'production' ? config.publicUrl : null,
+} = {}) {
   const app = express();
   app.locals.adapters = adapters;
   // Runs after a status change through the generic endpoint. Wired here so the commissions
@@ -47,6 +55,10 @@ export function createApp({ adapters = createDefaultAdapters() } = {}) {
   // 1. Tag the request with an ID first, so everything after it can log with that ID.
   app.use(requestId);
   app.use(requestLogger());
+
+  //    Page requests on another address (onrender.com, www.) go to the public one, where
+  //    sign-in works. The Stripe webhook and health check are exempt (see the middleware).
+  if (canonicalUrl) app.use(canonicalHost(canonicalUrl));
 
   // 2. Security headers, and only allow browser calls from known front-end origins.
   //    `credentials: true` lets those origins send the session cookie.
