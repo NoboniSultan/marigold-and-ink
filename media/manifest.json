@@ -13,7 +13,8 @@
         "src": "/media/artworks/img-0177.large.3f9a0ec3.webp",
         "width": 2000,
         "height": 1554
-      }
+      },
+      "monochrome": true
     },
     "acrylic-abstract-face": {
       "source": "acrylic-abstract-face.webp",
@@ -27,7 +28,8 @@
         "src": "/media/artworks/acrylic-abstract-face.large.2bd5d9ca.webp",
         "width": 1440,
         "height": 1233
-      }
+      },
+      "monochrome": false
     },
     "acrylic-and-henna-mixed-media": {
       "source": "acrylic-and-henna-mixed-media.jpeg",
@@ -41,7 +43,8 @@
         "src": "/media/artworks/acrylic-and-henna-mixed-media.large.9c19656b.webp",
         "width": 1206,
         "height": 1482
-      }
+      },
+      "monochrome": false
     },
     "acrylic-painted-bench": {
       "source": "acrylic-painted-bench.jpg",
@@ -55,7 +58,8 @@
         "src": "/media/artworks/acrylic-painted-bench.large.c3c2800e.webp",
         "width": 2000,
         "height": 1279
-      }
+      },
+      "monochrome": false
     },
     "acrylic-painted-door": {
       "source": "acrylic-painted-door.jpg",
@@ -69,7 +73,8 @@
         "src": "/media/artworks/acrylic-painted-door.large.9a0bc3bb.webp",
         "width": 1432,
         "height": 2000
-      }
+      },
+      "monochrome": false
     },
     "acrylic-panel-of-portraits": {
       "source": "acrylic-panel-of-portraits.jpg",
@@ -83,7 +88,8 @@
         "src": "/media/artworks/acrylic-panel-of-portraits.large.01418fbe.webp",
         "width": 2000,
         "height": 1500
-      }
+      },
+      "monochrome": false
     },
     "clay-2": {
       "source": "clay-2.jpg",
@@ -97,7 +103,8 @@
         "src": "/media/artworks/clay-2.large.fffd22df.webp",
         "width": 719,
         "height": 917
-      }
+      },
+      "monochrome": true
     },
     "clay-book": {
       "source": "clay-book.jpg",
@@ -111,7 +118,8 @@
         "src": "/media/artworks/clay-book.large.923fa667.webp",
         "width": 1440,
         "height": 967
-      }
+      },
+      "monochrome": true
     },
     "clay-mask-with-henna-mixed-media": {
       "source": "clay-mask-with-henna-mixed-media.jpg",
@@ -125,7 +133,8 @@
         "src": "/media/artworks/clay-mask-with-henna-mixed-media.large.095eeecb.webp",
         "width": 1440,
         "height": 1684
-      }
+      },
+      "monochrome": false
     },
     "deck-mandala": {
       "source": "deck-mandala.jpeg",
@@ -139,7 +148,8 @@
         "src": "/media/artworks/deck-mandala.large.e427bace.webp",
         "width": 1065,
         "height": 771
-      }
+      },
+      "monochrome": false
     },
     "embrace": {
       "source": "embrace.jpg",
@@ -153,7 +163,8 @@
         "src": "/media/artworks/embrace.large.307536ac.webp",
         "width": 1589,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "fawn": {
       "source": "fawn.jpg",
@@ -167,7 +178,8 @@
         "src": "/media/artworks/fawn.large.cb5eee71.webp",
         "width": 1496,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "goddess": {
       "source": "goddess.jpg",
@@ -181,7 +193,8 @@
         "src": "/media/artworks/goddess.large.cafba590.webp",
         "width": 952,
         "height": 658
-      }
+      },
+      "monochrome": false
     },
     "greeting-card-with-dried-flowers-and-recycled-tea-bag": {
       "source": "greeting-card-with-dried-flowers-and-recycled-tea-bag.jpg",
@@ -195,7 +208,8 @@
         "src": "/media/artworks/greeting-card-with-dried-flowers-and-recycled-tea-bag.large.1c44c45a.webp",
         "width": 1500,
         "height": 2000
-      }
+      },
+      "monochrome": false
     },
     "guayasamin-replica-colored-version": {
       "source": "guayasamin-replica-colored-version.HEIC",
@@ -209,7 +223,8 @@
         "src": "/media/artworks/guayasamin-replica-colored-version.large.f6ff1775.webp",
         "width": 1500,
         "height": 2000
-      }
+      },
+      "monochrome": false
     },
     "handmade-dolls-acrylic-handpainted-stand": {
       "source": "handmade-dolls-acrylic-handpainted-stand.jpg",
@@ -223,7 +238,8 @@
         "src": "/media/artworks/handmade-dolls-acrylic-handpainted-stand.large.e18d1948.webp",
         "width": 1440,
         "height": 1689
-      }
+      },
+      "monochrome": true
     },
     "handpainted-heels-and-vase": {
       "source": "handpainted-heels-and-vase.jpg",
@@ -237,7 +253,8 @@
         "src": "/media/artworks/handpainted-heels-and-vase.large.02fa6e99.webp",
         "width": 2000,
         "height": 1759
-      }
+      },
+      "monochrome": true
     },
     "i-stay-i-pray": {
       "source": "i-stay-i-pray.jpeg",
@@ -251,7 +268,8 @@
         "src": "/media/artworks/i-stay-i-pray.large.e304df73.webp",
         "width": 1206,
         "height": 1509
-      }
+      },
+      "monochrome": false
     },
     "john-wilson-replica": {
       "source": "john-wilson-replica.heic",
@@ -265,7 +283,8 @@
         "src": "/media/artworks/john-wilson-replica.large.07638b0f.webp",
         "width": 1393,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "masked-woman-sketch": {
       "source": "masked-woman-sketch.jpg",
@@ -279,7 +298,8 @@
         "src": "/media/artworks/masked-woman-sketch.large.13185939.webp",
         "width": 1080,
         "height": 572
-      }
+      },
+      "monochrome": true
     },
     "old-work-1": {
       "source": "old-work-1.heic",
@@ -293,7 +313,8 @@
         "src": "/media/artworks/old-work-1.large.17d1b654.webp",
         "width": 1890,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "old-work-2": {
       "source": "old-work-2.heic",
@@ -307,7 +328,8 @@
         "src": "/media/artworks/old-work-2.large.7b84e20b.webp",
         "width": 1399,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "old-work-3-frida": {
       "source": "old-work-3-frida.heic",
@@ -321,7 +343,8 @@
         "src": "/media/artworks/old-work-3-frida.large.61eca099.webp",
         "width": 1362,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "old-work-4": {
       "source": "old-work-4.heic",
@@ -335,7 +358,8 @@
         "src": "/media/artworks/old-work-4.large.00df28d0.webp",
         "width": 1500,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "old-work-5": {
       "source": "old-work-5.heic",
@@ -349,7 +373,8 @@
         "src": "/media/artworks/old-work-5.large.afb1d387.webp",
         "width": 1437,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "old-work-6": {
       "source": "old-work-6.heic",
@@ -363,7 +388,8 @@
         "src": "/media/artworks/old-work-6.large.4a34b5c6.webp",
         "width": 1455,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "old-work-7": {
       "source": "old-work-7.heic",
@@ -377,7 +403,8 @@
         "src": "/media/artworks/old-work-7.large.40c78063.webp",
         "width": 1487,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "pet-portrait-2": {
       "source": "pet-portrait-2.jpeg",
@@ -391,7 +418,8 @@
         "src": "/media/artworks/pet-portrait-2.large.bec86473.webp",
         "width": 923,
         "height": 1423
-      }
+      },
+      "monochrome": true
     },
     "pet-portrait-in-ink": {
       "source": "pet-portrait-in-ink.HEIC",
@@ -405,7 +433,8 @@
         "src": "/media/artworks/pet-portrait-in-ink.large.43165d12.webp",
         "width": 2000,
         "height": 1500
-      }
+      },
+      "monochrome": false
     },
     "portrait-example-2": {
       "source": "portrait-example-2.heic",
@@ -419,7 +448,8 @@
         "src": "/media/artworks/portrait-example-2.large.1c428361.webp",
         "width": 1376,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "portrait-example": {
       "source": "portrait-example.jpg",
@@ -433,7 +463,8 @@
         "src": "/media/artworks/portrait-example.large.1ae40c18.webp",
         "width": 1371,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "portrait-sewn": {
       "source": "portrait-sewn.jpg",
@@ -447,7 +478,8 @@
         "src": "/media/artworks/portrait-sewn.large.20e50a6c.webp",
         "width": 2000,
         "height": 2000
-      }
+      },
+      "monochrome": true
     },
     "sketch1": {
       "source": "sketch1.jpg",
@@ -461,7 +493,8 @@
         "src": "/media/artworks/sketch1.large.47140b63.webp",
         "width": 2000,
         "height": 1762
-      }
+      },
+      "monochrome": true
     },
     "stargazer": {
       "source": "stargazer.jpeg",
@@ -475,7 +508,8 @@
         "src": "/media/artworks/stargazer.large.8395ebbd.webp",
         "width": 1206,
         "height": 1487
-      }
+      },
+      "monochrome": false
     },
     "starry-night": {
       "source": "starry-night.jpeg",
@@ -489,7 +523,8 @@
         "src": "/media/artworks/starry-night.large.17d218f2.webp",
         "width": 983,
         "height": 787
-      }
+      },
+      "monochrome": true
     },
     "two-faces": {
       "source": "two-faces.heic",
@@ -503,7 +538,8 @@
         "src": "/media/artworks/two-faces.large.21dc9a7f.webp",
         "width": 2000,
         "height": 1756
-      }
+      },
+      "monochrome": false
     },
     "unfinished-work": {
       "source": "unfinished-work.heic",
@@ -517,7 +553,8 @@
         "src": "/media/artworks/unfinished-work.large.11f37726.webp",
         "width": 1830,
         "height": 2000
-      }
+      },
+      "monochrome": true
     }
   },
   "about": {
@@ -533,7 +570,8 @@
         "src": "/media/about/artist-at-painted-bench.large.6c060748.webp",
         "width": 1440,
         "height": 1689
-      }
+      },
+      "monochrome": false
     },
     "artist-with-flowers": {
       "source": "artist-with-flowers.jpg",
@@ -547,7 +585,8 @@
         "src": "/media/about/artist-with-flowers.large.bb010141.webp",
         "width": 1080,
         "height": 1286
-      }
+      },
+      "monochrome": false
     }
   }
 }

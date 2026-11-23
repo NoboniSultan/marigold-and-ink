@@ -52,6 +52,33 @@ export const SUPPORTED_EXTENSIONS = new Set([
 /** Sharp's prebuilt libvips can't decode HEVC-based HEIC (patent licensing), so macOS converts it. */
 const NEEDS_SIPS = new Set(['.heic', '.heif']);
 
+/**
+ * Black and white or colour? Counts the share of strongly coloured pixels (the gap between
+ * a pixel's highest and lowest channel above COLOURED_CHANNEL_GAP) in a small copy. Pencil,
+ * charcoal, and ink on white, cream, or toned paper stay under the limit; paint doesn't.
+ * Measured on the 37 pieces in milestone 7e: black-and-white ones scored 0 to 1%, painted
+ * ones 15% and up. An artwork's entry can override it ("monochrome" in artworks.json).
+ */
+const COLOURED_CHANNEL_GAP = 60;
+const MAX_COLOURED_SHARE = 0.02;
+
+export async function isMonochrome(image: Buffer | string): Promise<boolean> {
+  const { data, info } = await sharp(image)
+    .resize({ width: 96 })
+    .removeAlpha()
+    .toColourspace('srgb')
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  let coloured = 0;
+  for (let i = 0; i < data.length; i += info.channels) {
+    const r = data[i]!;
+    const g = data[i + 1]!;
+    const b = data[i + 2]!;
+    if (Math.max(r, g, b) - Math.min(r, g, b) > COLOURED_CHANNEL_GAP) coloured += 1;
+  }
+  return coloured / (info.width * info.height) <= MAX_COLOURED_SHARE;
+}
+
 export interface Variant {
   buffer: Buffer;
   width: number;
@@ -190,7 +217,11 @@ export async function processCollection({
         (await exists(mediaFilePath(mediaDir, before.thumb.src))) &&
         (await exists(mediaFilePath(mediaDir, before.large.src)));
       if (reusable && before) {
-        result.images[key] = { ...before, source: file };
+        // Entries from before milestone 7e have no measurement yet: take it from the
+        // thumbnail already on disk, so the originals needn't be reprocessed.
+        const monochrome =
+          before.monochrome ?? (await isMonochrome(mediaFilePath(mediaDir, before.thumb.src)));
+        result.images[key] = { ...before, source: file, monochrome };
         result.unchanged.push(key);
         continue;
       }
@@ -212,6 +243,7 @@ export async function processCollection({
       result.images[key] = {
         source: file,
         sourceHash,
+        monochrome: await isMonochrome(thumb.buffer),
         thumb: await save('thumb', thumb),
         large: await save('large', large),
       };
