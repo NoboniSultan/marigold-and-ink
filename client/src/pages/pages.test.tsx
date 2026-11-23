@@ -201,7 +201,7 @@ describe('About', () => {
               body: {
                 data: {
                   photo: { ...photo, alt: 'The artist with flowers' },
-                  bio: ['First paragraph.', 'Second paragraph.'],
+                  bio: [{ heading: 'A little about me' }, 'First paragraph.', 'Second paragraph.'],
                   closingPhoto: { ...photo, alt: 'At the painted bench' },
                   isPlaceholder: false,
                 },
@@ -212,8 +212,30 @@ describe('About', () => {
     renderRoute('/about');
 
     expect(await screen.findByText('Second paragraph.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'A little about me' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'The artist with flowers' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'At the painted bench' })).toBeInTheDocument();
+  });
+});
+
+describe('Privacy', () => {
+  it('shows the policy from the copy file, linked from the footer', async () => {
+    api();
+    renderRoute('/privacy');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Privacy policy' }),
+    ).toBeInTheDocument();
+    for (const section of COPY.privacy.sections) {
+      expect(screen.getByRole('heading', { level: 2, name: section.heading })).toBeInTheDocument();
+    }
+    const footer = screen.getByRole('navigation', { name: 'Footer' });
+    expect(within(footer).getByRole('link', { name: 'Privacy' })).toHaveAttribute(
+      'href',
+      '/privacy',
+    );
   });
 });
 
