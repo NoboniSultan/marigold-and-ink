@@ -9,7 +9,7 @@ type Db = Pool | PoolClient;
 
 const COLUMNS = `a.id, a.slug, a.title, a.description, a.medium, a.category, a.year, a.credit,
   a.alt_text, a.image_key, a.thumb_path, a.thumb_width, a.thumb_height, a.large_path,
-  a.large_width, a.large_height, a.is_published, a.is_monochrome, a.sort_order, a.content_hash,
+  a.large_width, a.large_height, a.is_published, a.is_monochrome, a.in_sketchbook, a.sort_order, a.content_hash,
   a.created_at, a.updated_at`;
 
 // Each artwork's tags as a JSON array, so a list needs one query instead of one per row.
@@ -44,6 +44,7 @@ export interface ArtworkRecord {
   largeHeight: number;
   isPublished: boolean;
   isMonochrome: boolean;
+  inSketchbook: boolean;
   sortOrder: number;
   contentHash: string | null;
   createdAt: Date;
@@ -74,6 +75,7 @@ const FIELD_COLUMNS: Record<keyof ArtworkFields, string> = {
   largeHeight: 'large_height',
   isPublished: 'is_published',
   isMonochrome: 'is_monochrome',
+  inSketchbook: 'in_sketchbook',
   sortOrder: 'sort_order',
   contentHash: 'content_hash',
 };
@@ -100,6 +102,7 @@ function toArtwork(row: Row): ArtworkRecord {
     largeHeight: row.large_height as number,
     isPublished: row.is_published as boolean,
     isMonochrome: row.is_monochrome as boolean,
+    inSketchbook: row.in_sketchbook as boolean,
     sortOrder: row.sort_order as number,
     contentHash: row.content_hash as string | null,
     createdAt: row.created_at as Date,

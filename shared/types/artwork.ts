@@ -37,6 +37,8 @@ export interface Artwork {
     /** Black and white: first in the grid, mixed with coloured pieces in 3D. */
     monochrome: boolean;
   };
+  /** Shown in Explore's 3D sketchbook (every published piece is in the grid). */
+  inSketchbook: boolean;
   tags: Tag[];
 }
 

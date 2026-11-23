@@ -43,6 +43,7 @@ describe('GET /api/v1/artworks (public)', () => {
         alt: 'Fawn, scratchboard',
         monochrome: false,
       },
+      inSketchbook: true,
       tags: [{ id: expect.any(Number), name: 'Animals', slug: 'animals' }],
     });
   });
@@ -54,6 +55,19 @@ describe('GET /api/v1/artworks (public)', () => {
 
     expect(titles(res)).toEqual(['Starry Night', 'Fawn']);
     expect(res.body.data[0].image.monochrome).toBe(true);
+  });
+
+  it('says which pieces the 3D sketchbook leaves out', async () => {
+    await pool.query(`UPDATE artworks SET in_sketchbook = false WHERE slug = 'starry-night'`);
+
+    const res = await request(app).get('/api/v1/artworks');
+
+    expect(
+      res.body.data.map((a: { slug: string; inSketchbook: boolean }) => [a.slug, a.inSketchbook]),
+    ).toEqual([
+      ['fawn', true],
+      ['starry-night', false],
+    ]);
   });
 
   it('never exposes admin-only fields', async () => {

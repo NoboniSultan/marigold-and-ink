@@ -83,6 +83,7 @@ export function artwork(overrides: Partial<Artwork> & { slug: string; title: str
       alt: `${overrides.title}, ink`,
       monochrome: false,
     },
+    inSketchbook: true,
     ...overrides,
   };
 }

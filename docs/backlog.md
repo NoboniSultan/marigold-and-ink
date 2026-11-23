@@ -25,7 +25,7 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Owner decisions for later milestones (2026-11-22):**
   - **Shipping:** physical and mixed-media work ships within the US only; digital work is sold worldwide.
   - **Donations:** 25% of each commission's full price, as trees through Digital Humani (One Tree Planted project), requested automatically once a commission is fully paid; built in milestone 8 (ADR 0013).
-- **Artwork alt text and titles:** the 30 pieces published in milestone 7d use their title as alt text, which tells a screen-reader user little. Ask the owner for a one-line description of each, and for better titles where the file name shows (Clay 2, Pet Portrait 2, Portrait Example, Sketch 1).
+- **Artwork alt text and titles:** the 30 pieces published in milestone 7d use their title as alt text, which tells a screen-reader user little. Ask the owner for a one-line description of each, and for better titles where the file name shows (Clay 2, Portrait Example, Sketch 1).
 
 - **Make `REDIS_URL` required** once a feature (BullMQ jobs) depends on Redis. It is validated but optional for now.
 - **Shared rate-limit store**: login and registration counters are in memory, per instance, and reset on restart. Move them to Redis if the API ever runs on more than one instance.
