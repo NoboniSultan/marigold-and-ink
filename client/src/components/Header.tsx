@@ -52,6 +52,11 @@ export function Header() {
           <NavLink to="/about" className={navClass}>
             About
           </NavLink>
+          {user && (
+            <NavLink to="/account" className={navClass}>
+              Account
+            </NavLink>
+          )}
           {user ? (
             <button
               type="button"

@@ -161,3 +161,13 @@
   margin: 0;
   padding-left: var(--space-6);
 }
+
+/* A fact shown exactly as written (emails), not capitalized like the other facts. */
+.facts dd.asWritten {
+  text-transform: none;
+}
+
+/* Separate sections on one page (the account page). */
+.section {
+  margin-top: var(--space-12);
+}

@@ -10,11 +10,15 @@ import type {
 } from '@shared/types/commission.ts';
 import type { CheckoutStart, PaymentsResponse } from '@shared/types/payment.ts';
 import type {
+  Account,
   AuthProviders,
+  ChangePasswordRequest,
+  DeleteAccountRequest,
   LoginRequest,
   SignupCompleteRequest,
   SignupStartRequest,
   SignupStartResponse,
+  UpdateProfileRequest,
   User,
 } from '@shared/types/user.ts';
 import { request } from './client.ts';
@@ -64,7 +68,20 @@ export const authApi = {
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
 };
 
+/** The signed-in user's own account (the account page). */
+export const accountApi = {
+  get: (signal?: AbortSignal) => data(request<ApiResponse<Account>>('/users/me', { signal })),
+  update: (body: UpdateProfileRequest) =>
+    data(request<ApiResponse<Account>>('/users/me', { method: 'PATCH', body })),
+  changePassword: (body: ChangePasswordRequest) =>
+    request<void>('/users/me/password', { method: 'POST', body }),
+  delete: (body: DeleteAccountRequest) => request<void>('/users/me', { method: 'DELETE', body }),
+};
+
 export const commissionsApi = {
+  /** The signed-in client's own commissions, newest first. */
+  mine: (signal?: AbortSignal) =>
+    request<PaginatedResponse<Commission>>('/commissions', { query: { pageSize: 50 }, signal }),
   options: (signal?: AbortSignal) =>
     data(request<ApiResponse<CommissionOptions>>('/pricing/options', { signal })),
   create: (body: CommissionRequest) =>

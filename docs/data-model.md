@@ -41,11 +41,12 @@ erDiagram
 
     users {
         bigint id PK
-        citext email UK
+        citext email UK "nullable: deleted"
         text password_hash "nullable: Google-only"
         text display_name
         text role "client | admin"
         timestamptz email_verified_at
+        timestamptz deleted_at
     }
     auth_identities {
         bigint id PK
@@ -214,8 +215,11 @@ erDiagram
 | `users_email_format_check` | CHECK | A light sanity check (`x@y`, ≤ 254 chars). Real validation is in zod; this stops obvious garbage written by any path. |
 | `users_display_name_check` | CHECK | 1 to 100 non-blank characters. |
 | `users_role_check` | CHECK | Only `client` or `admin`, so a typo can't create an unknown role that authorization ignores. |
+| `users_deleted_fields_check` | CHECK | A live account (`deleted_at` NULL) has an email. A deleted one has no email, password, or verification date, and is a client. Deletion can't leave personal data behind ([ADR 0012](decisions/0012-account-deletion-by-anonymization.md)). |
 
 `password_hash` is nullable: accounts created with Google have no password, and login treats a missing hash exactly like a wrong password. `email_verified_at` records when the owner proved the email (a sign-up code or Google); `NULL` only for accounts from before milestone 5c, which can't log in until claimed with a code ([ADR 0010](decisions/0010-email-verification-and-google-sign-in.md)).
+
+**Deleted accounts are anonymized, not removed** (milestone 7c): commissions and payments reference the row with `ON DELETE RESTRICT`, so it stays as "Deleted user" with `deleted_at` set. Every user query ignores these rows, and the email can sign up again as a new account.
 
 ### auth_identities, email_verifications
 

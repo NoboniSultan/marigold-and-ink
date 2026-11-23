@@ -2,7 +2,7 @@
 
 What personal data the site collects, where it goes, and how long it stays, taken from the code. It's the factual basis for the privacy policy at `/privacy` (text in `client/src/content/copy.ts`), not the policy itself.
 
-**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 7b.
+**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 7c.
 
 ## 1. Accounts (`users`, `auth_identities`)
 
@@ -13,6 +13,8 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Password | Sign-up form | Stored only as a bcrypt hash. Google-only accounts have none. |
 | Google account ID (`sub`) and Google email | Google sign-in | Only the ID, email, "email verified" flag, and name are read. No profile photo. |
 | Role, email-verified date, created/updated dates | The app | |
+
+**Self-service** (the account page, `/account`): see your details and commissions, change your name and password, and **delete the account**. Deletion anonymizes it ([ADR 0012](decisions/0012-account-deletion-by-anonymization.md)): email, name, password, Google link, pending sign-up code, sessions, and commission notes are removed; the commission and payment records stay as "Deleted user" for the shop's accounts. Not removed: status-change reasons the client typed (the history is append-only), Stripe's own copy of the email on payments, and database backups until they expire. Deletion is refused while a paid commission is in progress.
 
 ## 2. Sign-up codes (`email_verifications`)
 
@@ -60,7 +62,7 @@ All the site's own data is stored in the United States.
 
 ## 8. Not built yet (update this file when they are)
 
-- **Account page and deletion:** no self-service way to see, export, or delete an account. Requests go to the owner by email for now.
+- **Data download and email change:** there's no self-service export of an account's data, and the email address can't be changed (it needs a new verification code). Requests go to the owner by email.
 - **Reference photo uploads** (milestone 8): the `files` table exists but is unused.
 - **Messaging:** the `messages` table exists but is unused.
 - **Shipping addresses** (proposal section 7).

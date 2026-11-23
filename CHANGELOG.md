@@ -5,6 +5,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-23 (Milestone 7c: account page and account deletion)
+
+### Added
+
+- **An account page** (`/account`, linked as "Account" in the header when signed in):
+  - your details and how you sign in (password, Google, or both);
+  - change your name;
+  - your commissions, each linked to its page;
+  - change your password, for accounts that have one;
+  - delete your account.
+- **Account deletion anonymizes the account** ([ADR 0012](docs/decisions/0012-account-deletion-by-anonymization.md)):
+  - removes the email, name, password, Google link, pending sign-up code, sessions, and commission notes;
+  - keeps the commission and payment records as "Deleted user" for the shop's accounts;
+  - **confirmed with the password**, or by typing the email for a Google-only account;
+  - **refused while a paid commission is in progress** (`422 ACTIVE_COMMISSIONS`, listing them). Unpaid requests are cancelled, and their open Stripe pages closed;
+  - admin accounts can't be deleted from the site;
+  - the email can sign up again as a new account.
+- **Password change** signs out every session, then starts a fresh one for this browser.
+- **Endpoints:** `PATCH /users/me`, `POST /users/me/password`, `DELETE /users/me`. `GET /users/me` adds `hasPassword` and `hasGoogle`. The two password-confirming endpoints are rate-limited per user, counting failures.
+- **Migration:** `users.deleted_at`; `users.email` is nullable, only for deleted accounts (`users_deleted_fields_check`). Every user query ignores deleted rows.
+- **Tests:**
+  - 24 new server tests (800 total): every endpoint's happy path, validation, unauthenticated, and forbidden cases; deletion with each kind of commission; the after-cancel step; and the new constraint;
+  - 12 new client tests (78 total).
+
+### Fixed
+
+- The migration rollback tests now start from empty tables. They had passed only because no earlier test file happened to leave rows that old down migrations can't handle.
+
+### Changed
+
+- The commission status texts moved to `client/src/features/commissions/statusText.ts`, shared by the commission page and the account page.
+- **Docs:** ADR 0012, the data model, the privacy data inventory (deletion now available, and what it can't erase), the README (features, API, error codes), and the backlog (email change, data download).
+
 ## [0.8.2] - 2026-11-22 (Milestone 7d, part 1: the full gallery)
 
 ### Changed

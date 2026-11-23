@@ -7,6 +7,7 @@ import { paymentsApi } from '../api/endpoints.ts';
 import { useCommission, usePayments } from '../api/queries.ts';
 import { ErrorMessage, Loading } from '../components/Loading.tsx';
 import buttonStyles from '../components/Button.module.css';
+import { STATUS_TEXT } from '../features/commissions/statusText.ts';
 import styles from './SimplePage.module.css';
 
 /** Leaving the site for Stripe's page. An object so tests can replace it. */
@@ -14,21 +15,6 @@ export const externalNavigation = {
   go(url: string) {
     window.location.assign(url);
   },
-};
-
-const STATUS_TEXT: Record<CommissionStatus, string> = {
-  inquiry: 'Request received. A quote is on its way.',
-  quoted: 'Quoted. The deposit starts the work.',
-  deposit_paid: 'Deposit paid. Work starts soon.',
-  in_progress: 'In progress.',
-  revision: 'A revision is in progress.',
-  awaiting_final_payment: 'Final design approved. The balance is due.',
-  ready_to_ship: 'Paid in full. Getting ready to ship.',
-  shipped: 'Shipped.',
-  delivered: 'Delivered.',
-  completed: 'Completed.',
-  canceled: 'Cancelled.',
-  refunded: 'Refunded.',
 };
 
 /** Which payment each status is waiting for. */

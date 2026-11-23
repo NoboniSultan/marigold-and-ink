@@ -68,6 +68,42 @@ describe('users', () => {
     expect(rows[0].updated_at.getFullYear()).not.toBe(2000);
   });
 
+  it('allows an anonymized (deleted) account, and several of them, with no email', async () => {
+    const deleted = {
+      email: null,
+      passwordHash: null,
+      emailVerifiedAt: null,
+      displayName: 'Deleted user',
+      deletedAt: new Date(),
+    };
+    await createUser(deleted);
+    await expect(createUser(deleted)).resolves.toMatchObject({ email: null });
+  });
+
+  it('rejects a deleted account that keeps an email, password, or verification date', async () => {
+    const deletedAt = new Date();
+    for (const leftover of [
+      { passwordHash: null, emailVerifiedAt: null }, // keeps the default email
+      { email: null, emailVerifiedAt: null }, // keeps the password hash
+      { email: null, passwordHash: null }, // keeps the verification date
+      { email: null, passwordHash: null, emailVerifiedAt: null, role: 'admin' },
+    ]) {
+      await expectViolation(
+        createUser({ deletedAt, ...leftover }),
+        CHECK_VIOLATION,
+        'users_deleted_fields_check',
+      );
+    }
+  });
+
+  it('rejects a live account without an email', async () => {
+    await expectViolation(
+      createUser({ email: null }),
+      CHECK_VIOLATION,
+      'users_deleted_fields_check',
+    );
+  });
+
   it('cannot be deleted while they own commissions', async () => {
     const commission = await createCommission();
 

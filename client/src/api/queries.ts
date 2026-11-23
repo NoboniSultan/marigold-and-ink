@@ -5,6 +5,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   aboutApi,
+  accountApi,
   artworksApi,
   authApi,
   commissionsApi,
@@ -16,6 +17,8 @@ export const queryKeys = {
   commission: (id: number) => ['commission', id] as const,
   payments: (commissionId: number) => ['payments', commissionId] as const,
   me: ['me'] as const,
+  account: ['account'] as const,
+  myCommissions: ['my-commissions'] as const,
   artworks: (filters: ArtworkFilters) => ['artworks', filters] as const,
   artwork: (slug: string) => ['artwork', slug] as const,
   categories: ['categories'] as const,
@@ -68,6 +71,18 @@ export function useMe() {
     queryKey: queryKeys.me,
     queryFn: ({ signal }) => authApi.me(signal),
     staleTime: 5 * 60_000,
+  });
+}
+
+/** The account page: the signed-in user plus their sign-in methods. */
+export function useAccount() {
+  return useQuery({ queryKey: queryKeys.account, queryFn: ({ signal }) => accountApi.get(signal) });
+}
+
+export function useMyCommissions() {
+  return useQuery({
+    queryKey: queryKeys.myCommissions,
+    queryFn: ({ signal }) => commissionsApi.mine(signal),
   });
 }
 

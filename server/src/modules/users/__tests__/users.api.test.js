@@ -24,6 +24,8 @@ describe('GET /api/v1/users/me', () => {
       emailVerifiedAt: expect.any(String),
       createdAt: expect.any(String),
       updatedAt: expect.any(String),
+      hasPassword: true,
+      hasGoogle: false,
     });
   });
 
