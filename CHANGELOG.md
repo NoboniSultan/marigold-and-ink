@@ -5,6 +5,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-11-23 (Milestone 7e: gallery and home polish)
+
+### Changed
+
+- **Black-and-white pieces come first in the gallery.**
+  - `npm run media` measures each photo: a piece counts as black and white if under 2% of its pixels are strongly coloured. Ink and pencil on white, cream, or toned paper pass; paint doesn't.
+  - Measured pieces: 23 black and white, 14 colour. **Pet Portrait in Ink** is marked black and white by hand in `content/artworks.json`, because its photo includes a wooden table.
+  - The API returns `image.monochrome`, and the list orders by it before the owner's order.
+- **The grid no longer crops artworks.** It uses justified rows: every image is whole at its own proportions, and each row fills the width.
+- **3D Explore:**
+  - cards are larger and hung less rigidly: each strays a little in position, depth, and tilt, and neighbours may overlap slightly;
+  - black-and-white and coloured pieces are spread through each other instead of grouped;
+  - images are never cropped (they weren't before either; now the docs say so).
+- **Home:**
+  - the typewriter lines: "Faces hold entire stories.", "Art you can hold onto.", "Charcoal, ink, acrylic, and clay.", "Every commission plants trees.", drawn from the owner's About text;
+  - the button: "Commission a piece".
+- **About:** the page title is now "A little about me" (the bio's opening heading) instead of "About".
+
+### Added
+
+- **Migration:** `artworks.is_monochrome`, with the index `artworks_published_order_idx`, which replaces `artworks_published_sort_idx`.
+- **Tests:**
+  - server: the measurement on drawings, paint, and toned paper; measuring old manifest entries from their thumbnails; the content override; the API order;
+  - client: `mixTones` and `scatterFor`, and the About title.
+
 ## [0.8.3] - 2026-11-23 (Milestone 7c: account page and account deletion)
 
 ### Added
