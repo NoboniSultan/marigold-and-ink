@@ -17,6 +17,11 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 
 ## Ideas and notes
 
+- **Owner decisions for later milestones (2026-11-22):**
+  - **Shipping:** physical and mixed-media work ships within the US only; digital work is sold worldwide.
+  - **Donations:** 25% of each commission's full price, to One Tree Planted. It has no public per-order API, so the plan is a donations ledger with a monthly "owed" total that the owner donates in one payment (proposal section 8).
+- **Artwork alt text and titles:** the 30 pieces published in milestone 7d use their title as alt text, which tells a screen-reader user little. Ask the owner for a one-line description of each, and for better titles where the file name shows (Clay 2, Pet Portrait 2, Portrait Example, Sketch 1).
+
 - **Make `REDIS_URL` required** once a feature (BullMQ jobs) depends on Redis. It is validated but optional for now.
 - **Shared rate-limit store**: login and registration counters are in memory, per instance, and reset on restart. Move them to Redis if the API ever runs on more than one instance.
 - **"Log out everywhere"**: `authRepository.deleteSessionsForUser` already revokes a user's sessions by matching the JSON `userId` (used when Google takes over an unverified account). If it becomes frequent, add an indexed `user_id` column to `sessions`.
