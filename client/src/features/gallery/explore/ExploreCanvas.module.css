@@ -1,14 +1,17 @@
 .explore {
   position: relative;
+  display: grid;
+  gap: var(--space-4);
 }
 
+/* The desk the sketchbook lies on: a quiet, light surface. */
 .stage {
   position: relative;
-  height: min(78vh, 46rem);
+  height: min(76vh, 44rem);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--color-ink);
-  touch-action: none; /* drags turn the scene instead of scrolling */
+  background: color-mix(in srgb, var(--color-rule) 55%, var(--color-white));
+  touch-action: pan-y; /* vertical swipes scroll the page; horizontal ones turn pages */
   cursor: grab;
 }
 
@@ -25,6 +28,7 @@
   left: 50%;
   bottom: var(--space-4);
   transform: translateX(-50%);
+  max-width: calc(100% - var(--space-8));
   margin: 0;
   padding: var(--space-1) var(--space-4);
   border-radius: 999px;
@@ -32,5 +36,68 @@
   color: var(--color-white);
   background: color-mix(in srgb, var(--color-ink) 70%, transparent);
   pointer-events: none;
-  white-space: nowrap;
+  text-align: center;
+}
+
+.narrow {
+  display: none;
+}
+
+/* Phones: a shorter stage framing one page, and a shorter hint. */
+@media (max-width: 40rem) {
+  .stage {
+    height: min(68vh, 34rem);
+  }
+
+  .wide {
+    display: none;
+  }
+
+  .narrow {
+    display: inline;
+  }
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.controls p {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.position {
+  font-size: var(--text-sm);
+  color: var(--color-gray);
+}
+
+.controls button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  cursor: pointer;
+}
+
+.controls button:hover:not(:disabled) {
+  background: var(--color-marigold);
+}
+
+.controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }

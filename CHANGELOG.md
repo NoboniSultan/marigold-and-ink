@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-23 (Milestone 8b: the 3D sketchbook)
+
+### Changed
+
+- **Explore is now a 3D sketchbook** (owner feedback: the cylinder room was overstimulating):
+  - an open book on a quiet desk, one artwork per spread: the piece on the right page, whole and at its own proportions, and its caption (title, medium and year, credit, "3 / 37") on the left;
+  - pages turn over the spine with a soft curl and shading (0.9 s, ease-in-out), one page at a time: one scroll gesture, a sideways swipe or drag, the arrow keys, or the buttons below the book, which show the title and "N of 37";
+  - clicking the open page opens the same detail overlay as Grid; at the first or last page, scrolling carries on down the page;
+  - phones frame the right-hand page, so one piece fills the stage;
+  - only pages near the open spread get textures; reduced motion changes pages without turning.
+- `@react-three/drei` and `@react-three/postprocessing` are no longer needed and were removed; the Explore chunk is about 247 KB gzipped (was about 285 KB).
+- **Tests:** 15 new client tests for the sketchbook's arithmetic (page bend that never stretches the paper, turn easing, stacking, one page per scroll gesture); the cylinder's layout tests were removed with it (95 client tests in all).
+
 ## [0.9.0] - 2026-11-23 (Milestone 8: giving through Digital Humani)
 
 ### Added
@@ -31,6 +44,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 ### Changed
 
 - The footer's charity line links to the Giving page, and the footer links wrap on phones.
+
+### Fixed
+
+- Two flaky tests seen on CI: the giving retry tests now wait for the webhook's background tree attempt before retrying, and account deletion commits the move home (`flushSync`) before signing out, so the sign-in guard can't redirect to `/login` first.
 
 ## [0.8.4] - 2026-11-23 (Milestone 7e: gallery and home polish)
 

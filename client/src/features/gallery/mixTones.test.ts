@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { layoutSlots } from './explore/layout.ts';
 import { mixTones } from './mixTones.ts';
 
 describe('mixTones', () => {
@@ -20,15 +19,6 @@ describe('mixTones', () => {
       .join('')
       .split('c');
     expect(Math.max(...runs.map((run) => run.length))).toBeLessThanOrEqual(3);
-  });
-
-  it('puts both kinds in both rows of the room', () => {
-    const { slots } = layoutSlots(37);
-    const mixed = mixTones(pieces(24, 13), (p) => p.mono);
-    for (const row of [0, 1]) {
-      const kinds = new Set(slots.filter((s) => s.row === row).map((s) => mixed[s.artwork]!.mono));
-      expect(kinds).toEqual(new Set([true, false]));
-    }
   });
 
   it('leaves a single-kind collection as it is', () => {

@@ -77,21 +77,24 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 - **Layout (milestone 7e):** justified rows. Each image is shown whole at its own proportions (never cropped), and every row fills the width: a card's flex basis is its ratio × the row height (11rem on phones, 14rem, then 17rem), and it grows by its ratio, so a row's images share one height. Reading order stays left to right, so black-and-white pieces, which come first, read first.
 - **Reduced motion:** no morph (no `layoutId`); the overlay fades.
 
-### Gallery: Explore mode (3D)
+### Gallery: Explore mode (3D sketchbook)
 
-`features/gallery/explore/ExploreCanvas.tsx` (canvas, input) and `ExploreScene.tsx` (meshes); the layout is in `layout.ts`
+`features/gallery/explore/ExploreCanvas.tsx` (canvas, input, controls), `Sketchbook.tsx` (the book), `pageTextures.ts` (pages drawn on canvases), and `sketchbook.ts` (the arithmetic, unit-tested). Replaced the cylinder room in milestone 8b, after the owner found it overstimulating.
 
-- **The room:** artworks on the inside of a cylinder (radius 5), facing the camera at its center, in two staggered rows.
-  - A small collection repeats around the room (at least 9 per row); copies of a piece sit evenly apart and never side by side.
-  - Each card shows its whole image at its own proportions (never cropped).
-  - **Mixed tones (milestone 7e):** black-and-white and coloured pieces are spread evenly through each other (`features/gallery/mixTones.ts`), so neither kind bunches up.
-- **Turning:** the wheel (captured over the scene only), dragging, or the arrow keys set a target angle. Every frame, `useFrame` eases the cylinder toward it with frame-rate-independent lerp (`1 − e^(−6·Δt)`).
-- **Hover:** a card scales to 1.08, brightens, and tilts toward the cursor, all eased per frame.
-- **Click:** a card opens the same detail overlay as Grid mode.
-- **Subtle depth of field:** `@react-three/postprocessing` `DepthOfField`, focused at the cylinder wall.
-- **Lazy-loaded:** `React.lazy`, so three.js (about 285 KB gzipped) downloads only when Explore opens.
-- **Accessibility:** a visually hidden list of buttons offers the same pieces to keyboards and screen readers.
-- **Reduced motion:** never opened by default; Grid is used.
+- **The book:** an open sketchbook on a quiet desk, seen at a reader's angle (0.45 rad off vertical). One artwork per spread: the right page shows the piece whole, at its own proportions, as if tipped in; the left page has its caption (title, medium and year, credit) and its place in the book ("3 / 37"). Pages have a faint grain and darken softly into the spine.
+  - Black-and-white and coloured pieces alternate (`mixTones`).
+  - Colours and fonts are read from `tokens.css` at run time, so the book follows the palette.
+- **Turning a page:** each leaf is a strip of paper (28 columns of vertices) bent along its width into a circular arc. The bend is strongest mid-turn and gone at rest, and the paper never stretches (tested). A turn takes **0.9 s** with ease-in-out cubic; reversing mid-turn continues from where the page is. Parts of a page shade darker as they stand up, which makes the turn read as paper.
+- **Input, one page at a time:**
+  - **Scroll:** one page per gesture. A trackpad swipe and its coasting count as one; the next turn needs a pause of 220 ms. At the first or last page, scrolling carries on down the page.
+  - **Swipe or drag** sideways (50 px). Vertical swipes still scroll the page on phones (`touch-action: pan-y`).
+  - **Keys:** ← →, Home, End; Enter opens the piece. **Buttons** below the book, with the title and "N of 37" (announced politely).
+  - **Click** the open right-hand page to open the detail overlay (a drag isn't a click).
+- **Phones** (portrait canvas): the camera frames the right-hand page, so one piece fills the stage; the caption is in the controls below.
+- **Light on the GPU:** only leaves within two of the open spread get real page textures; the rest are blank paper until they come near. Resting pages aren't recomputed.
+- **Lazy-loaded:** `React.lazy`, so three.js downloads only when Explore opens. (drei and postprocessing were dropped with the cylinder.)
+- **Accessibility:** a visually hidden list of buttons offers every piece to keyboards and screen readers.
+- **Reduced motion:** never opened by default (Grid is used); if opened, pages change at once, without turning.
 
 ### Giving: seed → sprout → tree
 
@@ -143,6 +146,6 @@ When these are built, add their files here and move them into the section above.
 
 ## Testing
 
-- **Unit:** the typewriter rhythm (`useTypewriter.test.ts`) and the Explore layout (`layout.test.ts`).
+- **Unit:** the typewriter rhythm (`useTypewriter.test.ts`) and the sketchbook's arithmetic (`sketchbook.test.ts`: page bend, turn easing, one page per scroll gesture).
 - **Page tests** run with animations skipped (`MotionGlobalConfig.skipAnimations`) and check behavior: slides change, dialogs open and close, URLs update.
-- **Real browser:** jsdom has no layout, so shared-layout exits and WebGL are checked in a real browser. See the PR checklist: morph mid-flight at full strength, Escape and backdrop close, 3D renders and turns without scrolling the page, phone has no horizontal overflow, reduced-motion fallbacks.
+- **Real browser:** jsdom has no layout, so shared-layout exits and WebGL are checked in a real browser. See the PR checklist: morph mid-flight at full strength, Escape and backdrop close, the sketchbook renders and turns one page per scroll gesture, phone has no horizontal overflow, reduced-motion fallbacks.

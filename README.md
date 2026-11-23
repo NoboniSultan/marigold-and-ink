@@ -22,7 +22,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Commission requests and state machine (audit trail, actor permissions, revision limit) | Built |
 | Pricing engine and quotes (generate, admin adjustment, send) | Built, with **placeholder prices** |
 | Public gallery API (search, filters, admin CRUD), image pipeline, About content | Built |
-| Website: Home (typewriter, carousel), Gallery (grid and 3D), About, login, commission form | Built, with **placeholder copy** |
+| Website: Home (typewriter, carousel), Gallery (grid and 3D sketchbook), About, login, commission form | Built, with **placeholder copy** |
 | Accounts: email sign-up verified by a 6-digit code, "Continue with Google" | Built; email sending and Google need [setup](docs/setup-google-and-email.md) |
 | Stripe deposit and final payments, webhooks, refunds, commission page with "Pay" | Built, **test mode**; needs [setup](docs/setup-stripe.md) |
 | Account page: details, own commissions, name and password changes, account deletion | Built |
@@ -84,7 +84,7 @@ client/src/       React site (TypeScript)
   auth/           AuthContext, RequireAuth
   components/     Header, Footer, Layout, ArtworkImage, forms
   content/        copy.ts: site text the owner writes (placeholders for now)
-  features/       home (hero, carousel), gallery (grid, overlay, explore/ 3D), about
+  features/       home (hero, carousel), gallery (grid, overlay, explore/ 3D sketchbook), about
   hooks/          useTypewriter, useMediaQuery, useScrollLock
   pages/          one component per route
   styles/         tokens.css (palette, type, motion), global.css
@@ -178,7 +178,7 @@ npm run format:check    # Prettier
 npm run typecheck       # TypeScript (tsc, no output files)
 
 cd ../client
-npm test                # Vitest + Testing Library (page smoke tests, typewriter, 3D layout, API client)
+npm test                # Vitest + Testing Library (page smoke tests, typewriter, sketchbook arithmetic, API client)
 npm run test:coverage   # same, with coverage; HTML report in client/coverage/index.html
 npm run lint && npm run typecheck && npm run build
 ```
