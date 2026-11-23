@@ -527,6 +527,50 @@ describe('charities', () => {
 });
 
 describe('donations', () => {
+  // Tree donations (milestone 8): $1 a tree, requested through Digital Humani.
+  const trees = { treeCount: 13, donationAmountCents: 1300 };
+
+  it('accepts a pending tree donation, and an owed one with its request ID and time', async () => {
+    await expect(createDonation(trees)).resolves.toMatchObject({ status: 'pending' });
+    await expect(
+      createDonation({ ...trees, status: 'owed', treeRequestId: 'req-1', requestedAt: new Date() }),
+    ).resolves.toMatchObject({ status: 'owed' });
+  });
+
+  it('rejects zero trees', async () => {
+    await expectViolation(
+      createDonation({ treeCount: 0, donationAmountCents: 0 }),
+      CHECK_VIOLATION,
+      'donations_tree_count_check',
+    );
+  });
+
+  it('rejects a tree donation that is not exactly $1 a tree', async () => {
+    await expectViolation(
+      createDonation({ treeCount: 13, donationAmountCents: 1250 }),
+      CHECK_VIOLATION,
+      'donations_tree_amount_check',
+    );
+  });
+
+  it('rejects owed or paid trees without a request ID and time', async () => {
+    await expectViolation(
+      createDonation({ ...trees, status: 'owed' }),
+      CHECK_VIOLATION,
+      'donations_requested_fields_check',
+    );
+  });
+
+  it('rejects one Digital Humani request recorded twice', async () => {
+    const requested = { ...trees, status: 'owed', treeRequestId: 'req-1', requestedAt: new Date() };
+    await createDonation(requested);
+    await expectViolation(
+      createDonation(requested),
+      UNIQUE_VIOLATION,
+      'donations_tree_request_id_key',
+    );
+  });
+
   it('rejects a percentage above 100', async () => {
     await expectViolation(
       createDonation({ percentage: 100.01 }),
