@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-22 (Milestone 7d, part 1: the full gallery)
+
+### Changed
+
+- **All 37 artworks are published** (previously 7), in the owner's grouping:
+  - **portraits** (20): examples of the commissions on offer, including the pet portraits. The old works are titled "Untitled 1" to "Untitled 7", and IMG_0177 is "Untitled";
+  - **explorations** (14): pieces to see but not offered (acrylic and clay works, the painted bench, door, deck, heels, and dolls), plus the replicas of other artists' work. **Embrace** moved here from portraits, since it's a replica too;
+  - **cards** (1): the greeting card, to be sold at a fixed price once the shop exists.
+- Other titles come from the file names; mediums are filled in only where the file name says them. Alt text falls back to the title until the owner describes each piece.
+
 ## [0.8.1] - 2026-11-22 (Milestone 7b: custom domain and privacy page)
 
 ### Added
