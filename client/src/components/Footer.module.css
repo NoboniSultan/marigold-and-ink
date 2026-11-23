@@ -30,7 +30,8 @@
 
 .links {
   display: flex;
-  gap: var(--space-6);
+  flex-wrap: wrap; /* five links don't fit one row on a phone */
+  gap: var(--space-2) var(--space-6);
   margin-bottom: var(--space-4);
 }
 

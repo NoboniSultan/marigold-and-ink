@@ -1,0 +1,32 @@
+.wrap {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  margin: var(--space-8) 0;
+}
+
+.svg {
+  width: min(16rem, 60vw);
+  height: auto;
+}
+
+/* Ink, not Marigold: the drawing reads like the site's pen-and-ink work. */
+.shape {
+  fill: var(--color-ink);
+}
+
+.ground {
+  stroke: var(--color-marigold);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.count {
+  margin: 0;
+  color: var(--color-gray);
+}
+
+.count strong {
+  color: var(--color-ink);
+  font-size: var(--text-xl);
+}

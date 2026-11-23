@@ -15,11 +15,14 @@ export function Footer() {
           loading="lazy"
         />
         <div>
-          <p className={styles.charity}>{COPY.charityLine}</p>
+          <p className={styles.charity}>
+            <Link to="/giving">{COPY.charityLine}</Link>
+          </p>
           <nav aria-label="Footer" className={styles.links}>
             <Link to="/gallery">Gallery</Link>
             <Link to="/about">About</Link>
             <Link to="/commission">Commission</Link>
+            <Link to="/giving">Giving</Link>
             <Link to="/privacy">Privacy</Link>
           </nav>
           <p className={styles.legal}>

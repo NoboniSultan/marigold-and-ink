@@ -30,6 +30,11 @@ export const routes: RouteObject[] = [
       { path: 'about', element: <AboutPage /> },
       { path: 'privacy', element: <PrivacyPage /> },
       {
+        // Loaded on demand: the tree morph's library (flubber) is only needed here.
+        path: 'giving',
+        lazy: async () => ({ Component: (await import('./pages/GivingPage.tsx')).GivingPage }),
+      },
+      {
         path: 'commission',
         element: (
           <RequireAuth>
