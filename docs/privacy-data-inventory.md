@@ -2,7 +2,7 @@
 
 What personal data the site collects, where it goes, and how long it stays, taken from the code. It's the factual basis for the privacy policy at `/privacy` (text in `client/src/content/copy.ts`), not the policy itself.
 
-**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 7c.
+**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 8.
 
 ## 1. Accounts (`users`, `auth_identities`)
 
@@ -57,6 +57,7 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Stripe | Payments | Email, amounts, card details (entered on Stripe's page) | Stripe's infrastructure |
 | Google | "Continue with Google" | That the person is signing in to this app | Google's infrastructure |
 | Resend | Sign-up emails (once configured) | Email address and the code | Resend's infrastructure |
+| Digital Humani | Requesting trees for fully paid commissions (once configured) | **No personal data:** a reference like `commission-12` and a number of trees | Digital Humani's infrastructure (Canada) |
 
 All the site's own data is stored in the United States.
 

@@ -76,6 +76,19 @@ export default defineConfig({
           functions: 100,
           lines: 100,
         },
+        // Giving: the tree arithmetic, the ledger, and the Digital Humani adapter (ADR 0013).
+        'src/modules/giving/giving.{calculator,service,repository}.ts': {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        'src/adapters/digitalHumani.ts': {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
         // Two defensive branches (a non-Error thrown by the SDK) aren't worth faking.
         'src/adapters/stripe/stripeGateway.ts': {
           statements: 100,

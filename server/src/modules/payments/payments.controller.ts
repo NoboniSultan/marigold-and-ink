@@ -50,7 +50,11 @@ export async function stripeWebhook(req: Request, res: Response) {
       req.body as Buffer,
       req.get('stripe-signature'),
       gateway(req),
+      { donationPercent: req.app.locals.donationPercent ?? null },
     );
+    // Send any trees this payment funded. Not awaited: Stripe gets its answer at once, and
+    // a Digital Humani problem leaves the trees pending for the next try (never throws).
+    if (!duplicate) void req.app.locals.requestPendingTrees?.();
     res.json({ received: true, duplicate });
   } catch (err) {
     if (err instanceof WebhookSignatureError) {

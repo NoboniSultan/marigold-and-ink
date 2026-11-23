@@ -93,6 +93,16 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 - **Accessibility:** a visually hidden list of buttons offers the same pieces to keyboards and screen readers.
 - **Reduced motion:** never opened by default; Grid is used.
 
+### Giving: seed → sprout → tree
+
+`features/giving/TreeMorph.tsx`, `features/giving/treeStages.ts` (built in milestone 8; ported from the original motion-v spec to Motion for React)
+
+- **The drawing:** three single closed SVG paths on a 100 × 100 grid (seed, sprout, tree), in Ink, on a Marigold ground line.
+- **The morph:** flubber interpolates seed → sprout and sprout → tree. Motion's `useScroll` tracks the drawing from entering the window to reaching its middle, and `useTransform` maps that progress to the path.
+- **How far it grows:** up to the stage the trees funded so far have reached: a seed at 0, a sprout at **50** trees, a full tree at **200** (the owner's thresholds), partway in between. Below it: "N trees funded so far".
+- **Loaded on demand:** the Giving route is lazy, so flubber (about 23 KB gzipped with the page) downloads only there.
+- **Reduced motion:** no morph; the nearest whole stage fades in once.
+
 ### About: ink-spread reveal
 
 `features/about/InkReveal.tsx`
@@ -128,7 +138,6 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 | Commission form | The quote total animates between values as options change (counting tween). | Value changes at once |
 | Shop | Quick view opens from the product card with a shared layout (`layoutId`), like the gallery. | Fade |
 | Order confirmation | Confetti in palette colors (Marigold, Ink, Rule, White), **once** per order (canvas-confetti). | No confetti |
-| Giving page | An SVG path morphs **seed → sprout → tree** as the visitor scrolls: flubber interpolates the paths, and Motion's `useTransform` maps scroll progress to the morph (ported from the original motion-v spec). | The three stages shown as still images |
 
 When these are built, add their files here and move them into the section above.
 

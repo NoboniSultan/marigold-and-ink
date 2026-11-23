@@ -234,9 +234,11 @@ function DeleteSection({ account }: { account: Account }) {
         account.hasPassword ? { password: confirmation } : { confirmEmail: confirmation },
       );
       // Leave first: marking the user signed out while still on /account would let the
-      // sign-in guard redirect to /login instead. Then sign out locally, as after logging
-      // out, and drop the deleted account's private data.
-      await navigate('/', { replace: true });
+      // sign-in guard redirect to /login instead. React Router renders navigations as a
+      // transition, which the urgent sign-out below could overtake, so `flushSync` commits
+      // the move home before it. Then sign out locally, as after logging out, and drop the
+      // deleted account's private data.
+      await navigate('/', { replace: true, flushSync: true });
       queryClient.setQueryData(queryKeys.me, null);
       for (const key of [
         queryKeys.account,

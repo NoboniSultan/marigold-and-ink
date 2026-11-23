@@ -26,7 +26,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Accounts: email sign-up verified by a 6-digit code, "Continue with Google" | Built; email sending and Google need [setup](docs/setup-google-and-email.md) |
 | Stripe deposit and final payments, webhooks, refunds, commission page with "Pay" | Built, **test mode**; needs [setup](docs/setup-stripe.md) |
 | Account page: details, own commissions, name and password changes, account deletion | Built |
-| Donation ledger and transparency totals | Planned |
+| Giving: 25% of every fully paid commission plants trees through Digital Humani; Giving page with a growing tree; refunds never give back tree money | Built (sandbox); needs [setup](docs/setup-digital-humani.md) |
+| Donation reports and marking invoices paid | Planned |
 | File uploads, messaging, shipping, shop, slots | Later (see backlog) |
 
 ## Tech stack
@@ -243,13 +244,14 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | POST | `/api/v1/commissions/:id/payments/deposit` | The commission's client | While `quoted`: returns `{ url, expiresAt, reused }`, a Stripe Checkout page for the deposit on the quote. An open page is reused (200); a new one is 201. |
 | POST | `/api/v1/commissions/:id/payments/final` | The commission's client | The same for the balance, while `awaiting_final_payment`. |
 | GET | `/api/v1/commissions/:id/payments` | Owner or admin | Deposits, final payments, and refunds, plus `meta: { paymentsEnabled, currency }`. Refund notes are admin-only. |
-| POST | `/api/v1/admin/commissions/:id/refunds` | Admin | Refund a payment: `{ paymentId, amountCents?, reason }`. Without an amount, refunds everything not yet refunded. |
+| POST | `/api/v1/admin/commissions/:id/refunds` | Admin | Refund a payment: `{ paymentId, amountCents?, reason }`. Without an amount, refunds everything not yet refunded. **Never refunds the tree money** of a fully paid commission (`details.withheldForTreesCents`). |
 | POST | `/api/v1/webhooks/stripe` | Stripe (signed) | Stripe's events: payment completed or expired, refund created or changed. Raw body, signature checked, each event handled once. |
 | GET | `/api/v1/artworks` | Public | Published artworks in gallery order. `?page=&pageSize=&category=&tag=&q=`. `q` is full-text search (`"exact phrase"`, `-exclude`), ranked by relevance. |
 | GET | `/api/v1/artworks/categories` | Public | Categories with their published-artwork counts. |
 | GET | `/api/v1/artworks/:slug` | Public | One published artwork. Drafts answer 404, like missing artworks. |
 | GET | `/api/v1/tags` | Public | Tags used by published artworks, with counts. |
 | GET | `/api/v1/about` | Public | The About page photo and bio. |
+| GET | `/api/v1/giving` | Public | `{ trees }`: trees funded so far by fully paid commissions ([ADR 0013](docs/decisions/0013-giving-through-digital-humani.md)). |
 | GET | `/api/v1/admin/artworks` | Admin | All artworks, including drafts. `?status=all\|published\|draft` plus the public filters. |
 | GET | `/api/v1/admin/artworks/:id` | Admin | One artwork with admin fields (`isPublished`, `contentManaged`, ...). |
 | POST | `/api/v1/admin/artworks` | Admin | Create from a processed image: `imageKey`, `slug`, `title`, `category`, optional fields, `tags` (names). |
@@ -321,6 +323,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0010: Email-verified sign-up and Google sign-in](docs/decisions/0010-email-verification-and-google-sign-in.md)
 - [0011: Stripe Checkout payments, webhooks, and refunds](docs/decisions/0011-stripe-payments.md)
 - [0012: Account deletion by anonymization](docs/decisions/0012-account-deletion-by-anonymization.md)
+- [0013: Giving through Digital Humani](docs/decisions/0013-giving-through-digital-humani.md)
 
 ## Roadmap
 

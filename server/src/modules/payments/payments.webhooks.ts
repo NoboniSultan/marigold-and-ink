@@ -18,6 +18,7 @@ import type {
   RefundInfo,
 } from '../../adapters/stripe/stripeGateway.ts';
 import * as commissionsService from '../commissions/commissions.service.js';
+import * as givingService from '../giving/giving.service.ts';
 import { SYSTEM_ACTOR } from '../commissions/commissions.stateMachine.ts';
 import * as paymentsRepository from './payments.repository.ts';
 import { requireGateway, settleRefunds } from './payments.service.ts';
@@ -29,6 +30,7 @@ export async function handleStripeWebhook(
   rawBody: Buffer,
   signature: string | undefined,
   gatewayOrNull: PaymentGateway | null,
+  { donationPercent = null }: { donationPercent?: number | null } = {},
 ): Promise<{ duplicate: boolean }> {
   const { gateway } = requireGateway(gatewayOrNull);
   const event = gateway.parseWebhook(rawBody, signature); // throws WebhookSignatureError
@@ -41,7 +43,7 @@ export async function handleStripeWebhook(
     }
     switch (event.type) {
       case 'checkout.completed':
-        await onCheckoutCompleted(event.session, gateway, tx);
+        await onCheckoutCompleted(event.session, gateway, donationPercent, tx);
         break;
       case 'checkout.expired':
         await onCheckoutExpired(event.session.id, tx);
@@ -65,6 +67,7 @@ export async function handleStripeWebhook(
 async function onCheckoutCompleted(
   session: CompletedSession,
   gateway: PaymentGateway,
+  donationPercent: number | null,
   tx: PoolClient,
 ) {
   const found = await paymentsRepository.findBySessionId(session.id, tx);
@@ -107,6 +110,18 @@ async function onCheckoutCompleted(
       },
       { client: tx },
     );
+    if (payment.type === 'final' && commission.quotedTotalCents !== null) {
+      // Fully paid: record the trees now, in this transaction. They're sent to Digital
+      // Humani after the commit (requestPendingTrees), so an outage there can't fail this.
+      await givingService.recordForFinalPayment(
+        {
+          commissionId: commission.id,
+          paymentId: payment.id,
+          totalCents: commission.quotedTotalCents,
+        },
+        { client: tx, donationPercent },
+      );
+    }
     return;
   }
 

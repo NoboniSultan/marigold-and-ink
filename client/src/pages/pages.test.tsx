@@ -3,13 +3,14 @@
  * (MotionGlobalConfig), and matchMedia reports a narrow screen, so the gallery uses Grid.
  * The 3D Explore mode needs WebGL and is covered by the manual checklist in the PR.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Call, MockResponse } from '../test/utils.tsx';
 import { ARTWORKS, SIGNED_OUT, USER, mockApi, page, renderRoute } from '../test/utils.tsx';
 import { safeNextPath } from '../auth/RequireAuth.tsx';
 import { COPY } from '../content/copy.ts';
+import { SEED } from '../features/giving/treeStages.ts';
 
 const OPTIONS = {
   combinations: [
@@ -220,6 +221,65 @@ describe('About', () => {
     expect(screen.queryByRole('heading', { name: 'About' })).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'The artist with flowers' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'At the painted bench' })).toBeInTheDocument();
+  });
+});
+
+describe('Giving', () => {
+  it("shows the owner's text, the trees funded so far, and is linked from the footer", async () => {
+    api({
+      extra: (call) => (call.path === '/giving' ? { body: { data: { trees: 28 } } } : undefined),
+    });
+    renderRoute('/giving');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: COPY.giving.title }),
+    ).toBeInTheDocument();
+    for (const section of COPY.giving.sections) {
+      expect(screen.getByRole('heading', { level: 2, name: section.heading })).toBeInTheDocument();
+    }
+    expect(await screen.findByText('28')).toBeInTheDocument();
+    expect(screen.getByText(/trees funded/)).toBeInTheDocument();
+    expect(screen.getByText(/I plant trees through/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'digitalhumani.com' })).toHaveAttribute(
+      'href',
+      'https://www.digitalhumani.com/',
+    );
+    const footer = screen.getByRole('navigation', { name: 'Footer' });
+    expect(within(footer).getByRole('link', { name: 'Giving' })).toHaveAttribute('href', '/giving');
+  });
+
+  it('still reads fine if the total is unavailable', async () => {
+    api({
+      extra: (call) =>
+        call.path === '/giving'
+          ? { status: 500, body: { error: { code: 'INTERNAL_ERROR', message: 'x' } } }
+          : undefined,
+    });
+    renderRoute('/giving');
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Why trees?' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/funded so far/)).not.toBeInTheDocument();
+  });
+
+  it('shows the reached stage without morphing when motion is reduced', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query.includes('prefers-reduced-motion'),
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList,
+    );
+    api({
+      extra: (call) => (call.path === '/giving' ? { body: { data: { trees: 1 } } } : undefined),
+    });
+    const { container } = renderRoute('/giving');
+
+    expect(await screen.findByText(/tree funded so far/)).toBeInTheDocument();
+    expect(container.querySelector('svg path')?.getAttribute('d')).toBe(SEED);
   });
 });
 

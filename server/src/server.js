@@ -8,6 +8,8 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 const app = createApp();
 const server = app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, 'server listening');
+  // Tree requests that didn't go through before the last restart are retried now.
+  app.locals.requestPendingTrees();
 });
 
 /**

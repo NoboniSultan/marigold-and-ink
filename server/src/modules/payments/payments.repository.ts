@@ -252,6 +252,23 @@ export async function refundedOrPendingCents(
   return rows[0].cents;
 }
 
+/**
+ * For the tree-money cap: money in (succeeded) and money back or on its way back (pending or
+ * succeeded refunds), for the whole commission.
+ */
+export async function commissionRefundPosition(
+  commissionId: number,
+  client: Db = pool,
+): Promise<{ paidCents: number; refundedOrPendingCents: number }> {
+  const { rows } = await client.query(
+    `SELECT coalesce(sum(amount_cents) FILTER (WHERE type <> 'refund' AND status = 'succeeded'), 0)::int AS paid,
+            coalesce(sum(amount_cents) FILTER (WHERE type = 'refund' AND status IN ('pending', 'succeeded')), 0)::int AS refunded
+       FROM payments WHERE commission_id = $1`,
+    [commissionId],
+  );
+  return { paidCents: rows[0].paid, refundedOrPendingCents: rows[0].refunded };
+}
+
 /** Money in (succeeded deposits and final payments) and money back (succeeded refunds). */
 export async function totals(
   commissionId: number,

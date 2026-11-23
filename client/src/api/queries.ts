@@ -6,6 +6,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   aboutApi,
   accountApi,
+  givingApi,
   artworksApi,
   authApi,
   commissionsApi,
@@ -24,6 +25,7 @@ export const queryKeys = {
   categories: ['categories'] as const,
   tags: ['tags'] as const,
   about: ['about'] as const,
+  giving: ['giving'] as const,
   commissionOptions: ['commission-options'] as const,
   providers: ['auth-providers'] as const,
 };
@@ -57,6 +59,14 @@ export function useTags() {
 
 export function useAbout() {
   return useQuery({ queryKey: queryKeys.about, queryFn: ({ signal }) => aboutApi.get(signal) });
+}
+
+/** The Giving page's running total of trees funded. */
+export function useGiving() {
+  return useQuery({
+    queryKey: queryKeys.giving,
+    queryFn: ({ signal }) => givingApi.totals(signal),
+  });
 }
 
 export function useCommissionOptions() {

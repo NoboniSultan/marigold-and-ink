@@ -8,6 +8,7 @@ import type {
   CommissionOptions,
   CommissionRequest,
 } from '@shared/types/commission.ts';
+import type { GivingTotals } from '@shared/types/giving.ts';
 import type { CheckoutStart, PaymentsResponse } from '@shared/types/payment.ts';
 import type {
   Account,
@@ -66,6 +67,10 @@ export const authApi = {
   providers: (signal?: AbortSignal) =>
     data(request<ApiResponse<AuthProviders>>('/auth/providers', { signal })),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
+};
+
+export const givingApi = {
+  totals: (signal?: AbortSignal) => data(request<ApiResponse<GivingTotals>>('/giving', { signal })),
 };
 
 /** The signed-in user's own account (the account page). */

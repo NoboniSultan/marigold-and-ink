@@ -28,6 +28,8 @@ import {
   type PaymentGateway,
 } from '../../adapters/stripe/stripeGateway.ts';
 import * as commissionsService from '../commissions/commissions.service.js';
+import { refundableCents } from '../giving/giving.calculator.ts';
+import * as givingService from '../giving/giving.service.ts';
 import { canTransition, type Actor } from '../commissions/commissions.stateMachine.ts';
 import * as paymentsRepository from './payments.repository.ts';
 import type { PaymentRecord } from './payments.repository.ts';
@@ -222,19 +224,42 @@ export async function refund(
       });
     }
 
-    const remaining =
+    const paymentRemaining =
       payment.amountCents - (await paymentsRepository.refundedOrPendingCents(paymentId, tx));
+    // Tree money is never refunded: once a commission is fully paid, its trees are recorded
+    // and can't be un-requested (ADR 0013), so the whole commission's refunds stop short of it.
+    const withheldForTreesCents = await givingService.withheldForTreesCents(commissionId, {
+      client: tx,
+    });
+    let remaining = paymentRemaining;
+    if (withheldForTreesCents > 0) {
+      const position = await paymentsRepository.commissionRefundPosition(commissionId, tx);
+      remaining = Math.min(
+        paymentRemaining,
+        refundableCents({
+          paidCents: position.paidCents,
+          refundedCents: position.refundedOrPendingCents,
+          withheldForTreesCents,
+        }),
+      );
+    }
+    const trees = withheldForTreesCents > 0 ? { withheldForTreesCents } : {};
     if (remaining <= 0) {
-      throw new BusinessRuleError('This payment has already been refunded in full', {
-        code: 'ALREADY_REFUNDED',
-      });
+      throw new BusinessRuleError(
+        withheldForTreesCents > 0 && paymentRemaining > 0
+          ? 'Everything else has been refunded; the rest went to planting trees'
+          : 'This payment has already been refunded in full',
+        { code: 'ALREADY_REFUNDED', details: { remainingCents: 0, ...trees } },
+      );
     }
     const amount = amountCents ?? remaining;
     if (amount > remaining) {
-      throw new BusinessRuleError(`At most ${remaining} cents of this payment can be refunded`, {
-        code: 'REFUND_EXCEEDS_PAYMENT',
-        details: { remainingCents: remaining },
-      });
+      throw new BusinessRuleError(
+        withheldForTreesCents > 0
+          ? `At most ${remaining} cents can be refunded; ${withheldForTreesCents} cents went to planting trees`
+          : `At most ${remaining} cents of this payment can be refunded`,
+        { code: 'REFUND_EXCEEDS_PAYMENT', details: { remainingCents: remaining, ...trees } },
+      );
     }
 
     const row = await paymentsRepository.insertRefund(

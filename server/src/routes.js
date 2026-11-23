@@ -13,6 +13,7 @@ import {
 import { aboutRouter } from './modules/about/about.routes.ts';
 import { pricingRouter } from './modules/pricing/pricing.routes.ts';
 import { paymentsRouter, adminRefundsRouter } from './modules/payments/payments.routes.ts';
+import { givingRouter } from './modules/giving/giving.routes.ts';
 import { requireAuth, requireRole } from './middleware/auth.js';
 
 /** Mounts every module's router. app.js mounts this whole router under /api/v1. */
@@ -29,6 +30,7 @@ apiRouter.use('/artworks', artworksRouter);
 apiRouter.use('/tags', tagsRouter);
 apiRouter.use('/about', aboutRouter);
 apiRouter.use('/pricing', pricingRouter);
+apiRouter.use('/giving', givingRouter);
 
 // Admin-only routes share one guard at the router level, so a route added here later
 // can't be left unprotected by forgetting requireRole on it.

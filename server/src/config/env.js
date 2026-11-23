@@ -80,9 +80,36 @@ const envSchema = z.object({
     .transform((value) => value.toLowerCase())
     .pipe(z.string().regex(/^[a-z]{3}$/, 'must be a 3-letter currency code, e.g. usd'))
     .optional(),
+
+  // Giving (milestone 8): trees requested through Digital Humani when a commission is fully
+  // paid. The API key switches it on, and then all of these are required (checked below).
+  // Secrets: .env / Render only. See docs/setup-digital-humani.md.
+  DIGITALHUMANI_API_KEY: z.string().min(1).optional(),
+  DIGITALHUMANI_ENTERPRISE_ID: z.string().min(1).optional(),
+  // Which planting project the trees go to (from Digital Humani's project list).
+  DIGITALHUMANI_PROJECT_ID: z.string().min(1).optional(),
+  // sandbox: free test requests, no real trees. production: real trees, invoiced to the owner.
+  DIGITALHUMANI_ENVIRONMENT: z.enum(['sandbox', 'production']).optional(),
+  // The share of each commission's full price that goes to trees. An owner-set business
+  // value: no default.
+  DONATION_PERCENT: z.coerce
+    .number()
+    .gt(0)
+    .max(100)
+    .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9, {
+      message: 'may have at most two decimal places',
+    })
+    .optional(),
 });
 
 const STRIPE_KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'PAYMENT_CURRENCY'];
+const GIVING_KEYS = [
+  'DIGITALHUMANI_API_KEY',
+  'DIGITALHUMANI_ENTERPRISE_ID',
+  'DIGITALHUMANI_PROJECT_ID',
+  'DIGITALHUMANI_ENVIRONMENT',
+  'DONATION_PERCENT',
+];
 
 /**
  * Settings that only make sense together (Google sign-in, real email). Like the database
@@ -123,6 +150,27 @@ function groupProblems(env) {
   if (paymentsOn && !env.PUBLIC_URL) {
     problems.push(
       '✖ is required for payments (Stripe sends the visitor back to it)\n  → at PUBLIC_URL',
+    );
+  }
+
+  const givingOn = GIVING_KEYS.slice(0, 4).some((key) => env[key]);
+  for (const key of GIVING_KEYS) {
+    if (givingOn && !env[key]) {
+      problems.push(
+        `✖ is required for giving (with the other Digital Humani settings)\n  → at ${key}`,
+      );
+    }
+  }
+  if (givingOn && !paymentsOn) {
+    problems.push(
+      '✖ giving needs payments switched on (trees follow paid commissions)\n  → at STRIPE_SECRET_KEY',
+    );
+  }
+  // Stripe only ever takes test money (live keys are refused), so real trees would be paid
+  // for by the owner with no real income behind them.
+  if (env.DIGITALHUMANI_ENVIRONMENT === 'production') {
+    problems.push(
+      "✖ 'production' plants real trees, paid for by the owner, while payments are test-only; use 'sandbox'\n  → at DIGITALHUMANI_ENVIRONMENT",
     );
   }
   return problems.length ? problems.join('\n') : null;
@@ -227,6 +275,16 @@ export function loadConfig(rawEnv) {
           secretKey: e.STRIPE_SECRET_KEY,
           webhookSecret: e.STRIPE_WEBHOOK_SECRET,
           currency: e.PAYMENT_CURRENCY,
+        })
+      : null,
+    // null = giving is off: no donations are recorded and no trees are requested.
+    giving: e.DIGITALHUMANI_API_KEY
+      ? Object.freeze({
+          apiKey: e.DIGITALHUMANI_API_KEY,
+          enterpriseId: e.DIGITALHUMANI_ENTERPRISE_ID,
+          projectId: e.DIGITALHUMANI_PROJECT_ID,
+          environment: e.DIGITALHUMANI_ENVIRONMENT,
+          donationPercent: e.DONATION_PERCENT,
         })
       : null,
   });
