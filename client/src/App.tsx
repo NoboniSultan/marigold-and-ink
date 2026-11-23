@@ -17,6 +17,7 @@ import { LoginPage } from './pages/LoginPage.tsx';
 import { RegisterPage } from './pages/RegisterPage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
 import { PrivacyPage } from './pages/PrivacyPage.tsx';
+import { AccountPage } from './pages/AccountPage.tsx';
 
 /** Every page, under the shared layout. Exported so tests can mount the same routes. */
 export const routes: RouteObject[] = [
@@ -42,6 +43,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <CommissionStatusPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'account',
+        element: (
+          <RequireAuth>
+            <AccountPage />
           </RequireAuth>
         ),
       },
