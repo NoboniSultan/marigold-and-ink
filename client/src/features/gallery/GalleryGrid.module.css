@@ -71,13 +71,45 @@
   border-color: var(--color-ink);
 }
 
+/*
+ * Justified rows: every image is shown whole, at its own proportions, and each row fills
+ * the width. A card's width starts at its ratio × the row height and grows by its ratio,
+ * so all images in a row end up the same height. Reading order stays left to right, so
+ * the gallery's order (black and white first) reads naturally.
+ */
 .grid {
+  --row-height: 11rem;
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-  gap: var(--space-8) var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-4);
+}
+
+/* Keeps the last row at its natural size instead of stretching a lone piece full width. */
+.grid::after {
+  content: '';
+  flex-grow: 1000;
+}
+
+.item {
+  flex-grow: var(--ratio);
+  flex-basis: calc(var(--ratio) * var(--row-height));
+  min-width: 0;
+}
+
+@media (min-width: 40rem) {
+  .grid {
+    --row-height: 14rem;
+    column-gap: var(--space-6);
+  }
+}
+
+@media (min-width: 64rem) {
+  .grid {
+    --row-height: 17rem;
+  }
 }
 
 .grid[aria-busy='true'] {
@@ -95,15 +127,16 @@
 }
 
 .cardImage {
-  aspect-ratio: 4 / 5;
+  aspect-ratio: var(--ratio);
   overflow: hidden;
   background: var(--color-rule);
 }
 
+/* The box already has the image's proportions; contain guarantees nothing is cut off. */
 .cardImage img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.5s var(--ease-standard);
 }
 
