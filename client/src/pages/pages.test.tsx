@@ -212,9 +212,11 @@ describe('About', () => {
     renderRoute('/about');
 
     expect(await screen.findByText('Second paragraph.')).toBeInTheDocument();
+    // The opening subheading becomes the page title, replacing "About".
     expect(
-      screen.getByRole('heading', { level: 2, name: 'A little about me' }),
+      screen.getByRole('heading', { level: 1, name: 'A little about me' }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'About' })).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'The artist with flowers' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'At the painted bench' })).toBeInTheDocument();
   });
