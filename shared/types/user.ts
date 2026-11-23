@@ -41,3 +41,30 @@ export interface AuthProviders {
   google: boolean;
   emailSignup: boolean;
 }
+
+/** GET /users/me: the signed-in user plus their sign-in methods, for the account page. */
+export interface Account extends User {
+  /** False for accounts that only sign in with Google (no password to change). */
+  hasPassword: boolean;
+  hasGoogle: boolean;
+}
+
+/** PATCH /users/me */
+export interface UpdateProfileRequest {
+  displayName: string;
+}
+
+/** POST /users/me/password. Signs out every other session. */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+/**
+ * DELETE /users/me. Accounts with a password confirm with it; Google-only accounts type
+ * their email address instead.
+ */
+export interface DeleteAccountRequest {
+  password?: string;
+  confirmEmail?: string;
+}

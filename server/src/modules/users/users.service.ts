@@ -45,6 +45,33 @@ export async function claimUnverified(
   return user;
 }
 
+/** Includes passwordHash. Only the auth module should call this (password confirmation). */
+export function findForAuthById(
+  id: number,
+  { client, forUpdate = false }: Tx & { forUpdate?: boolean } = {},
+): Promise<AuthRecord | null> {
+  return usersRepository.findForAuthById(id, client, { forUpdate });
+}
+
+export async function updateDisplayName(
+  id: number,
+  displayName: string,
+  { client }: Tx = {},
+): Promise<UserRecord> {
+  const user = await usersRepository.updateDisplayName(id, displayName, client);
+  if (!user) throw new NotFoundError('User not found', { code: 'USER_NOT_FOUND' });
+  return user;
+}
+
+/** Only the auth module calls these two (password change, account deletion). */
+export function setPasswordHash(id: number, passwordHash: string, { client }: Tx = {}) {
+  return usersRepository.setPasswordHash(id, passwordHash, client);
+}
+
+export function anonymize(id: number, { client }: Tx = {}) {
+  return usersRepository.anonymize(id, client);
+}
+
 export async function verifyAndClearPassword(id: number, { client }: Tx = {}): Promise<UserRecord> {
   const user = await usersRepository.verifyAndClearPassword(id, client);
   if (!user) throw new Error(`verifyAndClearPassword: user ${id} is missing or already verified`);

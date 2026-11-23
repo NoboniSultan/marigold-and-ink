@@ -43,3 +43,14 @@ export const registerRateLimiter = createRateLimiter({
   ...config.rateLimits.register,
   keyGenerator: (req) => ipKeyGenerator(req.ip),
 });
+
+/**
+ * Password confirmation on the account page (change password, delete account): counts
+ * only FAILED attempts, per signed-in user, with the login limits. Stops someone using an
+ * unlocked, signed-in browser from guessing the password. Use after requireAuth.
+ */
+export const passwordConfirmRateLimiter = createRateLimiter({
+  ...config.rateLimits.login,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => `user:${req.user.id}`,
+});

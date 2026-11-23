@@ -151,3 +151,17 @@ export async function deleteSessionsForUser(userId: number, client: Db = pool): 
   );
   return rowCount ?? 0;
 }
+
+/** The providers linked to a user (today only 'google'), for the account page. */
+export async function listProvidersForUser(userId: number, client: Db = pool): Promise<string[]> {
+  const { rows } = await client.query(
+    'SELECT DISTINCT provider FROM auth_identities WHERE user_id = $1 ORDER BY provider',
+    [userId],
+  );
+  return rows.map((row) => row.provider as string);
+}
+
+/** Account deletion: unlinks Google, which also removes the Google email kept here. */
+export async function deleteIdentitiesForUser(userId: number, client: Db = pool): Promise<void> {
+  await client.query('DELETE FROM auth_identities WHERE user_id = $1', [userId]);
+}

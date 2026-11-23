@@ -41,9 +41,70 @@ function toUser(row: Row): UserRecord {
 
 const firstUser = (rows: Row[]) => (rows[0] ? toUser(rows[0]) : null);
 
+/** Deleted (anonymized) accounts are never returned: to the app they no longer exist. */
 export async function findById(id: number, client: Db = pool): Promise<UserRecord | null> {
-  const { rows } = await client.query(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = $1`, [id]);
+  const { rows } = await client.query(
+    `SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = $1 AND deleted_at IS NULL`,
+    [id],
+  );
   return firstUser(rows);
+}
+
+/**
+ * Like findForAuthByEmail, by ID: for confirming a signed-in user's password before a
+ * password change or account deletion. Includes passwordHash, so only the auth module uses it.
+ */
+export async function findForAuthById(
+  id: number,
+  client: Db = pool,
+  { forUpdate = false } = {},
+): Promise<AuthRecord | null> {
+  const { rows } = await client.query(
+    `SELECT ${PUBLIC_COLUMNS}, password_hash FROM users
+      WHERE id = $1 AND deleted_at IS NULL${forUpdate ? ' FOR UPDATE' : ''}`,
+    [id],
+  );
+  const row = rows[0];
+  return row ? { ...toUser(row), passwordHash: row.password_hash } : null;
+}
+
+export async function updateDisplayName(
+  id: number,
+  displayName: string,
+  client: Db = pool,
+): Promise<UserRecord | null> {
+  const { rows } = await client.query(
+    `UPDATE users SET display_name = $2 WHERE id = $1 AND deleted_at IS NULL
+      RETURNING ${PUBLIC_COLUMNS}`,
+    [id, displayName],
+  );
+  return firstUser(rows);
+}
+
+export async function setPasswordHash(
+  id: number,
+  passwordHash: string,
+  client: Db = pool,
+): Promise<void> {
+  await client.query('UPDATE users SET password_hash = $2 WHERE id = $1 AND deleted_at IS NULL', [
+    id,
+    passwordHash,
+  ]);
+}
+
+/**
+ * Account deletion (ADR 0012): removes everything that identifies the person and keeps
+ * the row, because commissions and payments reference it for the owner's accounts.
+ * users_deleted_fields_check guarantees nothing personal is left behind.
+ */
+export async function anonymize(id: number, client: Db = pool): Promise<void> {
+  await client.query(
+    `UPDATE users
+        SET email = NULL, password_hash = NULL, email_verified_at = NULL,
+            display_name = 'Deleted user', deleted_at = now()
+      WHERE id = $1 AND deleted_at IS NULL`,
+    [id],
+  );
 }
 
 /**
@@ -159,6 +220,7 @@ export async function list(
   const { rows } = await client.query(
     `SELECT ${PUBLIC_COLUMNS}, count(*) OVER () AS total
      FROM users
+     WHERE deleted_at IS NULL
      ORDER BY created_at DESC, id DESC
      LIMIT $1 OFFSET $2`,
     [limit, offset],
@@ -170,6 +232,8 @@ export async function list(
 }
 
 async function countAll(client: Db): Promise<number> {
-  const { rows } = await client.query('SELECT count(*) AS total FROM users');
+  const { rows } = await client.query(
+    'SELECT count(*) AS total FROM users WHERE deleted_at IS NULL',
+  );
   return rows[0].total;
 }

@@ -112,6 +112,23 @@ const UPDATABLE = {
   balanceCents: 'balance_cents',
 };
 
+/** A client's commissions, oldest first, locked for the rest of the transaction. */
+export async function listForClientForUpdate(clientId, client = pool) {
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS} FROM commissions WHERE client_id = $1 ORDER BY id FOR UPDATE`,
+    [clientId],
+  );
+  return rows.map(toCommission);
+}
+
+/**
+ * Account deletion: the free-text notes may describe the people or pets in the piece.
+ * (commission_events is append-only, so reasons typed with a status change stay; ADR 0012.)
+ */
+export async function clearNotesForClient(clientId, client = pool) {
+  await client.query('UPDATE commissions SET notes = NULL WHERE client_id = $1', [clientId]);
+}
+
 export async function update(id, changes, client = pool) {
   const entries = Object.entries(changes);
   const unknown = entries.filter(([key]) => !UPDATABLE[key]).map(([key]) => key);

@@ -6,7 +6,7 @@ import {
   availableTransitions,
 } from './commissions.stateMachine.ts';
 import { withTransaction } from '../../db/transaction.ts';
-import { NotFoundError } from '../../errors/index.js';
+import { BusinessRuleError, NotFoundError } from '../../errors/index.js';
 import { assertCanAccessOwnedResource } from '../../lib/authorization.js';
 import { toLimitOffset, toPageMeta } from '../../lib/pagination.js';
 import { config } from '../../config/env.js';
@@ -91,6 +91,51 @@ export async function listEvents(id, user) {
 export async function changeStatus(id, user, { toStatus, reason }) {
   await getCommissionForUser(id, user); // 404 / 403 before revealing anything else
   return applyTransition({ commissionId: id, toStatus, actor: actorFromUser(user), reason });
+}
+
+/** Not paid for yet: cancelled automatically when the client deletes their account. */
+export const CANCELLABLE_ON_DELETION = Object.freeze(['inquiry', 'quoted']);
+/** Nothing left to do or pay: they stay, anonymized, for the owner's records. */
+export const FINISHED_STATUSES = Object.freeze(['delivered', 'completed', 'canceled', 'refunded']);
+
+/**
+ * Account deletion, step 1 (inside the caller's transaction): a client can't delete their
+ * account while a paid commission is still in progress, because the artist owes them work
+ * or money is still moving. Unpaid requests are cancelled through applyTransition, and the
+ * free-text notes are cleared. Returns the commissions it cancelled, so the caller can run
+ * the after-cancel step (closing open Stripe pages) once the transaction has committed.
+ *
+ * @param {number} clientId
+ * @param {{ client: import('pg').PoolClient }} options
+ */
+export async function closeForDeletedClient(clientId, { client }) {
+  const commissions = await commissionsRepository.listForClientForUpdate(clientId, client);
+  const active = commissions.filter(
+    (c) => !CANCELLABLE_ON_DELETION.includes(c.status) && !FINISHED_STATUSES.includes(c.status),
+  );
+  if (active.length > 0) {
+    throw new BusinessRuleError(
+      'This account has a commission in progress. Finish or cancel it before deleting the account.',
+      { code: 'ACTIVE_COMMISSIONS', details: { commissionIds: active.map((c) => c.id) } },
+    );
+  }
+
+  const canceled = [];
+  for (const commission of commissions.filter((c) => CANCELLABLE_ON_DELETION.includes(c.status))) {
+    canceled.push(
+      await applyTransition(
+        {
+          commissionId: commission.id,
+          toStatus: 'canceled',
+          actor: { type: 'client', userId: clientId },
+          reason: 'Account deleted',
+        },
+        { client },
+      ),
+    );
+  }
+  await commissionsRepository.clearNotesForClient(clientId, client);
+  return canceled;
 }
 
 /**
