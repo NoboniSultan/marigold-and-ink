@@ -233,8 +233,10 @@ function DeleteSection({ account }: { account: Account }) {
       await accountApi.delete(
         account.hasPassword ? { password: confirmation } : { confirmEmail: confirmation },
       );
-      // Signed out, as after logging out; then drop the deleted account's private data.
-      navigate('/', { replace: true });
+      // Leave first: marking the user signed out while still on /account would let the
+      // sign-in guard redirect to /login instead. Then sign out locally, as after logging
+      // out, and drop the deleted account's private data.
+      await navigate('/', { replace: true });
       queryClient.setQueryData(queryKeys.me, null);
       for (const key of [
         queryKeys.account,
