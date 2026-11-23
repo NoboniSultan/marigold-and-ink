@@ -36,6 +36,7 @@ function imageOf(record: ArtworkRecord) {
   return {
     thumb: { src: record.thumbPath, width: record.thumbWidth, height: record.thumbHeight },
     large: { src: record.largePath, width: record.largeWidth, height: record.largeHeight },
+    monochrome: record.isMonochrome,
   };
 }
 
@@ -180,6 +181,7 @@ export async function createArtwork(
       largePath: image.large.src,
       largeWidth: image.large.width,
       largeHeight: image.large.height,
+      isMonochrome: image.monochrome ?? false,
       sortOrder: sortOrder ?? 0,
       contentHash: null,
     };

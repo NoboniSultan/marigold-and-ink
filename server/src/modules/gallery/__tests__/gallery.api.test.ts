@@ -41,9 +41,19 @@ describe('GET /api/v1/artworks (public)', () => {
         thumb: { src: '/media/artworks/fawn.thumb.11111111.webp', width: 6, height: 8 },
         large: { src: '/media/artworks/fawn.large.22222222.webp', width: 12, height: 16 },
         alt: 'Fawn, scratchboard',
+        monochrome: false,
       },
       tags: [{ id: expect.any(Number), name: 'Animals', slug: 'animals' }],
     });
+  });
+
+  it('puts black-and-white pieces first, each group in gallery order', async () => {
+    await pool.query(`UPDATE artworks SET is_monochrome = true WHERE slug = 'starry-night'`);
+
+    const res = await request(app).get('/api/v1/artworks');
+
+    expect(titles(res)).toEqual(['Starry Night', 'Fawn']);
+    expect(res.body.data[0].image.monochrome).toBe(true);
   });
 
   it('never exposes admin-only fields', async () => {

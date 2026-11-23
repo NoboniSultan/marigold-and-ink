@@ -56,6 +56,7 @@ describe('parseArtworksFile', () => {
       credit: null,
       description: null,
       altText: null,
+      monochrome: null,
       tags: [],
     });
   });
@@ -113,6 +114,26 @@ describe('buildArtworkRows', () => {
       tags: [],
     });
     expect(row!.contentHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("takes black and white from the image's measurement, unless the entry overrides it", () => {
+    const manifest = manifestWith('fawn', 'owl', 'cat');
+    manifest.artworks.fawn!.monochrome = true;
+    manifest.artworks.owl!.monochrome = false;
+    const rows = buildArtworkRows(
+      parse(
+        fawn,
+        { ...fawn, image: 'owl', slug: 'owl', title: 'Owl', monochrome: true },
+        { ...fawn, image: 'cat', slug: 'cat', title: 'Cat' },
+      ),
+      manifest,
+    );
+    // Measured; overridden; not measured yet (an old manifest) counts as colour.
+    expect(rows.map((r) => [r.slug, r.isMonochrome])).toEqual([
+      ['fawn', true],
+      ['owl', true],
+      ['cat', false],
+    ]);
   });
 
   it('orders artworks as they appear in the file, in steps of 10', () => {

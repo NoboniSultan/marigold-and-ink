@@ -43,6 +43,11 @@ export const artworkEntrySchema = z
     description: optional(text(2000)),
     /** Screen-reader description. Defaults to "<title>, <medium>" when published without one. */
     altText: optional(text(300)),
+    /**
+     * Black and white? Measured from the image by `npm run media`; set it here only to
+     * override the measurement (e.g. an ink drawing photographed on a wooden table).
+     */
+    monochrome: optional(z.boolean()),
     /** Tag names, e.g. ["Pets"]. Tags are created as needed. */
     tags: z.array(text(50)).default([]),
     published: z.boolean(),
@@ -86,6 +91,7 @@ export interface DesiredArtwork {
   credit: string | null;
   altText: string | null;
   isPublished: boolean;
+  isMonochrome: boolean;
   sortOrder: number;
   thumbPath: string;
   thumbWidth: number;
@@ -213,6 +219,7 @@ export function buildArtworkRows(file: ArtworksFile, manifest: MediaManifest): D
       credit: entry.credit,
       altText: entry.altText ?? (entry.published ? defaultAlt : null),
       isPublished: entry.published,
+      isMonochrome: entry.monochrome ?? image.monochrome ?? false,
       // Gaps of 10 leave room to slot an API-created artwork between file entries.
       sortOrder: (index + 1) * 10,
       thumbPath: image.thumb.src,
