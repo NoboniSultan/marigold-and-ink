@@ -73,12 +73,26 @@ async function fullyPaid() {
 async function donations() {
   const { rows } = await pool.query(
     `SELECT d.commission_id, d.tree_count, d.donation_amount_cents, d.base_amount_cents,
-            d.percentage::float AS percentage, d.status, d.tree_request_id, c.name AS charity
+            d.percentage::float AS percentage, d.status, d.tree_request_id, d.request_attempted_at,
+            c.name AS charity
        FROM donations d JOIN charities c ON c.id = d.charity_id ORDER BY d.id`,
   );
   return rows;
 }
 
+/**
+ * The webhook starts the first tree request in the background. Wait until that attempt has
+ * failed (it used up `failNext.plant`) and stamped the row, so the test's own retry can't
+ * race it.
+ */
+const waitForFailedAttempt = () =>
+  vi.waitFor(async () => {
+    expect(trees.failNext.plant).toBe(false);
+    expect((await donations())[0]).toMatchObject({
+      status: 'pending',
+      request_attempted_at: expect.any(Date),
+    });
+  });
 const waitForRequests = (count: number) =>
   vi.waitFor(() => expect(trees.requests).toHaveLength(count));
 
@@ -97,6 +111,7 @@ describe('the final payment funds trees', () => {
         percentage: 25,
         status: 'owed',
         tree_request_id: 'tree-req-1',
+        request_attempted_at: expect.any(Date),
         charity: DEFAULT_CHARITY.name,
       },
     ]);
@@ -150,7 +165,7 @@ describe('requestPendingTrees (retries)', () => {
   it('leaves a failed request pending, and sends it on the next try', async () => {
     trees.failNext.plant = true;
     await fullyPaid();
-    await vi.waitFor(async () => expect((await donations())[0].status).toBe('pending'));
+    await waitForFailedAttempt();
     // The failed attempt is recent, so an immediate retry leaves it alone (it may be in flight).
     expect(await requestPendingTrees(trees.planter)).toEqual({ requested: 0, failed: 0 });
 
@@ -181,7 +196,7 @@ describe('requestPendingTrees (retries)', () => {
   it('counts a failure to check Digital Humani as failed, and keeps the row pending', async () => {
     trees.failNext.plant = true;
     await fullyPaid();
-    await vi.waitFor(async () => expect((await donations())[0].status).toBe('pending'));
+    await waitForFailedAttempt();
     await pool.query(
       `UPDATE donations SET request_attempted_at = now() - make_interval(mins => $1)`,
       [RETRY_AFTER_MINUTES + 1],
@@ -195,7 +210,7 @@ describe('requestPendingTrees (retries)', () => {
   it("ignores an earlier request that isn't this donation's, and plants it", async () => {
     trees.failNext.plant = true;
     const commission = await fullyPaid();
-    await vi.waitFor(async () => expect((await donations())[0].status).toBe('pending'));
+    await waitForFailedAttempt();
     // A request under the same reference, but for a different number of trees.
     trees.requests.push({
       uuid: 'unrelated',
