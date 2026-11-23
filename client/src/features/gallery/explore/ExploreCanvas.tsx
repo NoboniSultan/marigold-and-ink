@@ -3,8 +3,10 @@
  * This file (and three.js with it) is loaded only when someone opens Explore: GalleryPage
  * imports it with React.lazy, so the grid and every other page never download the 3D code.
  *
- * It owns the open spread and the input: a scroll gesture, a horizontal swipe, the arrow
- * keys, or the buttons each turn one page. Clicking the open page's artwork opens it.
+ * It owns the open spread and the input: a scroll gesture, the arrow keys, or the buttons
+ * each turn one page; a sideways drag or swipe lifts the page itself, which follows the
+ * finger and carries on over (or falls back) when let go. Clicking the open page's artwork
+ * opens it. The book shows the pieces the owner chose for it (`inSketchbook`).
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Canvas } from '@react-three/fiber';
@@ -14,15 +16,30 @@ import { ErrorMessage, Loading } from '../../../components/Loading.tsx';
 import { usePrefersReducedMotion } from '../../../hooks/useMediaQuery.ts';
 import { mixTones } from '../mixTones.ts';
 import { Sketchbook } from './Sketchbook.tsx';
-import { DRAG_THRESHOLD, clampSpread, initialWheelState, wheelStep } from './sketchbook.ts';
+import {
+  DRAG_START,
+  clampSpread,
+  dragProgress,
+  initialWheelState,
+  releaseTurns,
+  wheelStep,
+  type DragTurn,
+} from './sketchbook.ts';
 import styles from './ExploreCanvas.module.css';
 
 export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) => void }) {
   const { data, isPending, isError, refetch } = useArtworks({ pageSize: 100 });
   const reduceMotion = usePrefersReducedMotion();
-  // Black-and-white and coloured pieces alternate, so neither kind bunches up.
+  // The owner's picks for the book, black-and-white and coloured alternating so neither
+  // kind bunches up.
   const artworks = useMemo(
-    () => (data ? mixTones(data.data, (artwork) => artwork.image.monochrome) : []),
+    () =>
+      data
+        ? mixTones(
+            data.data.filter((artwork) => artwork.inSketchbook),
+            (artwork) => artwork.image.monochrome,
+          )
+        : [],
     [data],
   );
 
@@ -57,8 +74,24 @@ export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) =
     return () => element.removeEventListener('wheel', onWheel);
   }, [ready, count]);
 
-  // A horizontal swipe or drag turns one page; vertical swipes still scroll on phones.
-  const drag = useRef<{ x: number; turned: boolean } | null>(null);
+  // A sideways drag holds the page: forward lifts the open right-hand page, backward the
+  // last turned one. Vertical swipes still scroll the page on phones (touch-action).
+  const dragTurn = useRef<DragTurn | null>(null);
+  const pointer = useRef<{
+    startX: number;
+    lastX: number;
+    lastTime: number;
+    velocity: number;
+    span: number;
+  } | null>(null);
+
+  function letGo() {
+    const held = dragTurn.current;
+    const velocity = pointer.current?.velocity ?? 0;
+    pointer.current = null;
+    dragTurn.current = null;
+    if (held && releaseTurns(held, velocity)) turn(held.direction);
+  }
 
   function onKeyDown(event: KeyboardEvent) {
     const keys: Record<string, () => void> = {
@@ -77,7 +110,7 @@ export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) =
   if (isPending) return <Loading label="Loading artworks" />;
   if (isError)
     return <ErrorMessage message="The gallery couldn't load." onRetry={() => refetch()} />;
-  if (count === 0) return <p>No artworks yet.</p>;
+  if (count === 0) return <p>No artworks in the sketchbook yet.</p>;
 
   const current = artworks[spread]!;
 
@@ -95,29 +128,49 @@ export default function ExploreCanvas({ onOpen }: { onOpen: (artwork: Artwork) =
           else onKeyDown(event);
         }}
         onPointerDown={(event) => {
-          drag.current = { x: event.clientX, turned: false };
+          const { width, height } = event.currentTarget.getBoundingClientRect();
+          pointer.current = {
+            startX: event.clientX,
+            lastX: event.clientX,
+            lastTime: event.timeStamp,
+            velocity: 0,
+            // About a page's width on screen carries the page all the way over.
+            span: width < height ? width * 0.75 : width * 0.4,
+          };
         }}
         onPointerMove={(event) => {
-          const gesture = drag.current;
-          if (!gesture || gesture.turned) return;
-          const dx = event.clientX - gesture.x;
-          if (Math.abs(dx) >= DRAG_THRESHOLD) {
-            gesture.turned = true;
-            turn(dx < 0 ? 1 : -1);
+          const press = pointer.current;
+          if (!press) return;
+          const elapsed = Math.max(event.timeStamp - press.lastTime, 1);
+          press.velocity = 0.7 * ((event.clientX - press.lastX) / elapsed) + 0.3 * press.velocity;
+          press.lastX = event.clientX;
+          press.lastTime = event.timeStamp;
+
+          const dx = event.clientX - press.startX;
+          if (!dragTurn.current) {
+            if (Math.abs(dx) < DRAG_START) return;
+            const direction = dx < 0 ? 1 : -1;
+            if (direction === 1 ? spread >= count - 1 : spread === 0) return;
+            dragTurn.current = {
+              leaf: direction === 1 ? spread : spread - 1,
+              direction,
+              progress: direction === 1 ? 0 : 1,
+            };
           }
+          dragTurn.current.progress = dragProgress(dx, press.span, dragTurn.current.direction);
         }}
-        onPointerUp={() => {
-          drag.current = null;
-        }}
-        onPointerLeave={() => {
-          drag.current = null;
-        }}
-        onPointerCancel={() => {
-          drag.current = null; // the browser took the gesture over, e.g. to scroll the page
-        }}
+        onPointerUp={letGo}
+        onPointerLeave={letGo}
+        onPointerCancel={letGo /* the browser took the gesture over, e.g. to scroll the page */}
       >
         <Canvas camera={{ fov: 32, near: 0.1, far: 40 }} dpr={[1, 2]} flat>
-          <Sketchbook artworks={artworks} spread={spread} instant={reduceMotion} onOpen={onOpen} />
+          <Sketchbook
+            artworks={artworks}
+            spread={spread}
+            instant={reduceMotion}
+            dragTurn={dragTurn}
+            onOpen={onOpen}
+          />
         </Canvas>
         <p className={styles.hint} aria-hidden="true">
           <span className={styles.wide}>

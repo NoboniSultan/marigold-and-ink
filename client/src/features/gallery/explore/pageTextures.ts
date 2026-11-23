@@ -139,6 +139,41 @@ export async function artworkTexture(artwork: Artwork): Promise<CanvasTexture> {
   return toTexture(canvas, false);
 }
 
+/**
+ * The front cover: Ink board with the shop's name, like a stamped title, and a short
+ * Marigold rule (Marigold on Ink, never on white). `aspect` is the board's width / height.
+ */
+export async function coverTexture(aspect: number): Promise<CanvasTexture> {
+  const colors = readPalette();
+  const marigold = token('--color-marigold');
+  const titleFont = `400 76px ${colors.display}`;
+  await document.fonts.load(titleFont);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = Math.round(CANVAS_WIDTH / aspect);
+  const context = canvas.getContext('2d')!;
+  context.fillStyle = colors.ink;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  // A faint cloth grain.
+  context.globalAlpha = 0.05;
+  context.fillStyle = colors.paper;
+  for (let i = 0; i < 3000; i++) {
+    context.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1.5, 1.5);
+  }
+  context.globalAlpha = 1;
+
+  context.fillStyle = colors.paper;
+  context.font = titleFont;
+  context.textAlign = 'center';
+  context.textBaseline = 'alphabetic';
+  context.fillText('Marigold & Ink', canvas.width / 2, canvas.height * 0.42);
+  context.fillStyle = marigold;
+  context.fillRect(canvas.width / 2 - 40, canvas.height * 0.42 + 34, 80, 3);
+  return toTexture(canvas, false);
+}
+
 /** A soft, blurred shadow for the book to rest on. */
 export function shadowTexture(): CanvasTexture {
   const canvas = document.createElement('canvas');

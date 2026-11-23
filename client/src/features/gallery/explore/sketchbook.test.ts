@@ -1,17 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CURL,
   LEAF_GAP,
+  LIFT,
+  MIN_TURN_SECONDS,
+  OPEN_DELAY,
+  OPEN_SECONDS,
+  SEGMENTS,
+  TURN_SECONDS,
   WHEEL_PAUSE_MS,
   WHEEL_THRESHOLD,
-  bendPoint,
   clampSpread,
+  createPaper,
+  dragLift,
+  dragProgress,
   fitInside,
   initialWheelState,
   isNearSpread,
-  leafShape,
+  layOutPaper,
   leafTarget,
+  openProgress,
+  paperTargets,
+  releaseTurns,
+  settlePaper,
   stackHeight,
+  stepPaper,
+  turnDuration,
+  turnLift,
   turnProgress,
   wheelStep,
   type WheelState,
@@ -46,9 +60,15 @@ describe('spreads and leaves', () => {
       false,
     ]);
   });
+
+  it('puts earlier leaves on top on the right, and later ones on top on the left', () => {
+    expect(stackHeight(0, 3, 0)).toBeGreaterThan(stackHeight(1, 3, 0));
+    expect(stackHeight(1, 3, 1)).toBeGreaterThan(stackHeight(0, 3, 1));
+    expect(stackHeight(2, 3, 0)).toBeCloseTo(LEAF_GAP); // never level with the base
+  });
 });
 
-describe('turnProgress', () => {
+describe('turn timing', () => {
   it('starts and ends where asked, easing in between', () => {
     expect(turnProgress(0, 1, 0, 1)).toBe(0);
     expect(turnProgress(0, 1, 0.5, 1)).toBeCloseTo(0.5);
@@ -56,57 +76,117 @@ describe('turnProgress', () => {
     expect(turnProgress(0, 1, 0.9, 1)).toBeGreaterThan(0.9); // a gentle stop
     expect(turnProgress(0, 1, 5, 1)).toBe(1);
     expect(turnProgress(1, 0, 1, 1)).toBe(0);
+    expect(turnProgress(0, 1, 0, 0)).toBe(1); // no duration: straight to the end
   });
 
-  it('jumps straight to the end with no duration (reduced motion)', () => {
-    expect(turnProgress(0, 1, 0, 0)).toBe(1);
+  it('takes a full turn time for a full turn, and never snaps a short one', () => {
+    expect(turnDuration(1)).toBe(TURN_SECONDS);
+    expect(turnDuration(-0.5)).toBe(TURN_SECONDS / 2);
+    expect(turnDuration(0.05)).toBe(MIN_TURN_SECONDS);
+  });
+
+  it('lifts the edge ahead early in a turn, and lets it trail late', () => {
+    expect(turnLift(0.25, 1)).toBeCloseTo(LIFT);
+    expect(turnLift(0.75, 1)).toBeCloseTo(-LIFT);
+    expect(turnLift(0.25, -1)).toBeCloseTo(-LIFT); // turning back: ahead is toward 0
+    expect(turnLift(2, 1)).toBeCloseTo(0);
+    expect(dragLift(Math.PI / 2, 1)).toBeCloseTo(LIFT);
+    expect(dragLift(0, 1)).toBeCloseTo(0);
+  });
+
+  it('opens the cover after a short pause', () => {
+    expect(openProgress(0)).toBe(0);
+    expect(openProgress(OPEN_DELAY)).toBe(0);
+    expect(openProgress(OPEN_DELAY + OPEN_SECONDS / 2)).toBeCloseTo(0.5);
+    expect(openProgress(OPEN_DELAY + OPEN_SECONDS)).toBe(1);
   });
 });
 
-describe('the page bend', () => {
-  it('lies flat at both ends of a turn and curls most in the middle', () => {
-    expect(leafShape(0)).toEqual({ angle: 0, curl: 0 });
-    expect(leafShape(1).angle).toBeCloseTo(Math.PI);
-    expect(leafShape(1).curl).toBeCloseTo(0);
-    expect(leafShape(0.5).curl).toBeCloseTo(CURL);
-  });
-
-  it('is a straight page without curl', () => {
-    expect(bendPoint(1, 1, 0, 0)).toEqual([1, 0]);
-    const [x, z] = bendPoint(1, 1, Math.PI / 2, 0);
-    expect(x).toBeCloseTo(0);
-    expect(z).toBeCloseTo(1);
-  });
-
-  it('never stretches the paper: the curled edge is as far along the arc as the page is wide', () => {
-    // Walk along the curled page in small steps; the path length stays the width.
-    const width = 1.35;
-    const { angle, curl } = leafShape(0.4);
-    let length = 0;
-    let previous = bendPoint(0, width, angle, curl);
-    for (let i = 1; i <= 200; i++) {
-      const point = bendPoint((width * i) / 200, width, angle, curl);
-      length += Math.hypot(point[0] - previous[0], point[1] - previous[1]);
-      previous = point;
+describe('the paper', () => {
+  /** Simulates a full animated turn at 60 fps, recording every frame's angles. */
+  function simulateTurn(seconds = 4) {
+    const paper = createPaper(0);
+    const targets = new Float64Array(SEGMENTS);
+    const frames: Float64Array[] = [];
+    let settledAt = Infinity;
+    for (let frame = 0; frame * (1 / 60) < seconds; frame++) {
+      const t = frame / 60;
+      const spine = Math.PI * turnProgress(0, 1, t, TURN_SECONDS);
+      paperTargets(spine, turnLift(t / TURN_SECONDS, 1), targets);
+      if (stepPaper(paper, targets, 1 / 60) && t > TURN_SECONDS && settledAt === Infinity) {
+        settledAt = t;
+      }
+      frames.push(Float64Array.from(paper.angles));
     }
-    expect(length).toBeCloseTo(width, 4);
+    return { frames, settledAt, paper };
+  }
+
+  it('turns over and comes to rest flat on the other side', () => {
+    const { paper, settledAt } = simulateTurn();
+    expect([...paper.angles].every((a) => a === Math.PI)).toBe(true);
+    expect(settledAt).toBeLessThan(TURN_SECONDS + 1.5);
   });
 
-  it('keeps a turning page above the book', () => {
-    for (const p of [0.05, 0.25, 0.5, 0.75, 0.95]) {
-      const { angle, curl } = leafShape(p);
-      for (const s of [0.3, 0.7, 1.35]) {
-        expect(bendPoint(s, 1.35, angle, curl)[1]).toBeGreaterThan(0);
+  it('never passes through the book', () => {
+    for (const angles of simulateTurn().frames) {
+      for (const a of angles) {
+        expect(a).toBeGreaterThanOrEqual(0);
+        expect(a).toBeLessThanOrEqual(Math.PI);
       }
     }
   });
+
+  it('flows: the edge leads early and trails behind late in the turn', () => {
+    const { frames } = simulateTurn();
+    const edgeMinusSpine = frames.map((a) => a[SEGMENTS - 1]! - a[0]!);
+    expect(Math.max(...edgeMinusSpine)).toBeGreaterThan(0.1); // lifted ahead
+    expect(Math.min(...edgeMinusSpine)).toBeLessThan(-0.3); // trailing behind
+  });
+
+  it('never stretches: the page is as long as it is wide, however it bends', () => {
+    const xs = new Float64Array(SEGMENTS + 1);
+    const zs = new Float64Array(SEGMENTS + 1);
+    for (const angles of simulateTurn(1.5).frames.filter((_, i) => i % 10 === 0)) {
+      layOutPaper(angles, 1.35, xs, zs);
+      let length = 0;
+      for (let j = 1; j <= SEGMENTS; j++)
+        length += Math.hypot(xs[j]! - xs[j - 1]!, zs[j]! - zs[j - 1]!);
+      expect(length).toBeCloseTo(1.35, 6);
+      expect(Math.min(...zs)).toBeGreaterThanOrEqual(0); // and stays above the pages below
+    }
+  });
+
+  it('lies flat at rest', () => {
+    const xs = new Float64Array(SEGMENTS + 1);
+    const zs = new Float64Array(SEGMENTS + 1);
+    layOutPaper(createPaper(0).angles, 1, xs, zs);
+    expect(xs[SEGMENTS]).toBeCloseTo(1);
+    expect(Math.max(...zs.map(Math.abs))).toBe(0);
+  });
+
+  it('jumps straight to its shape for reduced motion', () => {
+    const paper = createPaper(0);
+    settlePaper(paper, paperTargets(Math.PI, 0, new Float64Array(SEGMENTS)));
+    expect([...paper.angles].every((a) => a === Math.PI)).toBe(true);
+  });
 });
 
-describe('stackHeight', () => {
-  it('puts earlier leaves on top on the right, and later ones on top on the left', () => {
-    expect(stackHeight(0, 3, 0)).toBeGreaterThan(stackHeight(1, 3, 0));
-    expect(stackHeight(1, 3, 1)).toBeGreaterThan(stackHeight(0, 3, 1));
-    expect(stackHeight(2, 3, 0)).toBeCloseTo(LEAF_GAP); // never level with the base
+describe('dragging a page', () => {
+  it('follows the finger, forward from the right and back from the left', () => {
+    expect(dragProgress(-50, 100, 1)).toBeCloseTo(0.5);
+    expect(dragProgress(-500, 100, 1)).toBe(1);
+    expect(dragProgress(30, 100, 1)).toBe(0); // the wrong way: stays put
+    expect(dragProgress(25, 100, -1)).toBeCloseTo(0.75);
+    expect(dragProgress(500, 100, -1)).toBe(0);
+  });
+
+  it('carries on over past a third of the way, or with a flick', () => {
+    expect(releaseTurns({ leaf: 0, direction: 1, progress: 0.4 }, 0)).toBe(true);
+    expect(releaseTurns({ leaf: 0, direction: 1, progress: 0.2 }, 0)).toBe(false);
+    expect(releaseTurns({ leaf: 0, direction: 1, progress: 0.1 }, -0.8)).toBe(true);
+    expect(releaseTurns({ leaf: 0, direction: -1, progress: 0.6 }, 0)).toBe(true);
+    expect(releaseTurns({ leaf: 0, direction: -1, progress: 0.9 }, 0)).toBe(false);
+    expect(releaseTurns({ leaf: 0, direction: -1, progress: 0.9 }, 0.8)).toBe(true);
   });
 });
 

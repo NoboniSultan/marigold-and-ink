@@ -79,22 +79,25 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 
 ### Gallery: Explore mode (3D sketchbook)
 
-`features/gallery/explore/ExploreCanvas.tsx` (canvas, input, controls), `Sketchbook.tsx` (the book), `pageTextures.ts` (pages drawn on canvases), and `sketchbook.ts` (the arithmetic, unit-tested). Replaced the cylinder room in milestone 8b, after the owner found it overstimulating.
+`features/gallery/explore/ExploreCanvas.tsx` (canvas, input, controls), `Sketchbook.tsx` (the book), `pageTextures.ts` (pages and cover drawn on canvases), and `sketchbook.ts` (the arithmetic and the paper model, unit-tested). Replaced the cylinder room in milestone 8b, after the owner found it overstimulating.
 
-- **The book:** an open sketchbook on a quiet desk, seen at a reader's angle (0.45 rad off vertical). One artwork per spread: the right page shows the piece whole, at its own proportions, as if tipped in; the left page has its caption (title, medium and year, credit) and its place in the book ("3 / 37"). Pages have a faint grain and darken softly into the spine.
-  - Black-and-white and coloured pieces alternate (`mixTones`).
+- **The book:** a sketchbook on a quiet desk, seen at a reader's angle (0.3 rad off vertical; the owner asked for less tilt than the first 0.45). One artwork per spread: the right page shows the piece whole, at its own proportions, as if tipped in; the left page has its caption (title, medium and year, credit) and its place in the book ("3 / 18"). Pages have a faint grain and darken softly into the spine.
+  - **Which pieces:** only those the owner chose (`inSketchbook`; `"sketchbook": false` in `content/artworks.json` leaves one out). Black-and-white and coloured pieces alternate (`mixTones`).
   - Colours and fonts are read from `tokens.css` at run time, so the book follows the palette.
-- **Turning a page:** each leaf is a strip of paper (28 columns of vertices) bent along its width into a circular arc. The bend is strongest mid-turn and gone at rest, and the paper never stretches (tested). A turn takes **0.9 s** with ease-in-out cubic; reversing mid-turn continues from where the page is. Parts of a page shade darker as they stand up, which makes the turn read as paper.
+- **Opening:** every time Explore opens, the book appears closed (Ink cover, "Marigold & Ink" with a Marigold rule), rests **0.45 s**, then the front cover swings over the spine (**1.7 s**, ease-in-out) while the book glides to the middle of the view. The inside of the cover becomes the first caption page. Pages can't be turned until it's open (a turn asked for meanwhile happens right after).
+- **Paper:** each page is a strip of 28 pieces from the spine to the edge. The spine end is driven by the turn; every piece follows its target on a spring (stiffness 15/s, loosening 72% toward the edge, damping ratio 0.82), so the edge lifts first, trails through the turn, and floats down last. Pieces stop at the stack rather than pass through it, and the paper never stretches (both tested). Parts of a page shade darker as they stand up.
+  - **An animated turn** (scroll, keys, buttons) takes **1.1 s**, ease-in-out, with the edge led ahead early and trailing late.
+  - **Dragging** holds the page: it follows the finger or mouse (about a page's width on screen takes it all the way over), edge leading. Let go past a third of the way, or with a flick (0.45 px/ms), and it carries on over with an ease-out; otherwise it falls back.
 - **Input, one page at a time:**
   - **Scroll:** one page per gesture. A trackpad swipe and its coasting count as one; the next turn needs a pause of 220 ms. At the first or last page, scrolling carries on down the page.
-  - **Swipe or drag** sideways (50 px). Vertical swipes still scroll the page on phones (`touch-action: pan-y`).
-  - **Keys:** ← →, Home, End; Enter opens the piece. **Buttons** below the book, with the title and "N of 37" (announced politely).
+  - **Drag or swipe** sideways, as above. Vertical swipes still scroll the page on phones (`touch-action: pan-y`).
+  - **Keys:** ← →, Home, End; Enter opens the piece. **Buttons** below the book, with the title and "N of 18" (announced politely).
   - **Click** the open right-hand page to open the detail overlay (a drag isn't a click).
 - **Phones** (portrait canvas): the camera frames the right-hand page, so one piece fills the stage; the caption is in the controls below.
 - **Light on the GPU:** only leaves within two of the open spread get real page textures; the rest are blank paper until they come near. Resting pages aren't recomputed.
 - **Lazy-loaded:** `React.lazy`, so three.js downloads only when Explore opens. (drei and postprocessing were dropped with the cylinder.)
-- **Accessibility:** a visually hidden list of buttons offers every piece to keyboards and screen readers.
-- **Reduced motion:** never opened by default (Grid is used); if opened, pages change at once, without turning.
+- **Accessibility:** a visually hidden list of buttons offers every sketchbook piece to keyboards and screen readers.
+- **Reduced motion:** never opened by default (Grid is used); if opened, the book starts open and pages change at once (a drag still moves the page with the finger).
 
 ### Giving: seed → sprout → tree
 
@@ -146,6 +149,6 @@ When these are built, add their files here and move them into the section above.
 
 ## Testing
 
-- **Unit:** the typewriter rhythm (`useTypewriter.test.ts`) and the sketchbook's arithmetic (`sketchbook.test.ts`: page bend, turn easing, one page per scroll gesture).
+- **Unit:** the typewriter rhythm (`useTypewriter.test.ts`) and the sketchbook's arithmetic (`sketchbook.test.ts`: the paper model, turn and opening timing, dragging, one page per scroll gesture).
 - **Page tests** run with animations skipped (`MotionGlobalConfig.skipAnimations`) and check behavior: slides change, dialogs open and close, URLs update.
 - **Real browser:** jsdom has no layout, so shared-layout exits and WebGL are checked in a real browser. See the PR checklist: morph mid-flight at full strength, Escape and backdrop close, the sketchbook renders and turns one page per scroll gesture, phone has no horizontal overflow, reduced-motion fallbacks.

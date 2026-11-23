@@ -15,8 +15,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
   - clicking the open page opens the same detail overlay as Grid; at the first or last page, scrolling carries on down the page;
   - phones frame the right-hand page, so one piece fills the stage;
   - only pages near the open spread get textures; reduced motion changes pages without turning.
-- `@react-three/drei` and `@react-three/postprocessing` are no longer needed and were removed; the Explore chunk is about 247 KB gzipped (was about 285 KB).
-- **Tests:** 15 new client tests for the sketchbook's arithmetic (page bend that never stretches the paper, turn easing, stacking, one page per scroll gesture); the cylinder's layout tests were removed with it (95 client tests in all).
+- `@react-three/drei` and `@react-three/postprocessing` are no longer needed and were removed; the Explore chunk is about 248 KB gzipped (was about 285 KB).
+- **Owner feedback on the first sketchbook:**
+  - **less tilt** (0.45 → 0.3 rad);
+  - **paper-like pages:** each page is a strip of springs, so the edge lifts first, trails through the turn, and floats down; **dragging holds the page**, which follows the finger and carries on over (or falls back) when let go;
+  - **the book opens** every time Explore does: closed cover ("Marigold & Ink"), then the cover swings open as the book glides to the middle;
+  - **the owner's picks only:** a new `"sketchbook": false` in `content/artworks.json` (migration: `artworks.in_sketchbook`, default true; API: `inSketchbook`) leaves 19 pieces out of the book, which now holds 18. They're all still in the grid.
+- **Pet Portrait 2 is now "Benito"** (owner's title), at `/gallery/benito`.
+- **Tests:** 21 client tests for the sketchbook (the paper model never passes through the book or stretches, the edge leads then trails, turns settle; turn and opening timing; dragging and release; one page per scroll gesture), replacing the cylinder's layout tests (101 client tests in all); 2 server tests for `sketchbook` in the content file and `inSketchbook` in the API (853 server tests in all).
 
 ## [0.9.0] - 2026-11-23 (Milestone 8: giving through Digital Humani)
 
