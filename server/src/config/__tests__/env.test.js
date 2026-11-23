@@ -205,3 +205,55 @@ describe('loadConfig: Stripe payments', () => {
     expect(() => loadConfig({ ...stripeEnv, PAYMENT_CURRENCY: 'dollars' })).toThrow(/3-letter/);
   });
 });
+
+describe('loadConfig: giving (Digital Humani)', () => {
+  const paymentsEnv = {
+    ...validEnv,
+    PUBLIC_URL: 'https://example.com',
+    STRIPE_SECRET_KEY: 'sk_test_abc123',
+    STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
+    PAYMENT_CURRENCY: 'usd',
+  };
+  const givingEnv = {
+    ...paymentsEnv,
+    DIGITALHUMANI_API_KEY: 'dh-key',
+    DIGITALHUMANI_ENTERPRISE_ID: 'ent-1',
+    DIGITALHUMANI_PROJECT_ID: 'proj-1',
+    DIGITALHUMANI_ENVIRONMENT: 'sandbox',
+    DONATION_PERCENT: '25', // a test value
+  };
+
+  it('is off without a Digital Humani key', () => {
+    expect(loadConfig(paymentsEnv).giving).toBeNull();
+  });
+
+  it('reads every setting when switched on', () => {
+    expect(loadConfig(givingEnv).giving).toEqual({
+      apiKey: 'dh-key',
+      enterpriseId: 'ent-1',
+      projectId: 'proj-1',
+      environment: 'sandbox',
+      donationPercent: 25,
+    });
+  });
+
+  it('requires every setting, including the donation percent, once any is set', () => {
+    const { DONATION_PERCENT: _p, DIGITALHUMANI_PROJECT_ID: _id, ...missing } = givingEnv;
+    expect(() => loadConfig(missing)).toThrow(/DIGITALHUMANI_PROJECT_ID[\s\S]*DONATION_PERCENT/);
+  });
+
+  it('needs payments switched on', () => {
+    const { STRIPE_SECRET_KEY: _k, STRIPE_WEBHOOK_SECRET: _w, ...noPayments } = givingEnv;
+    expect(() => loadConfig(noPayments)).toThrow(/giving needs payments[\s\S]*STRIPE_SECRET_KEY/);
+  });
+
+  it("refuses 'production' while payments are test-only (real trees, no real income)", () => {
+    expect(() => loadConfig({ ...givingEnv, DIGITALHUMANI_ENVIRONMENT: 'production' })).toThrow(
+      /production[\s\S]*DIGITALHUMANI_ENVIRONMENT/,
+    );
+  });
+
+  it.each(['0', '-5', '101', '25.555', 'lots'])('rejects DONATION_PERCENT %s', (value) => {
+    expect(() => loadConfig({ ...givingEnv, DONATION_PERCENT: value })).toThrow(/DONATION_PERCENT/);
+  });
+});

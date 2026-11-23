@@ -85,4 +85,18 @@ services:
         value: '50'
       - key: COMMISSION_REVISION_LIMIT
         value: '2'
+      # Giving (docs/setup-digital-humani.md): trees through Digital Humani when a commission
+      # is fully paid. Off until the API key is set. 'production' is refused while Stripe is
+      # test-only (it would plant real trees with no real income behind them).
+      - key: DIGITALHUMANI_API_KEY
+        sync: false
+      - key: DIGITALHUMANI_ENTERPRISE_ID
+        sync: false
+      - key: DIGITALHUMANI_PROJECT_ID
+        sync: false
+      - key: DIGITALHUMANI_ENVIRONMENT
+        value: sandbox
+      # The owner's promise: 25% of every commission's full price goes to trees.
+      - key: DONATION_PERCENT
+        value: '25'
 # No `databases:` section: the database lives on Neon, not Render (ADR 0006).
