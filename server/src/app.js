@@ -17,6 +17,7 @@ import { apiRouter } from './routes.js';
 import { createDefaultAdapters } from './adapters/index.ts';
 import { stripeWebhook } from './modules/payments/payments.controller.ts';
 import { expireOpenCheckouts } from './modules/payments/payments.service.ts';
+import { requestPendingTrees } from './modules/giving/giving.service.ts';
 
 const MEDIA_COLLECTIONS = ['artworks', 'about'];
 
@@ -35,13 +36,19 @@ const MEDIA_COLLECTIONS = ['artworks', 'about'];
  */
 export function createApp({
   adapters = createDefaultAdapters(),
+  // The share of a fully paid commission that goes to trees; null = giving is off.
+  donationPercent = config.giving?.donationPercent ?? null,
   canonicalUrl = config.nodeEnv === 'production' ? config.publicUrl : null,
 } = {}) {
   const app = express();
   app.locals.adapters = adapters;
+  app.locals.donationPercent = donationPercent;
   // Runs after a status change through the generic endpoint. Wired here so the commissions
   // module needn't know about payments: a cancelled commission's open Stripe Checkout pages
   // are closed so they can't be paid.
+  // Sends pending tree requests to Digital Humani (after a payment, and at startup). Kept
+  // here so the payments module needn't know about the trees adapter. Never throws.
+  app.locals.requestPendingTrees = () => requestPendingTrees(adapters.trees);
   app.locals.onCommissionStatusChange = async (commission) => {
     if (commission.status === 'canceled') {
       await expireOpenCheckouts(commission.id, adapters.payments);

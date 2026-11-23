@@ -8,6 +8,7 @@ import { pool } from './pool.js';
 import { seedAdmin } from './seeds/admin.js';
 import { seedPlaceholderPricing } from './seeds/pricing.placeholder.js';
 import { seedContent } from './seeds/content.ts';
+import { seedCharity } from './seeds/charity.ts';
 
 try {
   const admin = await seedAdmin();
@@ -21,6 +22,9 @@ try {
       { inserted: pricing.inserted },
       'PLACEHOLDER pricing seeded: replace with real prices',
     );
+
+  const charity = await seedCharity();
+  logger.info({ charity }, 'charity seed done');
 
   const content = await seedContent();
   logger.info(
