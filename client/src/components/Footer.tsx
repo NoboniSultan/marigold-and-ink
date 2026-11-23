@@ -20,6 +20,7 @@ export function Footer() {
             <Link to="/gallery">Gallery</Link>
             <Link to="/about">About</Link>
             <Link to="/commission">Commission</Link>
+            <Link to="/privacy">Privacy</Link>
           </nav>
           <p className={styles.legal}>
             © {new Date().getFullYear()} Marigold &amp; Ink. All artwork © the artist.

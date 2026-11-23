@@ -20,6 +20,12 @@
   font-size: var(--text-lg);
 }
 
+/* Subheadings inside the bio, e.g. "Art that gives back". */
+.bio h2 {
+  font-size: var(--text-xl);
+  margin-top: var(--space-8);
+}
+
 .closing {
   max-width: 48rem;
   margin: var(--space-16) auto 0;

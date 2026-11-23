@@ -45,6 +45,20 @@ describe('buildAbout', () => {
     expect(about.isPlaceholder).toBe(true);
   });
 
+  it('keeps subheadings in the bio, and flags a placeholder heading', () => {
+    const bio = [{ heading: 'A little about me' }, 'Real text.'];
+    expect(buildAbout({ photo: 'me', photoAlt: 'Me', bio }, manifest)).toMatchObject({
+      bio,
+      isPlaceholder: false,
+    });
+
+    const draft = buildAbout(
+      { photo: 'me', photoAlt: 'Me', bio: [{ heading: 'PLACEHOLDER: a heading' }, 'Real text.'] },
+      manifest,
+    );
+    expect(draft.isPlaceholder).toBe(true);
+  });
+
   it('refuses a photo that was not processed, listing the ones that were', () => {
     expect(() => buildAbout({ photo: 'nobody', photoAlt: 'x', bio: ['x'] }, manifest)).toThrow(
       new ContentError(`about.json: photo "nobody" isn't in media/manifest.json (available: me)`),
@@ -91,6 +105,20 @@ describe('buildAbout', () => {
 
   it('requires at least one bio paragraph and rejects unknown fields', () => {
     expect(aboutFileSchema.safeParse({ photo: 'me', photoAlt: 'x', bio: [] }).success).toBe(false);
+    expect(
+      aboutFileSchema.safeParse({
+        photo: 'me',
+        photoAlt: 'x',
+        bio: [{ heading: 'Only a heading' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      aboutFileSchema.safeParse({
+        photo: 'me',
+        photoAlt: 'x',
+        bio: [{ heading: 'x', level: 3 }, 'x'],
+      }).success,
+    ).toBe(false);
     expect(
       aboutFileSchema.safeParse({ photo: 'me', photoAlt: 'x', bio: ['x'], biography: 'x' }).success,
     ).toBe(false);

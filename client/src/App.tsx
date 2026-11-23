@@ -16,6 +16,7 @@ import { CommissionStatusPage } from './pages/CommissionStatusPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { RegisterPage } from './pages/RegisterPage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
+import { PrivacyPage } from './pages/PrivacyPage.tsx';
 
 /** Every page, under the shared layout. Exported so tests can mount the same routes. */
 export const routes: RouteObject[] = [
@@ -26,6 +27,7 @@ export const routes: RouteObject[] = [
       { path: 'gallery', element: <GalleryPage /> },
       { path: 'gallery/:slug', element: <ArtworkPage /> },
       { path: 'about', element: <AboutPage /> },
+      { path: 'privacy', element: <PrivacyPage /> },
       {
         path: 'commission',
         element: (
