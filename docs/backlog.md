@@ -17,9 +17,15 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 
 ## Ideas and notes
 
+- **A calmer 3D gallery** (owner feedback, milestone 7e): the cylinder felt overstimulating. Replace it with one of the ideas offered (a sketchbook to page through, a quiet room, or a stack of sheets), once the owner chooses.
+- **Mark tree invoices paid** (milestone 8): donations move to `owed` when Digital Humani accepts them; an admin screen should record the planting partner's invoice as `paid` (payout date, receipt reference), plus the monthly donation report (proposal section 8).
+- **Scheduled retry for pending trees:** today they're retried after the next payment and at startup. Move it to the background jobs when those exist.
+- **Stripe Dashboard refunds bypass the tree-money cap** (ADR 0013): the webhook could flag them (refunded beyond paid − tree money) in the log or an admin view.
+- **Digital Humani production** goes with live Stripe: production key, `DIGITALHUMANI_ENVIRONMENT=production`, and lifting the config check (docs/setup-digital-humani.md).
+
 - **Owner decisions for later milestones (2026-11-22):**
   - **Shipping:** physical and mixed-media work ships within the US only; digital work is sold worldwide.
-  - **Donations:** 25% of each commission's full price, to One Tree Planted. It has no public per-order API, so the plan is a donations ledger with a monthly "owed" total that the owner donates in one payment (proposal section 8).
+  - **Donations:** 25% of each commission's full price, as trees through Digital Humani (One Tree Planted project), requested automatically once a commission is fully paid; built in milestone 8 (ADR 0013).
 - **Artwork alt text and titles:** the 30 pieces published in milestone 7d use their title as alt text, which tells a screen-reader user little. Ask the owner for a one-line description of each, and for better titles where the file name shows (Clay 2, Pet Portrait 2, Portrait Example, Sketch 1).
 
 - **Make `REDIS_URL` required** once a feature (BullMQ jobs) depends on Redis. It is validated but optional for now.

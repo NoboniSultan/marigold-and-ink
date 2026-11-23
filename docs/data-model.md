@@ -368,6 +368,13 @@ Only the tables exist so far; the endpoints come in a later phase.
 | `donations_payment_id_key` | UNIQUE | One donation per payment, so a replayed webhook can never create a second donation. |
 | `donations_charity_id_idx`, `donations_status_idx`, `donations_created_at_idx` | Index | The admin filters: by charity, by status, and by month (a `created_at` range). |
 | `donations_commission_id_idx` | Index | Donations for one commission. |
+| `donations_tree_count_check` | CHECK | Tree donations (milestone 8) fund at least one tree. |
+| `donations_tree_amount_check` | CHECK | A tree donation costs exactly $1 a tree: `donation_amount_cents = tree_count × 100`. |
+| `donations_requested_fields_check` | CHECK | An `owed` or `paid` tree donation has Digital Humani's request ID and the time it was requested. |
+| `donations_tree_request_id_key` | UNIQUE | One Digital Humani request is never recorded twice. |
+| `donations_pending_trees_idx` | Partial index `(id) WHERE status = 'pending' AND tree_count IS NOT NULL` | The retry finds tree requests that haven't gone through. |
+
+**Tree donations** ([ADR 0013](decisions/0013-giving-through-digital-humani.md)): the final payment records one, `pending`. `request_attempted_at` is stamped and committed before calling Digital Humani, so a lost answer is detected and the retry adopts the existing request instead of planting twice. Once accepted, the row is `owed` (the planting partner will invoice the owner) with `tree_request_id` and `requested_at`. The refund flow never refunds a commission's tree money.
 
 ### sessions
 

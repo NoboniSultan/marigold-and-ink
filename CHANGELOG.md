@@ -5,6 +5,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-23 (Milestone 8: giving through Digital Humani)
+
+### Added
+
+- **Trees for every fully paid commission** ([ADR 0013](docs/decisions/0013-giving-through-digital-humani.md)):
+  - when the final payment succeeds, 25% of the full price becomes trees, at $1 each, rounded up ($110 → 28 trees), and is recorded in the donations ledger in the same transaction;
+  - the trees are requested from **Digital Humani** after the payment commits, so an outage there never affects a payment;
+  - failed requests stay pending and are retried after the next payment and at startup. A retry checks what Digital Humani already has (by the reference `commission-<id>`), so trees are never ordered twice;
+  - Digital Humani receives no personal data, only that reference.
+- **Refunds never give back the tree money** (the owner's decision): once a commission is fully paid, its refunds stop at paid − refunded − tree cost. Errors include `details.withheldForTreesCents`. Refunds before the final payment are unchanged.
+- **The Giving page** (`/giving`), in the owner's words ("I plant trees through Digital Humani"), linked from the footer:
+  - a seed → sprout → tree drawing that grows on scroll up to the stage reached (sprout at 50 trees, tree at 200), with flubber and Motion's `useTransform`;
+  - "N trees funded so far";
+  - reduced motion shows the stage without morphing;
+  - loaded on demand, so the main bundle doesn't carry flubber.
+- `GET /api/v1/giving` (public): `{ trees }`.
+- **Digital Humani adapter** (`adapters/digitalHumani.ts`, sandbox or production) and configuration: `DIGITALHUMANI_API_KEY`, `_ENTERPRISE_ID`, `_PROJECT_ID`, `_ENVIRONMENT`, and `DONATION_PERCENT` (no code default; 25 in `render.yaml`). `production` is refused while Stripe is test-only.
+- **Migration:** tree columns on `donations`, with constraints (exactly $1 a tree; owed means requested; one row per Digital Humani request). The seed makes "One Tree Planted (through Digital Humani)" the active charity unless the owner chose another.
+- **Docs:** ADR 0013, `docs/setup-digital-humani.md`, the data model, the privacy inventory (Digital Humani as a processor with no personal data), the motion doc, README, and backlog.
+- **Tests:**
+  - 44 new server tests (851 total): the arithmetic; the webhook → donation → request flow; replays; retries, including a lost answer; the refund cap; the public total; the seed; config; the adapter, with a fake fetch; and the constraints. The giving module and adapter have 100% coverage thresholds;
+  - 10 new client tests (91 total).
+
+### Changed
+
+- The footer's charity line links to the Giving page, and the footer links wrap on phones.
+
 ## [0.8.4] - 2026-11-23 (Milestone 7e: gallery and home polish)
 
 ### Changed
