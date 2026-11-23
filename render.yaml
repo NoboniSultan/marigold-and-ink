@@ -41,9 +41,10 @@ services:
         sync: false
       - key: AUTH_SECRET
         generateValue: true
-      # Browser origins allowed to send state-changing requests (comma-separated). The site
-      # is served by this same service, so this is the service's own URL (or the custom
-      # domain, once there is one). The CSRF origin check rejects anything else.
+      # Browser origins allowed to send state-changing requests: one variable, comma-separated,
+      # no spaces needed. The site is served by this same service, so this is the custom
+      # domain plus the onrender.com address (a tab opened there before the redirect can
+      # still submit). Set in the Dashboard: https://noboni.art,https://marigold-and-ink-api.onrender.com
       - key: CORS_ORIGINS
         sync: false
       - key: ADMIN_EMAIL
@@ -51,8 +52,11 @@ services:
       # Accounts (docs/setup-google-and-email.md). Optional: each feature stays off until its
       # values are set in the Dashboard. Render only asks for sync: false values when a
       # Blueprint is first created, so on this existing service add them in the Dashboard.
+      # The site's one public address. In production, page requests on any other address
+      # (onrender.com, www.) redirect here (middleware/canonicalHost.ts), because Google
+      # sign-in and the session cookie only work on this host.
       - key: PUBLIC_URL
-        value: https://marigold-and-ink-api.onrender.com
+        value: https://noboni.art
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
