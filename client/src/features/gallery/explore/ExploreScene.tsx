@@ -9,17 +9,12 @@ import { useTexture } from '@react-three/drei';
 import { DepthOfField, EffectComposer } from '@react-three/postprocessing';
 import { MathUtils, SRGBColorSpace, type Group, type Mesh, type MeshBasicMaterial } from 'three';
 import type { Artwork } from '@shared/types/artwork.ts';
-import { layoutSlots, mixTones, scatterFor } from './layout.ts';
+import { layoutSlots } from './layout.ts';
+import { mixTones } from '../mixTones.ts';
 
 export const RADIUS = 5;
-const ROW_HEIGHT = 2.4;
-/** Tallest a card may be. With the scatter, the highest card still clears the top of the view. */
-const CARD_HEIGHT = 2.3;
-/**
- * How wide a card may be, as a share of its slot. Over 1, so neighbours can overlap a
- * little, like pieces hung close together; each sits at its own depth (scatterFor).
- */
-const SLOT_FILL = 1.08;
+const ROW_HEIGHT = 2.3;
+const CARD_HEIGHT = 1.9;
 /** How quickly motion catches up with input: higher is snappier. */
 const EASE_RATE = 6;
 
@@ -27,16 +22,12 @@ interface CardProps {
   artwork: Artwork;
   angle: number;
   y: number;
-  /** Distance from the centre: around RADIUS, nearer or farther per card. */
-  radius: number;
-  /** A slight tilt around the viewing axis, in radians. */
-  roll: number;
   /** The widest a card may be before it would touch its neighbours. */
   maxWidth: number;
   onOpen: (artwork: Artwork) => void;
 }
 
-function Card({ artwork, angle, y, radius, roll, maxWidth, onOpen }: CardProps) {
+function Card({ artwork, angle, y, maxWidth, onOpen }: CardProps) {
   const texture = useTexture(artwork.image.thumb.src, (loaded) => {
     loaded.colorSpace = SRGBColorSpace; // the WebP is sRGB; tell three.js so colors stay true
   });
@@ -47,8 +38,7 @@ function Card({ artwork, angle, y, radius, roll, maxWidth, onOpen }: CardProps) 
   const pointer = useRef({ x: 0, y: 0 });
 
   const { width, height } = artwork.image.thumb;
-  // Keep the artwork's whole image and proportions (never cropped); very wide pieces
-  // shrink to fit their slot.
+  // Keep the artwork's proportions; very wide pieces shrink to fit their slot.
   const aspect = width / height;
   const cardHeight = Math.min(CARD_HEIGHT, maxWidth / aspect);
   const cardWidth = cardHeight * aspect;
@@ -78,12 +68,12 @@ function Card({ artwork, angle, y, radius, roll, maxWidth, onOpen }: CardProps) 
   }
 
   // Place on the cylinder wall, rotated so the card's front faces the centre.
-  const x = Math.sin(angle) * radius;
-  const z = -Math.cos(angle) * radius;
+  const x = Math.sin(angle) * RADIUS;
+  const z = -Math.cos(angle) * RADIUS;
 
   return (
     <group position={[x, y, z]} rotation={[0, -angle, 0]}>
-      <group ref={tilt} rotation-z={roll}>
+      <group ref={tilt}>
         <mesh
           ref={mesh}
           onPointerOver={(event) => {
@@ -131,25 +121,22 @@ export function ExploreScene({ artworks, onOpen, targetRotation }: SceneProps) {
   });
 
   // Black-and-white and coloured pieces mixed, then two staggered rows around the full
-  // circle, each card straying a little from its slot (see layout.ts).
+  // circle (see layout.ts for how pieces are placed).
   const ordered = useMemo(() => mixTones(artworks, (a) => a.image.monochrome), [artworks]);
   const { perRow, slots } = layoutSlots(ordered.length);
   const step = (Math.PI * 2) / perRow;
-  const maxWidth = step * RADIUS * SLOT_FILL;
+  const maxWidth = step * RADIUS * 0.82;
 
   return (
     <>
       <group ref={cylinder}>
-        {slots.map(({ artwork, row, column }, index) => {
-          const scatter = scatterFor(index);
+        {slots.map(({ artwork, row, column }) => {
           return (
             <Suspense key={`${row}-${column}`} fallback={null}>
               <Card
                 artwork={ordered[artwork]!}
-                angle={(column + scatter.angle) * step + (row ? step / 2 : 0)}
-                y={(row ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2) + scatter.y}
-                radius={RADIUS + scatter.depth}
-                roll={scatter.roll}
+                angle={column * step + (row ? step / 2 : 0)}
+                y={row ? -ROW_HEIGHT / 2 : ROW_HEIGHT / 2}
                 maxWidth={maxWidth}
                 onOpen={onOpen}
               />

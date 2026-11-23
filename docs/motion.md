@@ -45,7 +45,7 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 
 `features/home/FeaturedCarousel.tsx`
 
-- The first 5 published artworks. **No autoplay:** visitors move it with the arrows, the arrow keys, or a swipe (drag past 60px).
+- 5 published artworks: the first five once black-and-white and coloured pieces are mixed (`features/gallery/mixTones.ts`), since the gallery's own order puts black and white first. Up to 84% of the window's height on desktop (max 56rem). **No autoplay:** visitors move it with the arrows, the arrow keys, or a swipe (drag past 60px).
 - **Three layers per slide**, with these timings:
 
   | Layer | Arriving | Leaving |
@@ -84,8 +84,7 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 - **The room:** artworks on the inside of a cylinder (radius 5), facing the camera at its center, in two staggered rows.
   - A small collection repeats around the room (at least 9 per row); copies of a piece sit evenly apart and never side by side.
   - Each card shows its whole image at its own proportions (never cropped).
-  - **Mixed tones (milestone 7e):** black-and-white and coloured pieces are spread evenly through each other (`mixTones` in `layout.ts`), so neither kind bunches up.
-  - **Hung by hand:** each card strays a little from its slot: up to ±18% of the slot angle, ±0.3 up or down, a little nearer or farther (−0.45 to +0.25), and a ±0.05 rad tilt (`scatterFor`, seeded per slot so it never changes between visits). Cards are up to 2.3 tall and may be 8% wider than their slot, so neighbours can overlap slightly; their different depths keep overlaps from flickering.
+  - **Mixed tones (milestone 7e):** black-and-white and coloured pieces are spread evenly through each other (`features/gallery/mixTones.ts`), so neither kind bunches up.
 - **Turning:** the wheel (captured over the scene only), dragging, or the arrow keys set a target angle. Every frame, `useFrame` eases the cylinder toward it with frame-rate-independent lerp (`1 − e^(−6·Δt)`).
 - **Hover:** a card scales to 1.08, brightens, and tilts toward the cursor, all eased per frame.
 - **Click:** a card opens the same detail overlay as Grid mode.

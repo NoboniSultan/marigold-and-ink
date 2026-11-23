@@ -72,7 +72,8 @@ describe('Home', () => {
 
     const carousel = await screen.findByRole('region', { name: 'Featured work' });
     expect(await within(carousel).findByRole('heading', { name: 'Embrace' })).toBeInTheDocument();
-    expect(calls.find((c) => c.path === '/artworks')!.params.get('pageSize')).toBe('5');
+    // The whole gallery, so black-and-white and coloured pieces can be mixed (mixTones).
+    expect(calls.find((c) => c.path === '/artworks')!.params.get('pageSize')).toBe('100');
 
     await user.click(within(carousel).getByRole('button', { name: 'Next piece' }));
     expect(await within(carousel).findByRole('heading', { name: 'Fawn' })).toBeInTheDocument();

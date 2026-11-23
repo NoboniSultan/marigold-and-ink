@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { AnimatePresence, motion, usePresenceData, type Variants } from 'motion/react';
 import type { Artwork } from '@shared/types/artwork.ts';
 import { useArtworks } from '../../api/queries.ts';
+import { mixTones } from '../gallery/mixTones.ts';
 import { ArtworkImage } from '../../components/ArtworkImage.tsx';
 import { ErrorMessage, Loading } from '../../components/Loading.tsx';
 import { usePrefersReducedMotion } from '../../hooks/useMediaQuery.ts';
@@ -76,7 +77,7 @@ function Slide({ artwork, label }: { artwork: Artwork; label: string }) {
       <motion.div className={styles.artwork} variants={pick(artworkVariants)} custom={direction}>
         <ArtworkImage
           image={artwork.image}
-          sizes="(min-width: 64rem) 40rem, 80vw"
+          sizes="(min-width: 64rem) 56rem, 80vw"
           priority
           draggable={false}
         />
@@ -110,7 +111,9 @@ function Arrow({ direction }: { direction: Direction }) {
 
 /** User-controlled carousel (no autoplay): arrows, keyboard arrows, and swipe. */
 export function FeaturedCarousel() {
-  const { data, isPending, isError, refetch } = useArtworks({ pageSize: FEATURED_COUNT });
+  // The whole gallery (the same request as Explore, so it's cached), with black-and-white
+  // and coloured pieces mixed: the gallery's own order puts every black-and-white piece first.
+  const { data, isPending, isError, refetch } = useArtworks({ pageSize: 100 });
   const [[index, direction], setPage] = useState<[number, Direction]>([0, 1]);
   const reduce = usePrefersReducedMotion();
 
@@ -118,7 +121,7 @@ export function FeaturedCarousel() {
   if (isError)
     return <ErrorMessage message="Featured work couldn't load." onRetry={() => refetch()} />;
 
-  const artworks = data.data;
+  const artworks = mixTones(data.data, (a) => a.image.monochrome).slice(0, FEATURED_COUNT);
   const count = artworks.length;
   if (count === 0) return null;
 

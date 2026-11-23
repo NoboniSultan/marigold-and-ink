@@ -7,7 +7,6 @@
 export const COPY = {
   /** The Home hero types each line, pauses, erases it, and types the next (2–4 short lines). */
   heroLines: [
-    'Faces hold entire stories.',
     'Art you can hold onto.',
     'Charcoal, ink, acrylic, and clay.',
     'Every commission plants trees.',
