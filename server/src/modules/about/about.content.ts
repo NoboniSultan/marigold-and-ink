@@ -16,13 +16,22 @@ export const PLACEHOLDER_PREFIX = 'PLACEHOLDER:';
 
 const imageKey = z.string().regex(SLUG_PATTERN);
 const altText = z.string().trim().min(1).max(300);
+const paragraph = z.string().trim().min(1).max(3000);
+/** A subheading inside the bio, written as { "heading": "..." } between paragraphs. */
+const heading = z.object({ heading: z.string().trim().min(1).max(200) }).strict();
 
 export const aboutFileSchema = z
   .object({
     /** Main photo: an image key from media-source/about (the file name, slugified). */
     photo: imageKey,
     photoAlt: altText,
-    bio: z.array(z.string().trim().min(1).max(3000)).min(1).max(20),
+    /** Paragraphs in order, with optional { "heading": "..." } entries between them. */
+    bio: z
+      .array(z.union([paragraph, heading]))
+      .max(30)
+      .refine((blocks) => blocks.some((block) => typeof block === 'string'), {
+        message: 'needs at least one paragraph',
+      }),
     /** Optional second photo, shown at the bottom of the page. */
     closingPhoto: imageKey.optional(),
     closingPhotoAlt: altText.optional(),
@@ -51,7 +60,8 @@ function photoFrom(manifest: MediaManifest, key: string, alt: string, field: str
 }
 
 export function buildAbout(file: AboutFile, manifest: MediaManifest): AboutContent {
-  const texts = [file.photoAlt, file.closingPhotoAlt ?? '', ...file.bio];
+  const bioTexts = file.bio.map((block) => (typeof block === 'string' ? block : block.heading));
+  const texts = [file.photoAlt, file.closingPhotoAlt ?? '', ...bioTexts];
   return {
     photo: photoFrom(manifest, file.photo, file.photoAlt, 'photo'),
     bio: file.bio,

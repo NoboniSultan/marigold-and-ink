@@ -2,9 +2,14 @@
   "photo": "artist-with-flowers",
   "photoAlt": "PLACEHOLDER: describe this photo of you for screen readers",
   "bio": [
-    "PLACEHOLDER: Who you are and where you're from.",
-    "PLACEHOLDER: How you started making art, and the mediums you love working in.",
-    "PLACEHOLDER: Why a share of every order goes to charity."
+    { "heading": "A little about me" },
+    "Originally from Bangladesh and now based in New York, I'm an artist drawn to the little details that make life meaningful.",
+    "My love for art began when I was 14, sketching still lifes and finding beauty in the quiet presence of everyday things. Over time, that curiosity grew into a fascination with portraits. I've always believed that faces hold entire stories; every expression, every detail, and every imperfection has something to say.",
+    "In a world that exists increasingly on screens, I find something special about creating art you can hold onto. A charcoal sketch of someone you love, a portrait of a beloved pet, or a small piece that reminds you of a particular moment. There's something deeply personal about turning a memory into something tangible, something you can keep close.",
+    "I work across different mediums, including charcoal, ink, acrylic, and clay, and I'm currently exploring digital art. I love experimenting with materials, learning new techniques, and allowing my work to evolve. I'm still discovering my artistic voice, and I think that's one of the most beautiful parts of creating: there's always something new to explore.",
+    { "heading": "Art that gives back" },
+    "I've always felt a deep connection to trees. There's a quiet kind of comfort in being around them, in watching them grow, and in recognizing how closely their existence is intertwined with our own. They give us so much, often without us even noticing.",
+    "That's why I wanted this little creative space to give something back, too. With every commission, 25% goes toward planting trees. I hope that through each piece of art, we can contribute, in some small way, to a greener world."
   ],
   "closingPhoto": "artist-at-painted-bench",
   "closingPhotoAlt": "PLACEHOLDER: describe this photo of you at the painted bench"

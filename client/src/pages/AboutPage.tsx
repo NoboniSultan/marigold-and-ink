@@ -25,9 +25,9 @@ export function AboutPage() {
         </InkReveal>
         <div className={styles.bio}>
           <h1>About</h1>
-          {about.bio.map((paragraph, i) => (
-            <p key={i}>{paragraph}</p>
-          ))}
+          {about.bio.map((block, i) =>
+            typeof block === 'string' ? <p key={i}>{block}</p> : <h2 key={i}>{block.heading}</h2>,
+          )}
         </div>
       </div>
 
