@@ -273,7 +273,7 @@ Error codes used so far: `VALIDATION_ERROR` / `WEBHOOK_SIGNATURE_INVALID` (400),
 
 ## Deployment
 
-**Live site and API:** https://marigold-and-ink-api.onrender.com. Health check: [`/api/v1/health`](https://marigold-and-ink-api.onrender.com/api/v1/health). On the free plan the service sleeps when idle, so the first request may take up to a minute.
+**Live site and API:** https://noboni.art (the onrender.com address redirects there). Health check: [`/api/v1/health`](https://noboni.art/api/v1/health). On the free plan the service sleeps when idle, so the first request may take up to a minute.
 
 The API runs on [Render](https://render.com), defined in [`render.yaml`](render.yaml) (a Render Blueprint). The Postgres 17 database runs on [Neon](https://neon.com)'s free plan, in the same region (Oregon). See [ADR 0005](docs/decisions/0005-hosting-on-render.md) and [ADR 0006](docs/decisions/0006-neon-for-production-postgres.md).
 

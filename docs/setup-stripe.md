@@ -95,7 +95,7 @@ Afterwards, `rm /tmp/admin-cookie`. The test account and request stay in your de
 ## 6. On Render (later, when you want it live in test mode)
 
 1. In the Stripe Dashboard (test mode), go to **Developers → Webhooks → Add endpoint**:
-   - URL: `https://marigold-and-ink-api.onrender.com/api/v1/webhooks/stripe`
+   - URL: `https://noboni.art/api/v1/webhooks/stripe` (the old onrender.com address keeps working too: the webhook is never redirected)
    - Events: `checkout.session.completed`, `checkout.session.expired`, `refund.created`, `refund.updated`, `refund.failed`
 2. Copy that endpoint's **signing secret** (`whsec_…`; it differs from the CLI's).
 3. In the Render Dashboard → the service → **Environment**, add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. (`PAYMENT_CURRENCY` and `PUBLIC_URL` are already in `render.yaml`.) Render redeploys, and the "Pay" buttons appear.

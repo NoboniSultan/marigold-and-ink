@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-22 (Milestone 7b: custom domain and privacy page)
+
+### Added
+
+- **The site's address is now `https://noboni.art`** (`PUBLIC_URL` in `render.yaml`). In production, page requests on any other address, such as the onrender.com one or `www.`, get a 301 redirect there, keeping the path. Google sign-in and the session cookie only work on that one address. The Stripe webhook and the health check answer on every address, because Stripe doesn't follow redirects. Only GET and HEAD are redirected, so a form sent from an old tab still gets an answer.
+- **A Privacy page** (`/privacy`), linked from the footer, which Google requires before the sign-in app can be published. Its text is placeholders in `client/src/content/copy.ts` until the owner writes it.
+- **`docs/privacy-data-inventory.md`:** what the site collects, stores, logs, and sends to whom, taken from the code, as the basis for the policy.
+- **About page text** from the owner, in two sections, with subheadings: a bio entry in `content/about.json` can now be `{ "heading": "..." }` between paragraphs.
+- **The footer's charity line** now uses the owner's text.
+
+### Changed
+
+- **Docs:** the Google guide covers publishing the app (homepage, privacy link, authorized domain) and moving to a new domain. The Stripe guide and README use the new address. Backlog: account page and deletion, cleanup of unused sign-up codes, and the privacy policy text.
+
 ## [0.8.0] - 2026-11-22 (Milestone 7: Stripe payments, test mode)
 
 ### Added

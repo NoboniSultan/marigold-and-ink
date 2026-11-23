@@ -23,7 +23,7 @@ You need a free Google Cloud project. The console's labels change from time to t
    - Application type: **Web application**.
    - **Authorized redirect URIs:** add both, exactly:
      - `http://localhost:5173/api/v1/auth/google/callback` (development, through Vite)
-     - `https://marigold-and-ink-api.onrender.com/api/v1/auth/google/callback` (production)
+     - `https://noboni.art/api/v1/auth/google/callback` (production)
    - Authorized JavaScript origins: none needed. The server does the whole exchange.
 5. **Copy the client ID and client secret.**
    - **Locally,** in `.env`:
@@ -37,7 +37,25 @@ You need a free Google Cloud project. The console's labels change from time to t
 
 `PUBLIC_URL` must be the address **in the browser's address bar**, so `http://localhost:5173` locally, not the API's port 3000. Google sends the visitor back there, and the session cookie belongs to that address.
 
-**If Google won't accept the onrender.com address** (for example as an authorized domain on the consent screen), the clean fix is a custom domain for the site. You'll want one for email anyway (below). Point it at Render, update `PUBLIC_URL`, `CORS_ORIGINS`, and the redirect URI, and it works the same way.
+**The production address is the custom domain, `https://noboni.art`** (see "Changing the site's domain" below). Google only accepts sign-in returns to an address listed under **Authorized redirect URIs**, so that list must match `PUBLIC_URL`.
+
+### Publishing the app
+
+Before anyone outside your test users can sign in, Google needs a public homepage and privacy policy. In Google Auth Platform → **Branding**:
+- **Application home page:** `https://noboni.art`
+- **Application privacy policy link:** `https://noboni.art/privacy` (its text lives in `client/src/content/copy.ts`; write it before publishing)
+- **Authorized domains:** `noboni.art`. Google may ask you to prove you own it through Google Search Console, which means adding one TXT record at your registrar.
+
+Then **Audience → Publish app**. With only the three basic scopes, Google doesn't need to review the app.
+
+### Changing the site's domain
+
+The site answers page requests on one address only, `PUBLIC_URL`. In production, any other address (the onrender.com one, `www.`) redirects there, except the Stripe webhook and the health check. To move to a new domain:
+1. Render → the service → **Settings → Custom Domains**: add it, create the DNS records Render shows at your registrar, and wait for the HTTPS certificate.
+2. Render → **Environment**: add the new origin to `CORS_ORIGINS` (comma-separated, one variable), keeping the old one.
+3. Google → **Clients**: add the new callback URL to the redirect URIs (keep the old one until the switch is live).
+4. Change `PUBLIC_URL` in `render.yaml` through a PR, and merge it.
+5. Google → **Branding**: update the homepage, privacy link, and authorized domain. Stripe → the webhook endpoint: update its URL (the signing secret stays the same).
 
 ### How it behaves
 
