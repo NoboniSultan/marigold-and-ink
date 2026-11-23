@@ -25,6 +25,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Website: Home (typewriter, carousel), Gallery (grid and 3D), About, login, commission form | Built, with **placeholder copy** |
 | Accounts: email sign-up verified by a 6-digit code, "Continue with Google" | Built; email sending and Google need [setup](docs/setup-google-and-email.md) |
 | Stripe deposit and final payments, webhooks, refunds, commission page with "Pay" | Built, **test mode**; needs [setup](docs/setup-stripe.md) |
+| Account page: details, own commissions, name and password changes, account deletion | Built |
 | Donation ledger and transparency totals | Planned |
 | File uploads, messaging, shipping, shop, slots | Later (see backlog) |
 
@@ -224,7 +225,10 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | POST | `/api/v1/auth/login` | Public | Log in. Body: `email`, `password`. Rate limited: 10 failed attempts per 15 minutes per IP + email. Accounts never verified get 403 `EMAIL_NOT_VERIFIED` (only with the right password). |
 | POST | `/api/v1/auth/logout` | Any | End the session (idempotent). Returns 204. |
 | GET | `/api/v1/auth/session` | Public | Who is logged in: `{ data: user }` or `{ data: null }`, always 200 (the site asks on every page load). |
-| GET | `/api/v1/users/me` | Logged in | The current user. |
+| GET | `/api/v1/users/me` | Logged in | The current user, plus `hasPassword` and `hasGoogle` (the account page). |
+| PATCH | `/api/v1/users/me` | Logged in | Change the display name: `{ "displayName" }`. |
+| POST | `/api/v1/users/me/password` | Logged in | `{ "currentPassword", "newPassword" }`. Signs out every other session. Rate-limited per user. |
+| DELETE | `/api/v1/users/me` | Logged in (not admin) | Delete (anonymize) the account: `{ "password" }`, or `{ "confirmEmail" }` for a Google-only account. Refused while a paid commission is in progress; unpaid requests are cancelled ([ADR 0012](docs/decisions/0012-account-deletion-by-anonymization.md)). |
 | GET | `/api/v1/users/:id` | Owner or admin | A user record. Clients may only read their own. |
 | GET | `/api/v1/users` | Admin | Paginated list of users (`?page=1&pageSize=20`, max 100). |
 | POST | `/api/v1/commissions` | Client | Request a commission: `size`, `medium`, `subjectCount`, `fulfillmentType`, `isRush`, `notes`. Starts at `inquiry`. Price fields are ignored. 422 if the size + medium isn't offered. |
@@ -269,7 +273,7 @@ Images are served from `/media/artworks/...` and `/media/about/...` (paths come 
 
 **Accounts:** an account exists only once its owner has entered a code sent to the email (or signed in with Google, which verifies the email), so nobody can open an account with someone else's address. Google sign-in uses the OpenID Connect code flow with PKCE, state, and nonce, checks the ID token's signature and claims, and matches people by Google's permanent ID. Admin accounts can't use Google. See [ADR 0010](docs/decisions/0010-email-verification-and-google-sign-in.md) and the [setup guide](docs/setup-google-and-email.md).
 
-Error codes used so far: `VALIDATION_ERROR` / `WEBHOOK_SIGNATURE_INVALID` (400), `INVALID_JSON` (400), `BAD_REQUEST` (any other malformed request body, usually 400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` / `EMAIL_NOT_VERIFIED` (403), `COMMISSION_TRANSITION_FORBIDDEN` / `PAYMENT_CLIENT_ONLY` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` / `ASSET_NOT_FOUND` / `PAYMENT_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` / `PAYMENT_NOT_ALLOWED` (409), `PAYLOAD_TOO_LARGE` (413), `UNSUPPORTED_ENCODING` (415), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` / `CODE_INCORRECT` / `CODE_EXPIRED` / `NOTHING_TO_PAY` / `PAYMENT_NOT_REFUNDABLE` / `ALREADY_REFUNDED` / `REFUND_EXCEEDS_PAYMENT` (422), `RATE_LIMITED` / `CODE_RESEND_TOO_SOON` (429), `INTERNAL_ERROR` (500), `PAYMENT_PROVIDER_ERROR` (502), `SERVICE_UNAVAILABLE` / `EMAIL_SIGNUP_UNAVAILABLE` / `EMAIL_SEND_FAILED` / `PAYMENTS_UNAVAILABLE` (503).
+Error codes used so far: `VALIDATION_ERROR` / `WEBHOOK_SIGNATURE_INVALID` (400), `INVALID_JSON` (400), `BAD_REQUEST` (any other malformed request body, usually 400), `PASSWORD_REQUIRED` (400), `UNAUTHENTICATED` / `INVALID_CREDENTIALS` (401), `FORBIDDEN` / `CSRF_ORIGIN_MISMATCH` / `EMAIL_NOT_VERIFIED` / `PASSWORD_INCORRECT` / `EMAIL_CONFIRMATION_INCORRECT` (403), `COMMISSION_TRANSITION_FORBIDDEN` / `PAYMENT_CLIENT_ONLY` (403), `NOT_FOUND` / `ROUTE_NOT_FOUND` / `USER_NOT_FOUND` / `COMMISSION_NOT_FOUND` / `QUOTE_NOT_FOUND` / `ARTWORK_NOT_FOUND` / `TAG_NOT_FOUND` / `ASSET_NOT_FOUND` / `PAYMENT_NOT_FOUND` (404), `CONFLICT` / `EMAIL_TAKEN` / `COMMISSION_INVALID_TRANSITION` / `QUOTE_NOT_ALLOWED` / `QUOTE_NOT_EDITABLE` / `SLUG_TAKEN` / `IMAGE_IN_USE` / `TAG_TAKEN` / `ARTWORK_CONTENT_MANAGED` / `PAYMENT_NOT_ALLOWED` (409), `PAYLOAD_TOO_LARGE` (413), `UNSUPPORTED_ENCODING` (415), `BUSINESS_RULE_VIOLATION` / `REVISION_LIMIT_REACHED` / `UNSUPPORTED_SIZE_MEDIUM` / `PRICING_RULE_MISSING` / `PRICING_RULE_AMBIGUOUS` / `IMAGE_NOT_FOUND` / `ALT_TEXT_REQUIRED` / `INVALID_TAG` / `CODE_INCORRECT` / `CODE_EXPIRED` / `NOTHING_TO_PAY` / `PAYMENT_NOT_REFUNDABLE` / `ALREADY_REFUNDED` / `REFUND_EXCEEDS_PAYMENT` / `NO_PASSWORD` / `ACTIVE_COMMISSIONS` / `ADMIN_ACCOUNT` (422), `RATE_LIMITED` / `CODE_RESEND_TOO_SOON` (429), `INTERNAL_ERROR` (500), `PAYMENT_PROVIDER_ERROR` (502), `SERVICE_UNAVAILABLE` / `EMAIL_SIGNUP_UNAVAILABLE` / `EMAIL_SEND_FAILED` / `PAYMENTS_UNAVAILABLE` (503).
 
 ## Deployment
 
@@ -316,6 +320,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0009: React client: same origin, CSS Modules, TanStack Query](docs/decisions/0009-react-client-stack.md)
 - [0010: Email-verified sign-up and Google sign-in](docs/decisions/0010-email-verification-and-google-sign-in.md)
 - [0011: Stripe Checkout payments, webhooks, and refunds](docs/decisions/0011-stripe-payments.md)
+- [0012: Account deletion by anonymization](docs/decisions/0012-account-deletion-by-anonymization.md)
 
 ## Roadmap
 
