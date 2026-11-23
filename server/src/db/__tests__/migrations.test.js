@@ -1,8 +1,9 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { pool } from '../pool.js';
 import { migrate, MIGRATIONS_DIR } from '../migrator.js';
 import { config } from '../../config/env.js';
+import { truncateAllTables } from '../../../tests/setup/database.js';
 
 // Derived from the files on disk, so adding a migration never requires editing this test.
 const MIGRATION_COUNT = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).length;
@@ -55,6 +56,11 @@ async function schemaObjects() {
 const run = (direction, count) => migrate({ databaseUrl: config.databaseUrl, direction, count });
 
 // Whatever happens, leave the test database fully migrated for the other test files.
+// These tests check the schema, not data. Other test files leave their last test's rows
+// behind (tables are truncated before each test, not after), and some old down migrations
+// can't run over rows they never expected, such as a deleted account with no password.
+beforeAll(truncateAllTables);
+
 afterAll(async () => {
   await run('up');
 });
