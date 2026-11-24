@@ -3,15 +3,16 @@ import { Link } from 'react-router';
 
 /**
  * The inline markup the owner's copy may use: **bold**, `code`, and [text](url) where the
- * URL is https:// (opens in a new tab) or a path on this site, like /giving (a normal
- * in-app link). Anything else is plain text.
+ * URL is https:// (opens in a new tab), mailto:someone@example.com (an email link), or a
+ * path on this site, like /giving (a normal in-app link). Anything else is plain text.
  */
-const TOKEN = /\*\*(.+?)\*\*|`([^`]+)`|\[([^\]]+)\]\((https:\/\/[^)\s]+|\/(?![/\\])[^)\s]*)\)/g;
+const TOKEN =
+  /\*\*(.+?)\*\*|`([^`]+)`|\[([^\]]+)\]\((https:\/\/[^)\s]+|mailto:[^)\s@]+@[^)\s]+|\/(?![/\\])[^)\s]*)\)/g;
 
 /**
  * Renders the owner's copy with its inline markup. It builds React elements (never raw
- * HTML), so the text can't inject markup, and only https links and same-site paths are
- * recognised (no javascript: or other schemes, no //other-site).
+ * HTML), so the text can't inject markup, and only https, mailto, and same-site links
+ * are recognised (no javascript: or other schemes, no //other-site).
  */
 export function RichText({ text }: { text: string }) {
   const parts: ReactNode[] = [];
@@ -23,6 +24,12 @@ export function RichText({ text }: { text: string }) {
       parts.push(<strong key={match.index}>{bold}</strong>);
     } else if (code !== undefined) {
       parts.push(<code key={match.index}>{code}</code>);
+    } else if (href!.startsWith('mailto:')) {
+      parts.push(
+        <a key={match.index} href={href}>
+          {label}
+        </a>,
+      );
     } else if (href!.startsWith('/')) {
       parts.push(
         <Link key={match.index} to={href!}>
