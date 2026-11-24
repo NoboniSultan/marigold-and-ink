@@ -6,15 +6,15 @@ When a commission is **fully paid**, 25% of its full price is turned into trees 
 
 Giving stays **off** until it's configured, and it needs payments (Stripe) switched on.
 
-## 1. Create a Digital Humani account
+## 1. Create a Digital Humani account, then open its Sandbox
 
 1. Register at <https://my.digitalhumani.com/register>. It's free and self-serve.
-2. Switch the dashboard to **Sandbox**. Sandbox requests are free and plant nothing: the right mode while Stripe is in test mode. (The app refuses `production` until payments are live, so test payments can never order real trees.)
-3. Open the **Developer** page and copy the **API key** and your **enterprise ID**. The sandbox and production keys are different.
+2. **Open the Sandbox dashboard at <https://my.sandbox.digitalhumani.com>.** It's a separate site, not a switch in the normal dashboard, so you won't find a "test mode" toggle there. Sign in with the **same email and password** you registered with: every account gets both environments ([Digital Humani docs](https://docs.digitalhumani.com/), "Sandbox Environment"). Sandbox requests are free and plant nothing: the right place while Stripe is in test mode. (The app refuses `production` until payments are live, so test payments can never order real trees.)
+3. In the **Sandbox** dashboard, open the **Developer** page and copy the **API key** and your **enterprise ID** (8 digits). The sandbox and production API keys are different, so take them from the sandbox site.
 
 ## 2. Choose the planting project
 
-Digital Humani lists its projects in its docs (<https://docs.digitalhumani.com>, "List of projects"), including several **One Tree Planted** projects. Copy the project ID of the one you want. (There's also a "where it's needed most" option.)
+Digital Humani's docs list every project (<https://docs.digitalhumani.com/>, "Appendix 1: List of projects"); the same IDs work in Sandbox and Production. One Tree Planted has one per region (Africa, Asia, Canada, Europe, Latin America, North America, the United States, Mangroves) and one for **"where the trees are needed the most"**. Copy the ID of the one you want from that table. Check that it's still **active** there (or under the dashboard's projects): only active projects take requests.
 
 ## 3. Configure the app
 

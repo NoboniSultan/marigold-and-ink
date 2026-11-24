@@ -57,6 +57,7 @@ describe('parseArtworksFile', () => {
       description: null,
       altText: null,
       monochrome: null,
+      sketchbook: true,
       tags: [],
     });
   });
@@ -133,6 +134,17 @@ describe('buildArtworkRows', () => {
       ['fawn', true],
       ['owl', true],
       ['cat', false],
+    ]);
+  });
+
+  it('puts every artwork in the sketchbook unless the entry says "sketchbook": false', () => {
+    const rows = buildArtworkRows(
+      parse(fawn, { ...fawn, image: 'owl', slug: 'owl', title: 'Owl', sketchbook: false }),
+      manifestWith('fawn', 'owl'),
+    );
+    expect(rows.map((r) => [r.slug, r.inSketchbook])).toEqual([
+      ['fawn', true],
+      ['owl', false],
     ]);
   });
 

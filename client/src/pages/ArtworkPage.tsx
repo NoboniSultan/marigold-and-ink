@@ -59,7 +59,7 @@ export function ArtworkPage() {
             <ul className={styles.tags} aria-label="Tags">
               {artwork.tags.map((tag) => (
                 <li key={tag.slug}>
-                  <Link to={`/gallery?mode=grid&tag=${tag.slug}`}>{tag.name}</Link>
+                  <Link to={`/gallery?tag=${tag.slug}`}>{tag.name}</Link>
                 </li>
               ))}
             </ul>

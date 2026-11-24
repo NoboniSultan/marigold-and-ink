@@ -17,6 +17,7 @@
       "category": "nature",
       "medium": "scratchboard",
       "year": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -26,6 +27,7 @@
       "category": "portraits",
       "medium": "soft pastel",
       "year": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -35,6 +37,7 @@
       "category": "portraits",
       "medium": "mixed media: pencil drawing with digital work",
       "year": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -54,6 +57,7 @@
       "medium": "scratchboard",
       "credit": "after Vincent van Gogh",
       "year": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -63,6 +67,7 @@
       "category": "portraits",
       "medium": "acrylic and ink on canvas",
       "year": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -79,6 +84,7 @@
       "title": "Acrylic Abstract Face",
       "category": "explorations",
       "medium": "acrylic",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -95,6 +101,7 @@
       "title": "Acrylic Painted Bench",
       "category": "explorations",
       "medium": "acrylic",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -103,6 +110,7 @@
       "title": "Acrylic Painted Door",
       "category": "explorations",
       "medium": "acrylic",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -111,6 +119,7 @@
       "title": "Acrylic Panel of Portraits",
       "category": "explorations",
       "medium": "acrylic",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -119,6 +128,7 @@
       "title": "Clay 2",
       "category": "explorations",
       "medium": "clay",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -127,6 +137,7 @@
       "title": "Clay Book",
       "category": "explorations",
       "medium": "clay",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -135,6 +146,7 @@
       "title": "Clay Mask with Henna Mixed Media",
       "category": "explorations",
       "medium": "clay and henna",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -143,6 +155,7 @@
       "title": "Deck Mandala",
       "category": "explorations",
       "medium": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -151,6 +164,7 @@
       "title": "Greeting Card with Dried Flowers and Recycled Tea Bag",
       "category": "cards",
       "medium": "dried flowers and recycled tea bag",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -168,6 +182,7 @@
       "title": "Handmade Dolls with Hand-Painted Stand",
       "category": "explorations",
       "medium": "acrylic",
+      "sketchbook": false,
       "published": true
     },
     {
@@ -176,6 +191,7 @@
       "title": "Hand-Painted Heels and Vase",
       "category": "explorations",
       "medium": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -193,6 +209,7 @@
       "title": "Masked Woman Sketch",
       "category": "portraits",
       "medium": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -201,6 +218,7 @@
       "title": "Untitled 1",
       "category": "portraits",
       "medium": null,
+      "sketchbook": false,
       "published": true
     },
     {
@@ -253,8 +271,8 @@
     },
     {
       "image": "pet-portrait-2",
-      "slug": "pet-portrait-2",
-      "title": "Pet Portrait 2",
+      "slug": "benito",
+      "title": "Benito",
       "category": "portraits",
       "medium": null,
       "published": true
@@ -266,6 +284,7 @@
       "category": "portraits",
       "medium": "ink",
       "monochrome": true,
+      "sketchbook": false,
       "published": true
     },
     {

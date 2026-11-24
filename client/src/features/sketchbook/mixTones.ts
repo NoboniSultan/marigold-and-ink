@@ -1,9 +1,7 @@
-/** Shared by the 3D Explore room and the Home carousel. */
 /**
- * Mixes black-and-white and coloured pieces so neither kind bunches together
- * (the 3D room, the Home carousel): the smaller group is spread evenly through the larger one, and each group
- * keeps its own order. (Slots alternate rows by index, and the even spacing alternates
- * odd and even positions, so both rows get some of each.)
+ * Mixes black-and-white and coloured pieces so neither kind bunches together (the 3D
+ * sketchbook, the Home carousel): the smaller group is spread evenly through the larger
+ * one, and each group keeps its own order.
  */
 export function mixTones<T>(items: readonly T[], isMonochrome: (item: T) => boolean): T[] {
   const mono = items.filter(isMonochrome);

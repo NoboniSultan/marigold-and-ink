@@ -1,0 +1,134 @@
+.sketchbook {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.stage {
+  position: relative;
+  height: min(76vh, 44rem);
+  border-radius: var(--radius);
+  overflow: hidden;
+  /*
+   * A chalkboard: black, with fine chalk dust (small-scale noise) and the soft, streaky
+   * haze of half-erased chalk (large-scale noise, stretched sideways like eraser strokes).
+   * Both are inline SVG noise filters, so there's no image to download.
+   */
+  background-color: var(--color-chalkboard);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -1.05'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='600'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.003 0.02' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.3 -0.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 30% 20%, var(--chalk), transparent 60%);
+  background-size:
+    240px 240px,
+    cover,
+    cover;
+  touch-action: pan-y; /* vertical swipes scroll the page; horizontal ones turn pages */
+  cursor: grab;
+}
+
+.stage:active {
+  cursor: grabbing;
+}
+
+/* Without WebGL: the open piece, flat on the desk. */
+.flat {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-8);
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.flat img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-ink) 22%, transparent);
+}
+
+.stage:focus-visible {
+  outline-offset: -4px;
+}
+
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-4);
+  transform: translateX(-50%);
+  max-width: calc(100% - var(--space-8));
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  color: var(--color-white);
+  background: color-mix(in srgb, var(--color-white) 14%, transparent);
+  pointer-events: none;
+  text-align: center;
+}
+
+.narrow {
+  display: none;
+}
+
+/* Phones: a shorter stage framing one page, and a shorter hint. */
+@media (max-width: 40rem) {
+  .stage {
+    height: min(68vh, 34rem);
+  }
+
+  .wide {
+    display: none;
+  }
+
+  .narrow {
+    display: inline;
+  }
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.controls p {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.position {
+  font-size: var(--text-sm);
+  color: var(--color-gray);
+}
+
+.controls button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  cursor: pointer;
+}
+
+.controls button:hover:not(:disabled) {
+  background: var(--color-marigold);
+}
+
+.controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

@@ -53,6 +53,7 @@ export function toPublicArtwork(record: ArtworkRecord): Artwork {
     credit: record.credit,
     // Published rows always have alt text (a database check); the title is a type-level fallback.
     image: { ...imageOf(record), alt: record.altText ?? record.title },
+    inSketchbook: record.inSketchbook,
     tags: record.tags,
   };
 }
@@ -182,6 +183,7 @@ export async function createArtwork(
       largeWidth: image.large.width,
       largeHeight: image.large.height,
       isMonochrome: image.monochrome ?? false,
+      inSketchbook: true,
       sortOrder: sortOrder ?? 0,
       contentHash: null,
     };
