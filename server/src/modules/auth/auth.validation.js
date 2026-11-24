@@ -7,7 +7,18 @@ export const PASSWORD_MAX_BYTES = 72;
 
 // Trimmed and lowercased so 'Ana@X.com ' and 'ana@x.com' are the same account.
 // (The citext column would match them anyway; normalizing keeps stored emails tidy.)
-const email = z.string().trim().toLowerCase().max(254).pipe(z.email('must be a valid email'));
+export const email = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(254)
+  .pipe(z.email('must be a valid email'));
+
+/** The 6-digit code from an email. */
+export const emailCode = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'must be the 6-digit code from the email');
 
 export const displayName = z.string().trim().min(1).max(100);
 
@@ -25,13 +36,16 @@ export const signupStartBody = z.object({ email });
 // the service.
 export const signupCompleteBody = z.object({
   email,
-  code: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, 'must be the 6-digit code from the email'),
+  code: emailCode,
   password: newPassword,
   displayName,
 });
+
+/** Forgot password, step 1: where to send the code. */
+export const passwordResetStartBody = z.object({ email });
+
+/** Step 2: the code, and the new password (held to the same rules as sign-up). */
+export const passwordResetCompleteBody = z.object({ email, code: emailCode, newPassword });
 
 /**
  * A path on this site: one leading slash, then no backslash, whitespace or control

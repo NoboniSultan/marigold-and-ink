@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import * as usersController from './users.controller.js';
 import {
+  changeEmailCompleteBody,
+  changeEmailStartBody,
   changePasswordBody,
   deleteAccountBody,
   listUsersQuery,
@@ -36,6 +38,23 @@ usersRouter.post(
   validate({ body: changePasswordBody }),
   usersController.changePassword,
 );
+// Email change: step 1 checks the password and sends a code to the new address; step 2 is
+// a code guess. Both count failed tries per signed-in user, on top of a code's 5 tries.
+usersRouter.post(
+  '/me/email',
+  requireAuth,
+  passwordConfirmRateLimiter,
+  validate({ body: changeEmailStartBody }),
+  usersController.startEmailChange,
+);
+usersRouter.post(
+  '/me/email/confirm',
+  requireAuth,
+  passwordConfirmRateLimiter,
+  validate({ body: changeEmailCompleteBody }),
+  usersController.completeEmailChange,
+);
+usersRouter.get('/me/export', requireAuth, usersController.exportMe);
 usersRouter.delete(
   '/me',
   requireAuth,

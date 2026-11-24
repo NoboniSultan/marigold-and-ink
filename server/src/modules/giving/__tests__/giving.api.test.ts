@@ -11,7 +11,13 @@ import { seedCharity } from '../../../db/seeds/charity.ts';
 import { truncateAllTables } from '../../../../tests/setup/database.js';
 import { createPayment, createQuotedCommission } from '../../../../tests/factories/index.js';
 import { loggedInAgent, TRUSTED_ORIGIN } from '../../../../tests/helpers/auth.js';
-import { checkoutCompleted, fakeStripe, postWebhook } from '../../../../tests/helpers/stripe.ts';
+import {
+  checkoutCompleted,
+  fakeStripe,
+  postWebhook,
+  refundEvent,
+} from '../../../../tests/helpers/stripe.ts';
+import { logger } from '../../../lib/logger.js';
 import { fakeTrees } from '../../../../tests/helpers/trees.ts';
 import {
   DEFAULT_CHARITY,
@@ -271,6 +277,70 @@ describe('recordForFinalPayment', () => {
       ),
     );
     expect(id).toBeNull();
+  });
+});
+
+describe('Stripe Dashboard refunds (which the site cannot stop)', () => {
+  async function dashboardRefund(commissionId: number, amountCents: number, refundId: string) {
+    const { rows } = await pool.query(
+      `SELECT stripe_payment_intent_id FROM payments WHERE commission_id = $1 AND type = 'final'`,
+      [commissionId],
+    );
+    await postWebhook(
+      app,
+      refundEvent({
+        type: 'refund.created',
+        refundId,
+        paymentIntentId: rows[0].stripe_payment_intent_id,
+        amountCents,
+      }),
+    );
+  }
+  const treeWarning = (warn: { mock: { calls: unknown[][] } }) =>
+    warn.mock.calls.filter((call) => String(call[1]).includes('gave back tree money'));
+
+  it('warns in the log when one reaches into the tree money', async () => {
+    const commission = await fullyPaid();
+    const warn = vi.spyOn(logger, 'warn');
+
+    await dashboardRefund(commission.id, 5000, 're_dash_1'); // $50 of $100: fine
+    expect(treeWarning(warn)).toEqual([]);
+
+    await pool.query(
+      `UPDATE payments SET stripe_payment_intent_id = 'pi_deposit_x' WHERE commission_id = $1 AND type = 'deposit'`,
+      [commission.id],
+    );
+    await postWebhook(
+      app,
+      refundEvent({
+        type: 'refund.created',
+        refundId: 're_dash_2',
+        paymentIntentId: 'pi_deposit_x',
+        amountCents: 5000, // everything: $25 of it was tree money
+      }),
+    );
+
+    expect(treeWarning(warn)).toEqual([
+      [
+        expect.objectContaining({
+          commissionId: commission.id,
+          paidCents: 10000,
+          refundedCents: 10000,
+          withheldForTreesCents: 2500,
+        }),
+        expect.any(String),
+      ],
+    ]);
+  });
+
+  it('stays quiet when the commission funded no trees', async () => {
+    app = createApp({ adapters: { email: null, google: null, payments: stripe.gateway } });
+    const commission = await fullyPaid();
+    const warn = vi.spyOn(logger, 'warn');
+
+    await dashboardRefund(commission.id, 5000, 're_dash_3');
+
+    expect(treeWarning(warn)).toEqual([]);
   });
 });
 

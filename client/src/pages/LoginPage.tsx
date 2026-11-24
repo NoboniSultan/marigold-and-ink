@@ -80,6 +80,11 @@ export function LoginPage() {
           required
           error={fields.password}
         />
+        <p className={styles.row}>
+          <Link to={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}>
+            Forgot your password?
+          </Link>
+        </p>
         <button
           type="submit"
           className={`${buttonStyles.button} ${buttonStyles.primary}`}

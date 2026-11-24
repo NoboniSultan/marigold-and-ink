@@ -93,6 +93,24 @@ export async function setPasswordHash(
 }
 
 /**
+ * Moves an account to a new, just-proven email address (the code went to it), which also
+ * counts as verifying it. Throws Postgres's unique violation if another account has it.
+ */
+export async function updateEmail(
+  id: number,
+  email: string,
+  client: Db = pool,
+): Promise<UserRecord | null> {
+  const { rows } = await client.query(
+    `UPDATE users SET email = $2, email_verified_at = now()
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING ${PUBLIC_COLUMNS}`,
+    [id, email],
+  );
+  return firstUser(rows);
+}
+
+/**
  * Account deletion (ADR 0012): removes everything that identifies the person and keeps
  * the row, because commissions and payments reference it for the owner's accounts.
  * users_deleted_fields_check guarantees nothing personal is left behind.

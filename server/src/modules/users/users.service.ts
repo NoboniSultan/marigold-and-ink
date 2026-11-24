@@ -63,6 +63,29 @@ export async function updateDisplayName(
   return user;
 }
 
+/**
+ * Only the auth module calls this (email change, after the new address's code was checked).
+ * Another account with that address is a 409.
+ */
+export async function updateEmail(
+  id: number,
+  email: string,
+  { client }: Tx = {},
+): Promise<UserRecord> {
+  try {
+    const user = await usersRepository.updateEmail(id, email, client);
+    if (!user) throw new NotFoundError('User not found', { code: 'USER_NOT_FOUND' });
+    return user;
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      throw new ConflictError('Another account already uses this email address', {
+        code: 'EMAIL_TAKEN',
+      });
+    }
+    throw err;
+  }
+}
+
 /** Only the auth module calls these two (password change, account deletion). */
 export function setPasswordHash(id: number, passwordHash: string, { client }: Tx = {}) {
   return usersRepository.setPasswordHash(id, passwordHash, client);

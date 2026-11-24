@@ -256,3 +256,106 @@ describe('Account page', () => {
     expect(await screen.findByText("Your account couldn't load.")).toBeInTheDocument();
   });
 });
+
+describe('Account page: email change and data download', () => {
+  it('changes the email in two steps, then shows the new address', async () => {
+    const user = userEvent.setup();
+    const calls = api({
+      extra: (call) => {
+        if (call.path === '/users/me/email') {
+          return {
+            status: 202,
+            body: { data: { email: 'moved@example.com', resendAfterSeconds: 60 } },
+          };
+        }
+        if (call.path === '/users/me/email/confirm') {
+          return { body: { data: { ...ACCOUNT, email: 'moved@example.com' } } };
+        }
+        return undefined;
+      },
+    });
+    renderRoute('/account');
+
+    await user.type(await screen.findByLabelText('New email address'), 'moved@example.com');
+    await user.type(screen.getByLabelText("Password, to confirm it's you"), 'my passphrase');
+    await user.click(screen.getByRole('button', { name: 'Email a code to the new address' }));
+
+    expect(
+      await screen.findByText(/We sent a 6-digit code to moved@example.com/),
+    ).toBeInTheDocument();
+    expect(calls.find((c) => c.path === '/users/me/email')?.body).toEqual({
+      newEmail: 'moved@example.com',
+      password: 'my passphrase',
+    });
+
+    await user.type(screen.getByLabelText('6-digit code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Change email' }));
+
+    expect(await screen.findByText(/Your email is now moved@example.com/)).toBeInTheDocument();
+    expect(calls.find((c) => c.path === '/users/me/email/confirm')?.body).toEqual({
+      newEmail: 'moved@example.com',
+      code: '123456',
+    });
+    expect(screen.getAllByText('moved@example.com').length).toBeGreaterThan(0);
+  });
+
+  it("doesn't ask a Google-only account for a password", async () => {
+    const user = userEvent.setup();
+    const calls = api({
+      account: { ...ACCOUNT, hasPassword: false, hasGoogle: true },
+      extra: (call) =>
+        call.path === '/users/me/email'
+          ? { status: 202, body: { data: { email: 'moved@example.com', resendAfterSeconds: 60 } } }
+          : undefined,
+    });
+    renderRoute('/account');
+
+    await user.type(await screen.findByLabelText('New email address'), 'moved@example.com');
+    expect(screen.queryByLabelText("Password, to confirm it's you")).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Email a code to the new address' }));
+
+    await screen.findByText(/We sent a 6-digit code/);
+    expect(calls.find((c) => c.path === '/users/me/email')?.body).toEqual({
+      newEmail: 'moved@example.com',
+    });
+  });
+
+  it('shows why a step failed', async () => {
+    const user = userEvent.setup();
+    api({
+      extra: (call) =>
+        call.path === '/users/me/email'
+          ? {
+              status: 403,
+              body: {
+                error: { code: 'PASSWORD_INCORRECT', message: 'That password is not correct' },
+              },
+            }
+          : undefined,
+    });
+    renderRoute('/account');
+
+    await user.type(await screen.findByLabelText('New email address'), 'moved@example.com');
+    await user.type(screen.getByLabelText("Password, to confirm it's you"), 'wrong');
+    await user.click(screen.getByRole('button', { name: 'Email a code to the new address' }));
+
+    expect(await screen.findByText('That password is not correct')).toBeInTheDocument();
+  });
+
+  it('offers the data download as a plain link to the export', async () => {
+    api();
+    renderRoute('/account');
+
+    const link = await screen.findByRole('link', { name: 'Download my data' });
+    expect(link).toHaveAttribute('href', '/api/v1/users/me/export');
+    expect(link).toHaveAttribute('download');
+  });
+
+  it('hides the email change from the admin (the server settings own that address)', async () => {
+    api({ account: { ...ACCOUNT, role: 'admin' } });
+    renderRoute('/account');
+
+    await screen.findByRole('heading', { name: 'Your account' });
+    expect(screen.queryByRole('heading', { name: 'Email address' })).not.toBeInTheDocument();
+  });
+});

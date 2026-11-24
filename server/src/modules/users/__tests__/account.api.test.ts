@@ -182,8 +182,8 @@ describe('DELETE /api/v1/users/me', () => {
       .send({ email: user.email, password: TEST_PASSWORD });
     await createIdentity({ userId: user.id, email: user.email });
     await pool.query(
-      `INSERT INTO email_verifications (email, code_hash, expires_at, sent_at)
-       VALUES ($1, $2, now() + interval '15 minutes', now())`,
+      `INSERT INTO email_verifications (purpose, email, code_hash, expires_at, sent_at)
+       VALUES ('signup', $1, $2, now() + interval '15 minutes', now())`,
       [user.email, 'a'.repeat(64)],
     );
 

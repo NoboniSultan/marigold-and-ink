@@ -25,7 +25,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Website: Home (typewriter, 3D sketchbook), Gallery (grid), About, login, commission form | Built, with **placeholder copy** |
 | Accounts: email sign-up verified by a 6-digit code, "Continue with Google" | Built; email sending and Google need [setup](docs/setup-google-and-email.md) |
 | Stripe deposit and final payments, webhooks, refunds, commission page with "Pay" | Built, **test mode**; needs [setup](docs/setup-stripe.md) |
-| Account page: details, own commissions, name and password changes, account deletion | Built |
+| Account page: details, own commissions, name, password, and email changes, data download, account deletion; forgot-password reset | Built |
 | Giving: 25% of every fully paid commission plants trees through Digital Humani; Giving page with a growing tree; refunds never give back tree money | Built (sandbox); needs [setup](docs/setup-digital-humani.md) |
 | Donation reports and marking invoices paid | Planned |
 | File uploads, messaging, shipping, shop, slots | Later (see backlog) |
@@ -223,12 +223,17 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | GET | `/api/v1/auth/google/start` | Public | Browser navigation: starts Google sign-in (`?next=/path` to return to). |
 | GET | `/api/v1/auth/google/callback` | Public | Where Google sends the visitor back; signs in and redirects to `next`, or to `/login?error=…`. |
 | GET | `/api/v1/auth/providers` | Public | `{ google, emailSignup }`: which sign-in methods are switched on. |
+| POST | `/api/v1/auth/password-reset/start` | Public | Forgot password, step 1: `{ email }`. Emails a 6-digit code if the address has a client account; the answer (202) is the same either way. One code a minute per address. |
+| POST | `/api/v1/auth/password-reset/complete` | Public | Step 2: `email`, `code`, `newPassword`. Sets the password, signs out every session, and signs this browser in ([ADR 0014](docs/decisions/0014-password-reset-and-email-change.md)). |
 | POST | `/api/v1/auth/login` | Public | Log in. Body: `email`, `password`. Rate limited: 10 failed attempts per 15 minutes per IP + email. Accounts never verified get 403 `EMAIL_NOT_VERIFIED` (only with the right password). |
 | POST | `/api/v1/auth/logout` | Any | End the session (idempotent). Returns 204. |
 | GET | `/api/v1/auth/session` | Public | Who is logged in: `{ data: user }` or `{ data: null }`, always 200 (the site asks on every page load). |
 | GET | `/api/v1/users/me` | Logged in | The current user, plus `hasPassword` and `hasGoogle` (the account page). |
 | PATCH | `/api/v1/users/me` | Logged in | Change the display name: `{ "displayName" }`. |
 | POST | `/api/v1/users/me/password` | Logged in | `{ "currentPassword", "newPassword" }`. Signs out every other session. Rate-limited per user. |
+| POST | `/api/v1/users/me/email` | Logged in (not admin) | Email change, step 1: `{ "newEmail", "password" }` (no password for a Google-only account). Emails a code to the new address. 202. |
+| POST | `/api/v1/users/me/email/confirm` | Logged in (not admin) | Step 2: `{ "newEmail", "code" }`. Moves the account, signs out other sessions, and tells the old address. |
+| GET | `/api/v1/users/me/export` | Logged in | "Download my data": the account and each commission with its history, quote, and payments, as a JSON file. |
 | DELETE | `/api/v1/users/me` | Logged in (not admin) | Delete (anonymize) the account: `{ "password" }`, or `{ "confirmEmail" }` for a Google-only account. Refused while a paid commission is in progress; unpaid requests are cancelled ([ADR 0012](docs/decisions/0012-account-deletion-by-anonymization.md)). |
 | GET | `/api/v1/users/:id` | Owner or admin | A user record. Clients may only read their own. |
 | GET | `/api/v1/users` | Admin | Paginated list of users (`?page=1&pageSize=20`, max 100). |
@@ -324,6 +329,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0011: Stripe Checkout payments, webhooks, and refunds](docs/decisions/0011-stripe-payments.md)
 - [0012: Account deletion by anonymization](docs/decisions/0012-account-deletion-by-anonymization.md)
 - [0013: Giving through Digital Humani](docs/decisions/0013-giving-through-digital-humani.md)
+- [0014: Password reset and email change by emailed code](docs/decisions/0014-password-reset-and-email-change.md)
 
 ## Roadmap
 

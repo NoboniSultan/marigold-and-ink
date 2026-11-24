@@ -28,6 +28,34 @@ export async function changePassword(req, res) {
   res.status(204).end();
 }
 
+/** The email and Google adapters, set once in createApp (tests pass fakes). */
+const emailSender = (req) => req.app.locals.adapters?.email ?? null;
+
+export async function startEmailChange(req, res) {
+  const result = await accountService.startEmailChange(req.user.id, req.validated.body, {
+    emailSender: emailSender(req),
+  });
+  res.status(202).json({ data: result });
+}
+
+/** Every session was signed out; this browser gets a fresh one so it stays signed in. */
+export async function completeEmailChange(req, res) {
+  const user = await accountService.completeEmailChange(req.user.id, req.validated.body, {
+    emailSender: emailSender(req),
+  });
+  await regenerateSession(req);
+  req.session.userId = user.id;
+  await saveSession(req);
+  res.json({ data: await accountService.getAccount(user) });
+}
+
+/** "Download my data": the account and its commissions as a JSON file. */
+export async function exportMe(req, res) {
+  const data = await accountService.exportData(req.user);
+  res.attachment('marigold-and-ink-my-data.json');
+  res.type('application/json').send(JSON.stringify({ data }, null, 2));
+}
+
 export async function deleteMe(req, res) {
   const canceled = await accountService.deleteAccount(req.user.id, req.validated.body);
   // As after any cancel: close the commissions' open Stripe pages. The deletion has

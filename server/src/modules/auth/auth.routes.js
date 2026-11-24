@@ -5,6 +5,8 @@ import {
   signupCompleteBody,
   loginBody,
   googleStartQuery,
+  passwordResetStartBody,
+  passwordResetCompleteBody,
 } from './auth.validation.js';
 import { validate } from '../../middleware/validate.js';
 import { loginRateLimiter, registerRateLimiter } from '../../middleware/rateLimit.js';
@@ -27,6 +29,19 @@ authRouter.post(
   authController.signupComplete,
 );
 authRouter.post('/login', loginRateLimiter, validate({ body: loginBody }), authController.login);
+// Forgot password: the same limits as sign-up (step 1 sends an email; step 2 is a guess).
+authRouter.post(
+  '/password-reset/start',
+  registerRateLimiter,
+  validate({ body: passwordResetStartBody }),
+  authController.passwordResetStart,
+);
+authRouter.post(
+  '/password-reset/complete',
+  loginRateLimiter,
+  validate({ body: passwordResetCompleteBody }),
+  authController.passwordResetComplete,
+);
 authRouter.post('/logout', authController.logout);
 authRouter.get('/session', authController.session);
 authRouter.get('/providers', authController.providers);

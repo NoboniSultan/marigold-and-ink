@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import type { ApiResponse } from '@shared/types/api.ts';
-import type { AuthProviders } from '@shared/types/user.ts';
+import type { AuthProviders, SignupStartResponse } from '@shared/types/user.ts';
 import { config } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 import {
@@ -13,6 +13,7 @@ import {
 import type { AppAdapters } from '../../adapters/index.ts';
 import * as authService from './auth.service.js';
 import * as signupService from './auth.signup.service.ts';
+import * as passwordResetService from './auth.passwordReset.service.ts';
 import { GoogleSignInError, finishGoogleSignIn, startGoogleSignIn } from './auth.google.service.ts';
 
 /** A Google sign-in must come back within this time. */
@@ -46,6 +47,25 @@ export async function signupComplete(req: Request, res: Response) {
   );
   await startSession(req, user);
   res.status(201).json({ data: user });
+}
+
+/** Forgot password, step 1. The answer is the same whether or not an account exists. */
+export async function passwordResetStart(req: Request, res: Response) {
+  const { email } = req.validated.body as { email: string };
+  const result = await passwordResetService.startPasswordReset(
+    { email },
+    { emailSender: adapters(req).email },
+  );
+  res.status(202).json({ data: { email, ...result } } satisfies ApiResponse<SignupStartResponse>);
+}
+
+/** Step 2: set the new password; every other session was signed out, and this one signs in. */
+export async function passwordResetComplete(req: Request, res: Response) {
+  const user = await passwordResetService.completePasswordReset(
+    req.validated.body as Parameters<typeof passwordResetService.completePasswordReset>[0],
+  );
+  await startSession(req, user);
+  res.json({ data: user });
 }
 
 export async function login(req: Request, res: Response) {

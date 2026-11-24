@@ -6,7 +6,12 @@
  */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { LoginRequest, SignupCompleteRequest, User } from '@shared/types/user.ts';
+import type {
+  LoginRequest,
+  PasswordResetCompleteRequest,
+  SignupCompleteRequest,
+  User,
+} from '@shared/types/user.ts';
 import { authApi } from '../api/endpoints.ts';
 import { queryKeys, useMe } from '../api/queries.ts';
 
@@ -17,6 +22,8 @@ interface AuthValue {
   login: (body: LoginRequest) => Promise<User>;
   /** Sign-up step 2 (step 1, sending the code, needs no auth state: authApi.signupStart). */
   completeSignup: (body: SignupCompleteRequest) => Promise<User>;
+  /** Forgot password step 2: sets the new password and signs this browser in. */
+  completePasswordReset: (body: PasswordResetCompleteRequest) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -36,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: me.isPending,
       login: async (body) => signedIn(await authApi.login(body)),
       completeSignup: async (body) => signedIn(await authApi.signupComplete(body)),
+      completePasswordReset: async (body) => signedIn(await authApi.passwordResetComplete(body)),
       logout: async () => {
         await authApi.logout();
         queryClient.setQueryData(queryKeys.me, null);

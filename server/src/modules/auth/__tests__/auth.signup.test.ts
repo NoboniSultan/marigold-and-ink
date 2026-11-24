@@ -3,34 +3,11 @@ import request from 'supertest';
 import { createApp } from '../../../app.js';
 import { pool } from '../../../db/pool.js';
 import { verifyPassword } from '../../../lib/password.js';
-import type { EmailMessage, EmailSender } from '../../../adapters/email.ts';
 import { truncateAllTables } from '../../../../tests/setup/database.js';
 import { createUser, createUserWithPassword } from '../../../../tests/factories/index.js';
 import { TRUSTED_ORIGIN } from '../../../../tests/helpers/auth.js';
+import { fakeEmail } from '../../../../tests/helpers/email.ts';
 import { MAX_ATTEMPTS } from '../auth.signup.service.ts';
-
-/** Records emails instead of sending them; can be told to fail. */
-function fakeEmail() {
-  const sent: EmailMessage[] = [];
-  let failNext = false;
-  const sender: EmailSender = {
-    async send(message) {
-      if (failNext) {
-        failNext = false;
-        throw new Error('provider down');
-      }
-      sent.push(message);
-    },
-  };
-  return {
-    sender,
-    sent,
-    failOnce: () => {
-      failNext = true;
-    },
-    lastCode: () => sent.at(-1)?.text.match(/\b(\d{6})\b/)?.[1],
-  };
-}
 
 let email: ReturnType<typeof fakeEmail>;
 let app: ReturnType<typeof createApp>;
@@ -274,8 +251,8 @@ describe('POST /api/v1/auth/signup/complete: an address that already has an acco
     const { hashCode } = await import('../../../lib/verificationCode.ts');
     const { config } = await import('../../../config/env.js');
     await pool.query(
-      `INSERT INTO email_verifications (email, code_hash, expires_at)
-       VALUES ($1, $2, now() + interval '5 minutes')`,
+      `INSERT INTO email_verifications (purpose, email, code_hash, expires_at)
+       VALUES ('signup', $1, $2, now() + interval '5 minutes')`,
       [ADDRESS, hashCode(ADDRESS, '123456', config.authSecret)],
     );
 

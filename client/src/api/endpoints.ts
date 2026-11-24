@@ -13,16 +13,20 @@ import type { CheckoutStart, PaymentsResponse } from '@shared/types/payment.ts';
 import type {
   Account,
   AuthProviders,
+  ChangeEmailConfirmRequest,
+  ChangeEmailStartRequest,
   ChangePasswordRequest,
   DeleteAccountRequest,
   LoginRequest,
+  PasswordResetCompleteRequest,
+  PasswordResetStartRequest,
   SignupCompleteRequest,
   SignupStartRequest,
   SignupStartResponse,
   UpdateProfileRequest,
   User,
 } from '@shared/types/user.ts';
-import { request } from './client.ts';
+import { API_BASE, request } from './client.ts';
 
 export interface ArtworkFilters {
   page?: number;
@@ -64,6 +68,17 @@ export const authApi = {
   /** Sign-up step 2: the code plus name and password; creates the account and logs in. */
   signupComplete: (body: SignupCompleteRequest) =>
     data(request<ApiResponse<User>>('/auth/signup/complete', { method: 'POST', body })),
+  /** Forgot password, step 1: emails a code if the address has an account. */
+  passwordResetStart: (body: PasswordResetStartRequest) =>
+    data(
+      request<ApiResponse<SignupStartResponse>>('/auth/password-reset/start', {
+        method: 'POST',
+        body,
+      }),
+    ),
+  /** Step 2: the code and the new password; signs this browser in. */
+  passwordResetComplete: (body: PasswordResetCompleteRequest) =>
+    data(request<ApiResponse<User>>('/auth/password-reset/complete', { method: 'POST', body })),
   providers: (signal?: AbortSignal) =>
     data(request<ApiResponse<AuthProviders>>('/auth/providers', { signal })),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
@@ -81,7 +96,19 @@ export const accountApi = {
   changePassword: (body: ChangePasswordRequest) =>
     request<void>('/users/me/password', { method: 'POST', body }),
   delete: (body: DeleteAccountRequest) => request<void>('/users/me', { method: 'DELETE', body }),
+  /** Email change, step 1: a code goes to the new address. */
+  startEmailChange: (body: ChangeEmailStartRequest) =>
+    data(request<ApiResponse<SignupStartResponse>>('/users/me/email', { method: 'POST', body })),
+  /** Step 2: the code moves the account; other devices are signed out. */
+  confirmEmailChange: (body: ChangeEmailConfirmRequest) =>
+    data(request<ApiResponse<Account>>('/users/me/email/confirm', { method: 'POST', body })),
 };
+
+/**
+ * "Download my data": a plain link (the browser downloads the JSON file with the session
+ * cookie), so it isn't a fetch call.
+ */
+export const ACCOUNT_EXPORT_URL = `${API_BASE}/users/me/export`;
 
 export const commissionsApi = {
   /** The signed-in client's own commissions, newest first. */
