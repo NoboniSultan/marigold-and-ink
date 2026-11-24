@@ -52,6 +52,11 @@ export function Header() {
           <NavLink to="/about" className={navClass}>
             About
           </NavLink>
+          {user?.role === 'admin' && (
+            <NavLink to="/admin" className={navClass}>
+              Admin
+            </NavLink>
+          )}
           {user && (
             <NavLink to="/account" className={navClass}>
               Account

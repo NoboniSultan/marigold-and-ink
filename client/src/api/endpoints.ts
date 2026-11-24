@@ -1,5 +1,16 @@
 /** Typed functions for each API endpoint the site uses. Types come from shared/types. */
 import type { AboutContent } from '@shared/types/about.ts';
+import type {
+  AdjustQuoteRequest,
+  AdminCommissionDetails,
+  AdminCommissionRow,
+  AdminDonation,
+  DonationStatus,
+  MarkDonationsPaidRequest,
+  MonthlyReportRow,
+  Quote,
+  TransitionRequest,
+} from '@shared/types/admin.ts';
 import type { ApiResponse, PaginatedResponse } from '@shared/types/api.ts';
 import type { Artwork, CategoryCount, Tag } from '@shared/types/artwork.ts';
 import type {
@@ -9,7 +20,12 @@ import type {
   CommissionRequest,
 } from '@shared/types/commission.ts';
 import type { GivingTotals } from '@shared/types/giving.ts';
-import type { CheckoutStart, PaymentsResponse } from '@shared/types/payment.ts';
+import type {
+  CheckoutStart,
+  Payment,
+  PaymentsResponse,
+  RefundRequest,
+} from '@shared/types/payment.ts';
 import type {
   Account,
   AuthProviders,
@@ -133,3 +149,45 @@ export const paymentsApi = {
       }),
     ),
 };
+
+/** The admin screens (milestone 9). The server refuses all of these to anyone but the admin. */
+export const adminApi = {
+  commissions: (query: { page?: number; status?: string }, signal?: AbortSignal) =>
+    request<PaginatedResponse<AdminCommissionRow>>('/admin/commissions', { query, signal }),
+  commission: (id: number, signal?: AbortSignal) =>
+    data(request<ApiResponse<AdminCommissionDetails>>(`/admin/commissions/${id}`, { signal })),
+  /** The current quote, drafts included (the admin sees them), or 404 if there's none. */
+  quote: (id: number, signal?: AbortSignal) =>
+    data(request<ApiResponse<Quote>>(`/commissions/${id}/quote`, { signal })),
+  generateQuote: (id: number) =>
+    data(request<ApiResponse<Quote>>(`/commissions/${id}/quote`, { method: 'POST' })),
+  adjustQuote: (id: number, body: AdjustQuoteRequest) =>
+    data(request<ApiResponse<Quote>>(`/commissions/${id}/quote`, { method: 'PATCH', body })),
+  sendQuote: (id: number) => request<unknown>(`/commissions/${id}/quote/send`, { method: 'POST' }),
+  transition: (id: number, body: TransitionRequest) =>
+    request<unknown>(`/commissions/${id}/transitions`, { method: 'POST', body }),
+  refund: (id: number, body: RefundRequest) =>
+    data(
+      request<ApiResponse<Payment>>(`/admin/commissions/${id}/refunds`, { method: 'POST', body }),
+    ),
+  donations: (query: { page?: number; status?: DonationStatus }, signal?: AbortSignal) =>
+    request<PaginatedResponse<AdminDonation>>('/admin/donations', { query, signal }),
+  markDonationsPaid: (body: MarkDonationsPaidRequest) =>
+    data(
+      request<ApiResponse<AdminDonation[]>>('/admin/donations/mark-paid', {
+        method: 'POST',
+        body,
+      }),
+    ),
+  monthlyReport: (year: number, signal?: AbortSignal) =>
+    data(
+      request<ApiResponse<MonthlyReportRow[]>>('/admin/reports/monthly', {
+        query: { year },
+        signal,
+      }),
+    ),
+};
+
+/** The monthly report as a CSV file: a plain link the browser downloads with the session. */
+export const monthlyReportCsvUrl = (year: number) =>
+  `${API_BASE}/admin/reports/monthly.csv?year=${year}`;
