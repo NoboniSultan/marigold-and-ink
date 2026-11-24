@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-24 (Milestone 8c: fixes from the first live Digital Humani test)
+
+### Fixed
+
+- **Retrying a tree request after a lost answer** ([ADR 0013](docs/decisions/0013-giving-through-digital-humani.md), amended): the retry assumed `GET /tree?user=` lists a reference's requests, but the live sandbox answers only a count (`{ enterpriseId, user, count }`), and the API can't list requests. The adapter now counts (`countTrees`), and a retry plants only the trees missing under the commission's reference, so trees are still never ordered twice. Migration: `donations_requested_fields_check` now requires only `requested_at` for owed or paid trees, since a donation adopted from the count has no request ID. Found by a sandbox round trip with the owner's keys (1 tree under `setup-check`).
+- **Tests never use a developer's real third-party keys:** `vitest.config.js` blanks the Digital Humani, Resend, and Google settings, so keys in `.env` can't switch a service on in a test (they had turned giving on in a local run).
+
+### Changed
+
+- **Resend setup guide rewritten** for noboni.art: send from the subdomain `mail.noboni.art` (Resend's advice: it keeps sending reputation apart from the main domain), the exact DNS records to add at Hover, and the `EMAIL_FROM` address to match.
+
+### Added
+
+- **Tests:** the adapter's count uses the real answer shape; a retry plants only the missing trees, adopts trees already counted without a request ID, and never counts on a first attempt; the relaxed constraint (855 server tests in all).
+
 ## [0.9.1] - 2026-11-23 (Milestone 8b: the 3D sketchbook)
 
 ### Changed

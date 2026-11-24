@@ -8,7 +8,8 @@
  * 2. requestPendingTrees: after the webhook commits (and when the server starts), each
  *    pending donation is sent to Digital Humani. It runs outside any long transaction:
  *    the attempt is stamped and committed first, so if the answer is lost, the next try
- *    asks Digital Humani what it already has (by our reference) instead of planting twice.
+ *    asks Digital Humani how many trees it already has under our reference (one per
+ *    commission) instead of planting twice.
  * 3. withheldForTreesCents: the refund flow never gives back tree money.
  */
 import type { PoolClient } from 'pg';
@@ -95,25 +96,22 @@ async function requestOne(id: number, planter: TreePlanter): Promise<boolean> {
   if (!donation) return false;
 
   const reference = referenceFor(donation.commissionId);
-  let requestId: string | undefined;
-  if (donation.requestAttemptedAt) {
-    // Tried before without hearing back: the request may have gone through. Adopt it.
-    const earlier = await planter.findRequests(reference);
-    for (const request of earlier) {
-      if (
-        request.treeCount === donation.treeCount &&
-        !(await givingRepository.isRequestIdKnown(request.uuid))
-      ) {
-        requestId = request.uuid;
-        break;
-      }
-    }
-  }
-  requestId ??= (await planter.plantTrees({ treeCount: donation.treeCount, reference })).uuid;
+  // Tried before without hearing back: the request may have gone through. Digital Humani
+  // can't list requests, but it counts the trees under a reference, and each commission
+  // has its own. Whatever is already there counts toward this donation.
+  const alreadyRequested = donation.requestAttemptedAt ? await planter.countTrees(reference) : 0;
+  const missing = donation.treeCount - alreadyRequested;
+  const requestId =
+    missing > 0 ? (await planter.plantTrees({ treeCount: missing, reference })).uuid : null;
 
   await givingRepository.markRequested(donation.id, requestId);
   logger.info(
-    { donationId: donation.id, commissionId: donation.commissionId, trees: donation.treeCount },
+    {
+      donationId: donation.id,
+      commissionId: donation.commissionId,
+      trees: donation.treeCount,
+      alreadyRequested,
+    },
     'trees requested through Digital Humani',
   );
   return true;

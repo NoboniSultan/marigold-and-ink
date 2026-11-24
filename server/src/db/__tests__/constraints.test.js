@@ -553,12 +553,18 @@ describe('donations', () => {
     );
   });
 
-  it('rejects owed or paid trees without a request ID and time', async () => {
+  it('rejects owed or paid trees without the time they were requested', async () => {
     await expectViolation(
       createDonation({ ...trees, status: 'owed' }),
       CHECK_VIOLATION,
       'donations_requested_fields_check',
     );
+  });
+
+  it('accepts owed trees without a request ID (a retry found them already counted)', async () => {
+    await expect(
+      createDonation({ ...trees, status: 'owed', requestedAt: new Date() }),
+    ).resolves.toBeDefined();
   });
 
   it('rejects one Digital Humani request recorded twice', async () => {

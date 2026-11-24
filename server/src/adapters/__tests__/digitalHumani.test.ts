@@ -59,14 +59,13 @@ describe('createTreePlanter', () => {
     );
   });
 
-  it('lists earlier requests for a reference', async () => {
+  it('counts the trees already requested under a reference (the real answer shape)', async () => {
+    // As the sandbox answers: a total for the reference, not a list of requests.
     const { planter, fetchImpl } = planterWith(() =>
-      json([{ uuid: 'abc-123', treeCount: 28, user: 'commission-12' }]),
+      json({ enterpriseId: 'ent-1', user: 'commission-12', count: 28 }),
     );
 
-    await expect(planter.findRequests('commission-12')).resolves.toEqual([
-      { uuid: 'abc-123', treeCount: 28 },
-    ]);
+    await expect(planter.countTrees('commission-12')).resolves.toBe(28);
     expect(fetchImpl.mock.calls[0]![0]).toBe(
       'https://api.sandbox.digitalhumani.com/tree?enterpriseId=ent-1&user=commission-12',
     );
@@ -84,7 +83,7 @@ describe('createTreePlanter', () => {
     const { planter } = planterWith(() => {
       throw new TypeError('fetch failed');
     });
-    await expect(planter.findRequests('c')).rejects.toThrow(TreePlanterError);
+    await expect(planter.countTrees('c')).rejects.toThrow(TreePlanterError);
   });
 
   it('refuses an answer it does not understand', async () => {
@@ -92,7 +91,8 @@ describe('createTreePlanter', () => {
     await expect(planter.plantTrees({ treeCount: 1, reference: 'c' })).rejects.toThrow(
       /Unexpected answer/,
     );
-    const { planter: lister } = planterWith(() => json({ not: 'a list' }));
-    await expect(lister.findRequests('c')).rejects.toThrow(/Unexpected answer/);
+    // A list (what this adapter first assumed) isn't a count.
+    const { planter: counter } = planterWith(() => json([{ uuid: 'a', treeCount: 1 }]));
+    await expect(counter.countTrees('c')).rejects.toThrow(/Unexpected answer/);
   });
 });

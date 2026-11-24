@@ -10,7 +10,7 @@ import {
 
 export function fakeTrees() {
   const requests: (TreeRequest & { reference: string })[] = [];
-  const failNext = { plant: false, loseAnswer: false, find: false };
+  const failNext = { plant: false, loseAnswer: false, count: false };
   let next = 0;
 
   const planter: TreePlanter = {
@@ -27,14 +27,15 @@ export function fakeTrees() {
       }
       return { uuid: request.uuid, treeCount };
     },
-    async findRequests(reference) {
-      if (failNext.find) {
-        failNext.find = false;
+    // Like Digital Humani: a total of the trees under the reference, not a list.
+    async countTrees(reference) {
+      if (failNext.count) {
+        failNext.count = false;
         throw new TreePlanterError('Digital Humani answered 500', 500);
       }
       return requests
         .filter((r) => r.reference === reference)
-        .map(({ uuid, treeCount }) => ({ uuid, treeCount }));
+        .reduce((total, r) => total + r.treeCount, 0);
     },
   };
   return { planter, requests, failNext };

@@ -100,14 +100,12 @@ export async function claimForRequest(
   };
 }
 
-export async function isRequestIdKnown(requestId: string, client: Db = pool): Promise<boolean> {
-  const { rows } = await client.query('SELECT 1 FROM donations WHERE tree_request_id = $1', [
-    requestId,
-  ]);
-  return rows.length > 0;
-}
-
-export async function markRequested(id: number, requestId: string, client: Db = pool) {
+/**
+ * The trees are on order. `requestId` is Digital Humani's ID for the request, or null when
+ * a retry found the trees already counted under the commission's reference (the API can
+ * count a reference's trees but not list its requests, so there's no ID to record).
+ */
+export async function markRequested(id: number, requestId: string | null, client: Db = pool) {
   await client.query(
     `UPDATE donations SET status = 'owed', tree_request_id = $2, requested_at = now()
       WHERE id = $1 AND status = 'pending'`,

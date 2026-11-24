@@ -371,11 +371,11 @@ Only the tables exist so far; the endpoints come in a later phase.
 | `donations_commission_id_idx` | Index | Donations for one commission. |
 | `donations_tree_count_check` | CHECK | Tree donations (milestone 8) fund at least one tree. |
 | `donations_tree_amount_check` | CHECK | A tree donation costs exactly $1 a tree: `donation_amount_cents = tree_count × 100`. |
-| `donations_requested_fields_check` | CHECK | An `owed` or `paid` tree donation has Digital Humani's request ID and the time it was requested. |
+| `donations_requested_fields_check` | CHECK | An `owed` or `paid` tree donation has the time it was requested. Digital Humani's request ID is recorded when known; it's null when a retry found the trees already counted under the commission's reference (the API counts a reference's trees but can't list its requests; relaxed in milestone 8c). |
 | `donations_tree_request_id_key` | UNIQUE | One Digital Humani request is never recorded twice. |
 | `donations_pending_trees_idx` | Partial index `(id) WHERE status = 'pending' AND tree_count IS NOT NULL` | The retry finds tree requests that haven't gone through. |
 
-**Tree donations** ([ADR 0013](decisions/0013-giving-through-digital-humani.md)): the final payment records one, `pending`. `request_attempted_at` is stamped and committed before calling Digital Humani, so a lost answer is detected and the retry adopts the existing request instead of planting twice. Once accepted, the row is `owed` (the planting partner will invoice the owner) with `tree_request_id` and `requested_at`. The refund flow never refunds a commission's tree money.
+**Tree donations** ([ADR 0013](decisions/0013-giving-through-digital-humani.md)): the final payment records one, `pending`. `request_attempted_at` is stamped and committed before calling Digital Humani, so a lost answer is detected: the retry asks Digital Humani how many trees it already has under the commission's reference and plants only what's missing, never twice. Once accepted, the row is `owed` (the planting partner will invoice the owner) with `requested_at`, and `tree_request_id` when a new request was made. The refund flow never refunds a commission's tree money.
 
 ### sessions
 
