@@ -114,6 +114,61 @@ describe('users', () => {
   });
 });
 
+describe('email_verifications', () => {
+  const code = (overrides = {}) =>
+    pool.query(
+      `INSERT INTO email_verifications (purpose, email, user_id, code_hash, expires_at)
+       VALUES ($1, $2, $3, $4, now() + interval '15 minutes')`,
+      [
+        overrides.purpose ?? 'signup',
+        overrides.email ?? 'someone@example.com',
+        overrides.userId ?? null,
+        'c'.repeat(64),
+      ],
+    );
+
+  it('rejects an unknown purpose', async () => {
+    await expectViolation(
+      code({ purpose: 'newsletter' }),
+      CHECK_VIOLATION,
+      'email_verifications_purpose_check',
+    );
+  });
+
+  it('ties an email-change code, and only that, to an account', async () => {
+    const user = await createUser();
+    await expectViolation(
+      code({ purpose: 'email_change' }),
+      CHECK_VIOLATION,
+      'email_verifications_user_check',
+    );
+    await expectViolation(
+      code({ purpose: 'password_reset', userId: user.id }),
+      CHECK_VIOLATION,
+      'email_verifications_user_check',
+    );
+    await expect(code({ purpose: 'email_change', userId: user.id })).resolves.toBeDefined();
+  });
+
+  it('keeps one code per address and purpose, but allows each purpose its own', async () => {
+    await code({ purpose: 'signup' });
+    await expect(code({ purpose: 'password_reset' })).resolves.toBeDefined();
+    await expectViolation(
+      code({ purpose: 'signup' }),
+      UNIQUE_VIOLATION,
+      'email_verifications_pkey',
+    );
+  });
+
+  it("rejects an email-change code for an account that doesn't exist", async () => {
+    await expectViolation(
+      code({ purpose: 'email_change', userId: 999999 }),
+      FOREIGN_KEY_VIOLATION,
+      'email_verifications_user_id_fkey',
+    );
+  });
+});
+
 describe('artworks', () => {
   it('rejects a slug that is not URL-safe', async () => {
     await expectViolation(

@@ -13,24 +13,24 @@
  */
 import { config } from '../../config/env.js';
 import { withTransaction } from '../../db/transaction.ts';
-import {
-  BusinessRuleError,
-  ConflictError,
-  RateLimitError,
-  ServiceUnavailableError,
-} from '../../errors/index.js';
+import { ConflictError, ServiceUnavailableError } from '../../errors/index.js';
 import { hashPassword } from '../../lib/password.js';
-import { generateCode, hashCode, hashesMatch } from '../../lib/verificationCode.ts';
-import { logger } from '../../lib/logger.js';
 import type { EmailSender } from '../../adapters/email.ts';
 import * as usersService from '../users/users.service.ts';
 import type { UserRecord } from '../users/users.service.ts';
 import * as authRepository from './auth.repository.ts';
+import {
+  CODE_TTL_MINUTES,
+  RESEND_COOLDOWN_MS,
+  codeFailure,
+  consumeCode,
+  issueCode,
+  sendCodeEmail,
+  type CodeCheck,
+} from './auth.codes.ts';
 import { alreadyRegisteredEmail, signupCodeEmail } from './auth.emails.ts';
 
-export const CODE_TTL_MINUTES = 15;
-export const MAX_ATTEMPTS = 5;
-export const RESEND_COOLDOWN_MS = 60_000;
+export { CODE_TTL_MINUTES, MAX_ATTEMPTS, RESEND_COOLDOWN_MS } from './auth.codes.ts';
 
 const unavailable = () =>
   new ServiceUnavailableError("Sign-up by email isn't available yet. Please try again later.", {
@@ -45,44 +45,20 @@ export async function startSignup(
 
   // A code is stored even for an existing account (it's never sent), so the cooldown and
   // the response are the same for every address.
-  const code = generateCode();
-  const saved = await authRepository.saveVerification({
-    email,
-    codeHash: hashCode(email, code, config.authSecret),
-    expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60_000),
-    cooldownMs: RESEND_COOLDOWN_MS,
-  });
-  if (!saved) {
-    const seconds = await authRepository.secondsUntilResend(email, RESEND_COOLDOWN_MS);
-    throw new RateLimitError(`Please wait ${seconds} seconds before asking for another code`, {
-      code: 'CODE_RESEND_TOO_SOON',
-      details: { retryAfterSeconds: seconds },
-    });
-  }
+  const code = await issueCode({ purpose: 'signup', email });
 
   const existing = await usersService.findForAuthByEmail(email);
   const message = existing?.emailVerifiedAt
     ? alreadyRegisteredEmail(email, `${config.publicUrl ?? ''}/login`)
     : signupCodeEmail(email, code, CODE_TTL_MINUTES);
 
-  try {
-    await emailSender.send(message);
-  } catch (err) {
-    // Forget the code, so the visitor can try again at once instead of waiting out the
-    // cooldown for an email that never arrived.
-    await authRepository.deleteVerification(email);
-    logger.error({ err }, 'sign-up email failed to send');
-    throw new ServiceUnavailableError("We couldn't send the email. Please try again.", {
-      code: 'EMAIL_SEND_FAILED',
-    });
-  }
+  await sendCodeEmail('signup', email, emailSender, message);
   return { resendAfterSeconds: RESEND_COOLDOWN_MS / 1000 };
 }
 
 type CheckResult =
   | { ok: true; user: UserRecord }
-  | { ok: false; reason: 'expired' }
-  | { ok: false; reason: 'incorrect'; remainingAttempts: number }
+  | Exclude<CodeCheck, { ok: true }>
   | { ok: false; reason: 'taken' };
 
 export async function completeSignup({
@@ -102,21 +78,9 @@ export async function completeSignup({
   // The transaction returns failures instead of throwing them, so a wrong guess still
   // commits its attempt count (a thrown error would roll the count back).
   const result = await withTransaction(async (tx): Promise<CheckResult> => {
-    const pending = await authRepository.findVerification(email, tx, { forUpdate: true });
-    if (!pending || pending.expiresAt <= new Date() || pending.attempts >= MAX_ATTEMPTS) {
-      return { ok: false, reason: 'expired' };
-    }
-    if (!hashesMatch(hashCode(email, code, config.authSecret), pending.codeHash)) {
-      await authRepository.recordFailedAttempt(email, tx);
-      return {
-        ok: false,
-        reason: 'incorrect',
-        remainingAttempts: MAX_ATTEMPTS - pending.attempts - 1,
-      };
-    }
-
-    // The code is used up whatever happens next.
-    await authRepository.deleteVerification(email, tx);
+    // A correct code is used up whatever happens next.
+    const check = await consumeCode({ purpose: 'signup', email, code }, tx);
+    if (!check.ok) return check;
 
     const existing = await usersService.findForAuthByEmail(email, { client: tx, forUpdate: true });
     if (existing?.emailVerifiedAt) return { ok: false, reason: 'taken' };
@@ -144,13 +108,5 @@ export async function completeSignup({
       code: 'EMAIL_TAKEN',
     });
   }
-  if (result.reason === 'incorrect' && result.remainingAttempts > 0) {
-    throw new BusinessRuleError(
-      `That code isn't right. ${result.remainingAttempts} ${result.remainingAttempts === 1 ? 'try' : 'tries'} left.`,
-      { code: 'CODE_INCORRECT', details: { remainingAttempts: result.remainingAttempts } },
-    );
-  }
-  throw new BusinessRuleError('This code has expired or been used up. Please send a new one.', {
-    code: 'CODE_EXPIRED',
-  });
+  throw codeFailure(result);
 }
