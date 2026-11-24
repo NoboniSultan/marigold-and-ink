@@ -1,16 +1,18 @@
 /**
- * The 3D sketchbook: a book on a desk that opens when Explore does, then one artwork per
+ * The 3D sketchbook: a book on a chalkboard that opens as Home loads, then one artwork per
  * spread (see sketchbook.ts for the layout, the paper model, and the arithmetic).
  *
- * - Opening: the closed book rests a moment, then the front cover swings over the spine
- *   while the book slides to the middle of the view.
+ * - Covers: both are hinged at the spine. The front one opens as Home loads (once the
+ *   cover is drawn, the parent opens the book) and shuts again with one more swipe back
+ *   from the first spread; the back one shuts after the last page turns. The camera
+ *   follows the closed book, so it's always centred.
  * - Leaves: each is a strip of paper. Its spine end is driven by a turn (eased) or by a
  *   finger (a drag); the rest of the strip follows on springs, so the page moves like
  *   paper. Resting pages aren't recomputed.
  * - Only leaves near the open spread get real page textures, so the GPU holds a handful of
  *   pages however big the collection grows.
  */
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import {
   BackSide,
@@ -26,16 +28,20 @@ import {
 } from 'three';
 import type { Artwork } from '@shared/types/artwork.ts';
 import {
+  BACK_COVER_DELAY,
+  LAST_LEAF_DELAY,
   LEAF_GAP,
   PAGE_HEIGHT,
   PAGE_WIDTH,
   SEGMENTS,
+  backCoverTarget,
   createPaper,
   dragLift,
+  frontCoverTarget,
+  hingeProgress,
   isNearSpread,
   layOutPaper,
   leafTarget,
-  openProgress,
   paperTargets,
   releaseProgress,
   settlePaper,
@@ -133,8 +139,6 @@ interface LeafProps {
   /** The artwork whose caption is on this leaf's back; none for the last leaf. */
   next: Artwork | undefined;
   spread: number;
-  /** False while the cover is still opening. */
-  interactive: boolean;
   instant: boolean;
   dragTurn: RefObject<DragTurn | null>;
   blanks: { front: CanvasTexture; back: CanvasTexture };
@@ -142,8 +146,7 @@ interface LeafProps {
 }
 
 function Leaf(props: LeafProps) {
-  const { index, count, artwork, next, spread, interactive, instant, dragTurn, blanks, onOpen } =
-    props;
+  const { index, count, artwork, next, spread, instant, dragTurn, blanks, onOpen } = props;
   // A page-sized strip, moved so x runs from the spine (0) to the outer edge (PAGE_WIDTH).
   const geometry = useMemo(() => {
     const plane = new PlaneGeometry(PAGE_WIDTH, PAGE_HEIGHT, SEGMENTS, 1);
@@ -166,7 +169,7 @@ function Leaf(props: LeafProps) {
     const m = (motion.current ??= startMotion(target));
     const now = clock.elapsedTime;
     const drag = dragTurn.current;
-    const held = interactive && drag?.leaf === index ? drag : null;
+    const held = drag?.leaf === index ? drag : null;
 
     let lift = 0;
     if (held) {
@@ -176,11 +179,13 @@ function Leaf(props: LeafProps) {
       m.held = true;
     } else {
       if (m.held || target !== m.turn.to) {
-        // A new turn, or a finger let go: start from wherever the page is now.
+        // A new turn, or a finger let go: start from wherever the page is now. The last
+        // page waits under a shut back cover until the cover has lifted off it.
+        const underBackCover = index === count - 1 && target === 0 && m.turn.to === 1;
         m.turn = {
           from: m.progress,
           to: target,
-          start: now,
+          start: now + (underBackCover && !m.held ? LAST_LEAF_DELAY : 0),
           duration: instant ? 0 : turnDuration(target - m.progress),
           released: m.held,
         };
@@ -237,7 +242,7 @@ function Leaf(props: LeafProps) {
   const back = useAsyncTexture(makeBack);
 
   // Only the open right-hand page can be clicked open.
-  const isOpenPage = interactive && index === spread;
+  const isOpenPage = index === spread;
   const setCursor = (value: string) => {
     document.body.style.cursor = value;
   };
@@ -264,61 +269,96 @@ function Leaf(props: LeafProps) {
   );
 }
 
-interface CoverProps {
-  open: RefObject<number>;
-  /** Height of the closed cover's hinge: just above the stack of pages. */
-  closedZ: number;
-  color: Color;
-  outside: CanvasTexture | null;
-  inside: CanvasTexture;
+/** A cover's swing: 0 = lying on the right, 1 = over on the left. */
+interface Hinge {
+  value: number;
+  from: number;
+  to: number;
+  start: number;
 }
 
-/**
- * The front cover, hinged at the spine. Closed, it lies over the pages, lettering up;
- * open, it lies flat on the left, carrying the inside-cover page (the first caption).
- */
-function Cover({ open, closedZ, color, outside, inside }: CoverProps) {
-  const hinge = useRef<Group>(null);
-  useFrame(() => {
-    const group = hinge.current;
-    if (!group) return;
-    // Rotating by −angle about the spine lifts the free edge toward the reader.
-    group.rotation.y = -Math.PI * open.current;
-    group.position.z = MathUtils.lerp(closedZ, BOARD_Z, open.current);
-  });
-  const face = BOARD_THICKNESS / 2 + 0.002;
+/** Eases a hinge toward its target; a new target starts from wherever it is now. */
+function moveHinge(
+  hinge: Hinge,
+  target: number,
+  now: number,
+  { delay = 0, instant = false } = {},
+): void {
+  if (target !== hinge.to) {
+    hinge.from = hinge.value;
+    hinge.to = target;
+    hinge.start = now + delay;
+  }
+  hinge.value = instant ? hinge.to : hingeProgress(hinge.from, hinge.to, now - hinge.start);
+}
+
+/** A cover board: Ink, with lighter edges so it reads against the dark chalkboard. */
+function Board({ color, edge }: { color: Color; edge: Color }) {
   return (
-    <group ref={hinge}>
-      <mesh position={[BOARD_WIDTH / 2, 0, 0]}>
-        <boxGeometry args={[BOARD_WIDTH - 0.006, BOARD_HEIGHT, BOARD_THICKNESS]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      {outside && (
-        <mesh position={[BOARD_WIDTH / 2, 0, face]}>
-          <planeGeometry args={[BOARD_WIDTH - 0.006, BOARD_HEIGHT]} />
-          <meshBasicMaterial map={outside} />
-        </mesh>
-      )}
-      {/* Faces down while closed; once the cover turns over, it's the left-hand page. */}
-      <mesh position={[PAGE_WIDTH / 2, 0, -face]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[PAGE_WIDTH, PAGE_HEIGHT]} />
-        <meshBasicMaterial map={inside} />
-      </mesh>
+    <mesh position={[BOARD_WIDTH / 2, 0, 0]}>
+      <boxGeometry args={[BOARD_WIDTH - 0.006, BOARD_HEIGHT, BOARD_THICKNESS]} />
+      {/* Box faces: +x, −x, +y, −y (the edges), then +z, −z (the boards' faces). */}
+      {[0, 1, 2, 3].map((face) => (
+        <meshBasicMaterial key={face} attach={`material-${face}`} color={edge} />
+      ))}
+      <meshBasicMaterial attach="material-4" color={color} />
+      <meshBasicMaterial attach="material-5" color={color} />
+    </mesh>
+  );
+}
+
+interface CoverProps {
+  hinge: RefObject<Hinge | null>;
+  /** The hinge's height lying on the right (0) and turned over to the left (1). */
+  heights: [number, number];
+  color: Color;
+  edge: Color;
+  /** Faces carried with the board (the front's lettering and inside page). */
+  children?: ReactNode;
+}
+
+/** A cover board hinged at the spine; rotating by −angle lifts its free edge toward the reader. */
+function Cover({ hinge, heights, color, edge, children }: CoverProps) {
+  const group = useRef<Group>(null);
+  useFrame(() => {
+    const swing = hinge.current?.value;
+    if (!group.current || swing === undefined) return;
+    group.current.rotation.y = -Math.PI * swing;
+    group.current.position.z = MathUtils.lerp(heights[0], heights[1], swing);
+  });
+  return (
+    <group ref={group}>
+      <Board color={color} edge={edge} />
+      {children}
     </group>
   );
 }
 
+/** Where the book's middle is: the closed book sits right of the spine (front) or left (back). */
+function bookCentre(front: number, back: number, portrait: boolean): number {
+  if (portrait) {
+    // Phones frame the right-hand page, or the shut book wherever it lies.
+    return MathUtils.lerp(PAGE_WIDTH / 2, -BOARD_WIDTH / 2, back);
+  }
+  return (BOARD_WIDTH / 2) * (1 - front) - (BOARD_WIDTH / 2) * back;
+}
+
 /**
- * Keeps the camera at the reading angle, with the book filling the view. While the book
- * is closed it centres on the closed book, then glides to the middle as it opens. On a
- * portrait screen (a phone) it always frames the right-hand page, the artwork; the caption
- * is in the controls below.
+ * Keeps the camera at the reading angle, with the book filling the view, and follows the
+ * book as it opens and shuts. On a portrait screen (a phone) it frames the right-hand page,
+ * the artwork; the caption is in the controls below.
  */
-function FitCamera({ open }: { open: RefObject<number> }) {
+function FitCamera({
+  front,
+  back,
+}: {
+  front: RefObject<Hinge | null>;
+  back: RefObject<Hinge | null>;
+}) {
   useFrame(({ camera, size }) => {
     const perspective = camera as PerspectiveCamera;
     const portrait = size.width < size.height;
-    const centre = portrait ? PAGE_WIDTH / 2 : MathUtils.lerp(BOARD_WIDTH / 2, 0, open.current);
+    const centre = bookCentre(front.current?.value ?? 0, back.current?.value ?? 0, portrait);
     const viewWidth = portrait ? PAGE_WIDTH + BOARD_MARGIN * 2 : BOARD_WIDTH * 2;
     const viewHeight = BOARD_HEIGHT;
     const tan = Math.tan(MathUtils.degToRad(perspective.fov / 2));
@@ -334,15 +374,20 @@ function FitCamera({ open }: { open: RefObject<number> }) {
 
 interface SketchbookProps {
   artworks: Artwork[];
+  /** From CLOSED_FRONT (−1) through the artworks to `artworks.length` (shut at the back). */
   spread: number;
-  /** Reduced motion: the book starts open, and pages change without turning. */
+  /** Reduced motion: covers and pages change without moving. */
   instant: boolean;
-  /** The page a finger is holding, if any (set by ExploreCanvas). */
+  /** The page a finger is holding, if any (set by SketchbookCanvas). */
   dragTurn: RefObject<DragTurn | null>;
   onOpen: (artwork: Artwork) => void;
+  /** Called once the front cover is drawn (or after a wait), so the parent can open the book. */
+  onCoverReady: () => void;
 }
 
-export function Sketchbook({ artworks, spread, instant, dragTurn, onOpen }: SketchbookProps) {
+export function Sketchbook(props: SketchbookProps) {
+  const { artworks, spread, instant, dragTurn, onOpen, onCoverReady } = props;
+  const count = artworks.length;
   const blanks = useMemo(
     () => ({
       front: blankTexture('left', false),
@@ -352,7 +397,12 @@ export function Sketchbook({ artworks, spread, instant, dragTurn, onOpen }: Sket
     [],
   );
   const shadow = useMemo(() => shadowTexture(), []);
-  const coverColor = useMemo(() => new Color(readPalette().ink), []);
+  const colors = useMemo(() => {
+    const palette = readPalette();
+    const ink = new Color(palette.ink);
+    // The boards' edges: Ink lightened, like the worn edge of a cloth cover.
+    return { ink, edge: ink.clone().lerp(new Color(palette.paper), 0.28) };
+  }, []);
   useEffect(
     () => () => {
       blanks.front.dispose();
@@ -369,78 +419,88 @@ export function Sketchbook({ artworks, spread, instant, dragTurn, onOpen }: Sket
   // The inside cover: the first artwork's caption, opposite the first artwork.
   const first = artworks[0];
   const makeInsideCover = useMemo(
-    () =>
-      first ? () => captionTexture(first, { number: 1, total: artworks.length }, false) : null,
-    [first, artworks.length],
+    () => (first ? () => captionTexture(first, { number: 1, total: count }, false) : null),
+    [first, count],
   );
   const insideCover = useAsyncTexture(makeInsideCover);
 
-  // Opening: 0 = closed, 1 = open. Read every frame by the cover, camera and shadow.
-  const open = useRef(instant ? 1 : 0);
-  const [opened, setOpened] = useState(instant);
-  const clockStart = useRef<{ shown: number | null; opening: number | null }>({
-    shown: null,
-    opening: null,
-  });
-  useFrame(({ clock }) => {
-    if (opened) return;
-    if (instant) {
-      open.current = 1;
-      setOpened(true);
-      return;
-    }
-    const now = clock.elapsedTime;
-    const start = clockStart.current;
-    start.shown ??= now;
-    // Wait for the cover's lettering, so the closed book is seen as a book.
-    if (!outside && now - start.shown < COVER_WAIT) return;
-    start.opening ??= now;
-    open.current = openProgress(now - start.opening);
-    if (open.current >= 1) setOpened(true);
-  });
-
+  // The covers' swings, read every frame by the covers, the camera, and the shadow.
+  const front = useRef<Hinge | null>(null);
+  const back = useRef<Hinge | null>(null);
   const shadowMesh = useRef<Mesh>(null);
-  useFrame(() => {
-    const mesh = shadowMesh.current;
-    if (!mesh) return;
-    mesh.position.x = MathUtils.lerp(BOARD_WIDTH / 2, 0, open.current);
-    mesh.scale.x = MathUtils.lerp(0.52, 1, open.current);
+  const ready = useRef<{ firstFrame: number | null; told: boolean }>({
+    firstFrame: null,
+    told: false,
   });
 
-  // Until the cover is open, the book stays on its first spread.
-  const shownSpread = opened ? spread : 0;
+  useFrame(({ clock }) => {
+    const now = clock.elapsedTime;
+    const frontTarget = frontCoverTarget(spread);
+    const backTarget = backCoverTarget(spread, count);
+    front.current ??= { value: frontTarget, from: frontTarget, to: frontTarget, start: 0 };
+    back.current ??= { value: backTarget, from: backTarget, to: backTarget, start: 0 };
+    moveHinge(front.current, frontTarget, now, { instant });
+    // Shutting at the back, the last page lands first; opening, the cover goes straight away.
+    moveHinge(back.current, backTarget, now, {
+      instant,
+      delay: backTarget === 1 ? BACK_COVER_DELAY : 0,
+    });
+
+    // Let the parent open the book once the closed cover can be seen as a cover.
+    const start = ready.current;
+    start.firstFrame ??= now;
+    if (!start.told && (outside || now - start.firstFrame > COVER_WAIT)) {
+      start.told = true;
+      onCoverReady();
+    }
+
+    const mesh = shadowMesh.current;
+    if (mesh) {
+      const f = front.current.value;
+      const b = back.current.value;
+      mesh.position.x = bookCentre(f, b, false);
+      mesh.scale.x = 1 - 0.48 * Math.max(1 - f, b);
+    }
+  });
+
+  // Shut, a cover's hinge sits just above the stack of pages.
+  const shutHeight = (count + 1) * LEAF_GAP + BOARD_THICKNESS / 2 + 0.004;
+  const face = BOARD_THICKNESS / 2 + 0.002;
 
   return (
     <>
-      {/* The shadow the book casts on the desk. */}
+      {/* The shadow the book casts. */}
       <mesh ref={shadowMesh} position={[0, -0.04, -0.06]}>
         <planeGeometry args={[BOARD_WIDTH * 2 * 1.3, BOARD_HEIGHT * 1.32]} />
         <meshBasicMaterial map={shadow} transparent depthWrite={false} />
       </mesh>
 
-      {/* The back cover, under the pages on the right. */}
-      <mesh position={[BOARD_WIDTH / 2, 0, BOARD_Z]}>
-        <boxGeometry args={[BOARD_WIDTH - 0.006, BOARD_HEIGHT, BOARD_THICKNESS]} />
-        <meshBasicMaterial color={coverColor} />
-      </mesh>
+      {/* Back cover: under the pages on the right; shut over them once every page is turned. */}
+      <Cover hinge={back} heights={[BOARD_Z, shutHeight]} color={colors.ink} edge={colors.edge} />
 
-      <Cover
-        open={open}
-        closedZ={(artworks.length + 1) * LEAF_GAP + BOARD_THICKNESS / 2 + 0.004}
-        color={coverColor}
-        outside={outside}
-        inside={insideCover ?? blanks.insideCover}
-      />
+      {/* Front cover: shut over the pages, lettering up; open, under the left-hand pages. */}
+      <Cover hinge={front} heights={[shutHeight, BOARD_Z]} color={colors.ink} edge={colors.edge}>
+        {outside && (
+          <mesh position={[BOARD_WIDTH / 2, 0, face]}>
+            <planeGeometry args={[BOARD_WIDTH - 0.006, BOARD_HEIGHT]} />
+            <meshBasicMaterial map={outside} />
+          </mesh>
+        )}
+        {/* Faces down while shut; once the cover turns over, it's the left-hand page. */}
+        <mesh position={[PAGE_WIDTH / 2, 0, -face]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[PAGE_WIDTH, PAGE_HEIGHT]} />
+          <meshBasicMaterial map={insideCover ?? blanks.insideCover} />
+        </mesh>
+      </Cover>
 
       {artworks.map((artwork, index) => (
         <Leaf
           key={artwork.id}
           index={index}
-          count={artworks.length}
+          count={count}
           artwork={artwork}
           next={artworks[index + 1]}
-          spread={shownSpread}
-          interactive={opened}
+          spread={spread}
           instant={instant}
           dragTurn={dragTurn}
           blanks={blanks}
@@ -448,7 +508,7 @@ export function Sketchbook({ artworks, spread, instant, dragTurn, onOpen }: Sket
         />
       ))}
 
-      <FitCamera open={open} />
+      <FitCamera front={front} back={back} />
     </>
   );
 }

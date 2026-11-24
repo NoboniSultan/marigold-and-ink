@@ -4,13 +4,25 @@
   gap: var(--space-4);
 }
 
-/* The desk the sketchbook lies on: a quiet, light surface. */
 .stage {
   position: relative;
   height: min(76vh, 44rem);
   border-radius: var(--radius);
   overflow: hidden;
-  background: color-mix(in srgb, var(--color-rule) 55%, var(--color-white));
+  /*
+   * A chalkboard: black, with fine chalk dust (small-scale noise) and the soft, streaky
+   * haze of half-erased chalk (large-scale noise, stretched sideways like eraser strokes).
+   * Both are inline SVG noise filters, so there's no image to download.
+   */
+  background-color: var(--color-chalkboard);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -1.05'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='600'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.003 0.02' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.3 -0.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 30% 20%, var(--chalk), transparent 60%);
+  background-size:
+    240px 240px,
+    cover,
+    cover;
   touch-action: pan-y; /* vertical swipes scroll the page; horizontal ones turn pages */
   cursor: grab;
 }
@@ -53,7 +65,7 @@
   border-radius: 999px;
   font-size: var(--text-sm);
   color: var(--color-white);
-  background: color-mix(in srgb, var(--color-ink) 70%, transparent);
+  background: color-mix(in srgb, var(--color-white) 14%, transparent);
   pointer-events: none;
   text-align: center;
 }

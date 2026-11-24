@@ -3,22 +3,26 @@ import {
   LEAF_GAP,
   LIFT,
   MIN_TURN_SECONDS,
-  OPEN_DELAY,
+  CLOSED_FRONT,
   OPEN_SECONDS,
   SEGMENTS,
   TURN_SECONDS,
   WHEEL_PAUSE_MS,
   WHEEL_THRESHOLD,
+  backCoverTarget,
   clampSpread,
   createPaper,
   dragLift,
   dragProgress,
   fitInside,
+  frontCoverTarget,
+  heldLeaf,
+  hingeProgress,
   initialWheelState,
   isNearSpread,
+  isOpenSpread,
   layOutPaper,
   leafTarget,
-  openProgress,
   paperTargets,
   releaseTurns,
   settlePaper,
@@ -40,11 +44,17 @@ describe('fitInside', () => {
 });
 
 describe('spreads and leaves', () => {
-  it('keeps the spread inside the book', () => {
-    expect(clampSpread(-1, 5)).toBe(0);
-    expect(clampSpread(9, 5)).toBe(4);
+  it('keeps the spread inside the book, from shut at the front to shut at the back', () => {
+    expect(clampSpread(-5, 5)).toBe(CLOSED_FRONT);
+    expect(clampSpread(9, 5)).toBe(5);
     expect(clampSpread(2, 5)).toBe(2);
     expect(clampSpread(3, 0)).toBe(0);
+    expect([-1, 0, 4, 5].map((s) => isOpenSpread(s, 5))).toEqual([false, true, true, false]);
+  });
+
+  it('shuts the front cover before the first spread and the back cover after the last', () => {
+    expect([-1, 0, 3].map(frontCoverTarget)).toEqual([0, 1, 1]);
+    expect([3, 4, 5].map((s) => backCoverTarget(s, 5))).toEqual([0, 0, 1]);
   });
 
   it('lies the leaves before the current spread on the left', () => {
@@ -94,11 +104,11 @@ describe('turn timing', () => {
     expect(dragLift(0, 1)).toBeCloseTo(0);
   });
 
-  it('opens the cover after a short pause', () => {
-    expect(openProgress(0)).toBe(0);
-    expect(openProgress(OPEN_DELAY)).toBe(0);
-    expect(openProgress(OPEN_DELAY + OPEN_SECONDS / 2)).toBeCloseTo(0.5);
-    expect(openProgress(OPEN_DELAY + OPEN_SECONDS)).toBe(1);
+  it('swings a cover over in its own time, from wherever it is', () => {
+    expect(hingeProgress(0, 1, 0)).toBe(0);
+    expect(hingeProgress(0, 1, OPEN_SECONDS / 2)).toBeCloseTo(0.5);
+    expect(hingeProgress(0, 1, OPEN_SECONDS)).toBe(1);
+    expect(hingeProgress(0.5, 0, OPEN_SECONDS / 2)).toBe(0); // halfway back: half the time
   });
 });
 
@@ -178,6 +188,16 @@ describe('dragging a page', () => {
     expect(dragProgress(30, 100, 1)).toBe(0); // the wrong way: stays put
     expect(dragProgress(25, 100, -1)).toBeCloseTo(0.75);
     expect(dragProgress(500, 100, -1)).toBe(0);
+  });
+
+  it('picks up the open page going forward and the last turned page going back', () => {
+    expect(heldLeaf(0, 5, 1)).toBe(0);
+    expect(heldLeaf(4, 5, 1)).toBe(4); // the last page: turning it shuts the book
+    expect(heldLeaf(3, 5, -1)).toBe(2);
+    // No page to hold: back from the first spread (the cover shuts), or a closed book.
+    expect(heldLeaf(0, 5, -1)).toBeNull();
+    expect(heldLeaf(CLOSED_FRONT, 5, 1)).toBeNull();
+    expect(heldLeaf(5, 5, -1)).toBeNull();
   });
 
   it('carries on over past a third of the way, or with a flick', () => {

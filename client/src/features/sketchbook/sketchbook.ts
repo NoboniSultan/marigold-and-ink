@@ -8,6 +8,10 @@
  * is artwork i, and its back is artwork i + 1's caption, so turning leaf i reveals the
  * next spread. The left page of the first spread is the inside of the front cover.
  *
+ * Spreads run from CLOSED_FRONT (−1: the front cover shut over the pages) through the
+ * artworks (0 … count − 1) to `count` (every page turned and the back cover shut), so one
+ * more swipe at either end closes the book, and one more opens it again.
+ *
  * A page is a strip of SEGMENTS pieces from the spine to the outer edge, each with its
  * own angle (0 = lying on the right, π = lying on the left). The spine end is driven by
  * the turn (or by a finger); every piece follows its target on a soft spring, stiffer near
@@ -50,8 +54,17 @@ export function fitInside(aspect: number, maxWidth: number, maxHeight: number) {
     : { width: maxHeight * aspect, height: maxHeight };
 }
 
+/** The book shut, front cover up. */
+export const CLOSED_FRONT = -1;
+
+/** Keeps a spread within the book: from closed at the front to closed at the back. */
 export function clampSpread(spread: number, count: number): number {
-  return Math.min(Math.max(spread, 0), Math.max(count - 1, 0));
+  return Math.min(Math.max(spread, CLOSED_FRONT), Math.max(count, 0));
+}
+
+/** Is this spread an open page with an artwork on it (not a closed cover)? */
+export function isOpenSpread(spread: number, count: number): boolean {
+  return spread >= 0 && spread < count;
 }
 
 /** Leaves before the current spread lie turned (1, on the left); the rest lie flat (0). */
@@ -193,16 +206,30 @@ export function isNearSpread(leaf: number, spread: number, reach = 2): boolean {
   return leaf >= spread - reach && leaf <= spread + reach;
 }
 
-// --- Opening the book ---
+// --- The covers ---
 
-/** The closed book rests this long before the cover opens (seconds). */
+/** On Home, the closed book rests this long before the cover opens (seconds). */
 export const OPEN_DELAY = 0.45;
-/** How long the cover takes to swing open (seconds). */
+/** How long a cover takes to swing all the way over (seconds). */
 export const OPEN_SECONDS = 1.7;
+/** Closing at the back: the last page lands first, then the back cover follows. */
+export const BACK_COVER_DELAY = 0.55;
+/** Opening at the back: the cover lifts first, then the last page turns back under it. */
+export const LAST_LEAF_DELAY = 0.9;
 
-/** How open the cover is (0 closed, 1 open), `elapsed` seconds after the book appeared. */
-export function openProgress(elapsed: number): number {
-  return easeInOut((elapsed - OPEN_DELAY) / OPEN_SECONDS);
+/** How far over a cover is (0 = lying on the right, 1 = on the left), mid-swing. */
+export function hingeProgress(from: number, to: number, elapsed: number): number {
+  return turnProgress(from, to, elapsed, OPEN_SECONDS * Math.abs(to - from));
+}
+
+/** Front cover: open (over on the left) whenever the book is past its closed front. */
+export function frontCoverTarget(spread: number): 0 | 1 {
+  return spread > CLOSED_FRONT ? 1 : 0;
+}
+
+/** Back cover: over on the left (shut) only once every page has been turned. */
+export function backCoverTarget(spread: number, count: number): 0 | 1 {
+  return spread >= count ? 1 : 0;
 }
 
 // --- Input ---
@@ -253,6 +280,19 @@ export interface DragTurn {
   direction: 1 | -1;
   progress: number;
 }
+
+/**
+ * Which leaf a drag picks up, or null when there's no page to hold: at a closed cover, or
+ * going back from the first spread (that drag shuts the front cover instead, on release).
+ */
+export function heldLeaf(spread: number, count: number, direction: 1 | -1): number | null {
+  if (!isOpenSpread(spread, count)) return null;
+  if (direction === 1) return spread;
+  return spread >= 1 ? spread - 1 : null;
+}
+
+/** Without a page to hold, a drag this far (px), or a flick, moves the cover a step. */
+export const COVER_DRAG = 50;
 
 /** Sideways movement (px) before a press becomes a page drag rather than a click. */
 export const DRAG_START = 8;

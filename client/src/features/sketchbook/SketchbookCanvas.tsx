@@ -3,6 +3,9 @@
  * to page through, one artwork at a time. This file (and three.js with it) is loaded on
  * demand: Home imports it with React.lazy, so the main bundle doesn't carry the 3D code.
  *
+ * The book starts shut and opens once its cover is drawn; one more swipe (or arrow) past
+ * the first or last page shuts it again, and one more opens it.
+ *
  * It owns the open spread and the input: a sideways trackpad swipe, the arrow keys, or the
  * buttons each turn one page; a drag or touch swipe lifts the page itself, which follows
  * the finger and carries on over (or falls back) when let go. Vertical scrolling is left
@@ -12,7 +15,7 @@
  * Without WebGL (old devices, some privacy settings, and jsdom in tests) the same book is
  * shown flat: the open piece as an image, with the same controls.
  */
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { Artwork } from '@shared/types/artwork.ts';
 import { useArtworks } from '../../api/queries.ts';
@@ -22,10 +25,16 @@ import { usePrefersReducedMotion } from '../../hooks/useMediaQuery.ts';
 import { mixTones } from './mixTones.ts';
 import { Sketchbook } from './Sketchbook.tsx';
 import {
+  CLOSED_FRONT,
+  COVER_DRAG,
   DRAG_START,
+  FLICK_SPEED,
+  OPEN_DELAY,
   clampSpread,
   dragProgress,
+  heldLeaf,
   initialWheelState,
+  isOpenSpread,
   releaseTurns,
   wheelStep,
   type DragTurn,
@@ -59,9 +68,20 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
     [data],
   );
 
-  const [spread, setSpread] = useState(0);
+  // In 3D the book starts shut and opens itself; drawn flat (or with reduced motion), it
+  // starts open on the first piece.
+  const [spread, setSpread] = useState(() => (webgl && !reduceMotion ? CLOSED_FRONT : 0));
   const count = artworks.length;
   const turn = (step: number) => setSpread((current) => clampSpread(current + step, count));
+
+  // Open the book a moment after its cover appears, once (a visitor may shut it again).
+  const openTimer = useRef<number | undefined>(undefined);
+  const onCoverReady = useCallback(() => {
+    openTimer.current = window.setTimeout(() => {
+      setSpread((current) => (current === CLOSED_FRONT ? 0 : current));
+    }, OPEN_DELAY * 1000);
+  }, []);
+  useEffect(() => () => window.clearTimeout(openTimer.current), []);
 
   // A sideways trackpad swipe turns a page (one per swipe); vertical scrolling scrolls the
   // Home page as usual, and so does a sideways swipe at either end of the book. React's
@@ -80,8 +100,8 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
     const onWheel = (event: WheelEvent) => {
       if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return; // scrolling the page
       const delta = event.deltaX;
-      const atStart = spreadRef.current === 0 && delta < 0;
-      const atEnd = spreadRef.current >= count - 1 && delta > 0;
+      const atStart = spreadRef.current === CLOSED_FRONT && delta < 0;
+      const atEnd = spreadRef.current >= count && delta > 0;
       if (atStart || atEnd) return;
       event.preventDefault();
       const result = wheelStep(state, delta, event.timeStamp);
@@ -93,7 +113,9 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
   }, [ready, count]);
 
   // A sideways drag holds the page: forward lifts the open right-hand page, backward the
-  // last turned one. Vertical swipes still scroll the page on phones (touch-action).
+  // last turned one. With no page to hold (back from the first page, or a shut book), the
+  // drag moves a cover a step when let go. Vertical swipes still scroll the page on phones
+  // (touch-action).
   const dragTurn = useRef<DragTurn | null>(null);
   const pointer = useRef<{
     startX: number;
@@ -101,14 +123,23 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
     lastTime: number;
     velocity: number;
     span: number;
+    /** Set when the drag has no page to hold and will move a cover instead. */
+    cover: 1 | -1 | null;
   } | null>(null);
 
   function letGo() {
+    const press = pointer.current;
     const held = dragTurn.current;
-    const velocity = pointer.current?.velocity ?? 0;
     pointer.current = null;
     dragTurn.current = null;
-    if (held && releaseTurns(held, velocity)) turn(held.direction);
+    if (!press) return;
+    if (held) {
+      if (releaseTurns(held, press.velocity)) turn(held.direction);
+    } else if (press.cover) {
+      const far = Math.abs(press.lastX - press.startX) >= COVER_DRAG;
+      const flicked = -press.cover * press.velocity > FLICK_SPEED;
+      if (far || flicked) turn(press.cover);
+    }
   }
 
   function onKeyDown(event: KeyboardEvent) {
@@ -130,7 +161,8 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
     return <ErrorMessage message="Featured work couldn't load." onRetry={() => refetch()} />;
   if (count === 0) return null; // nothing chosen for the book: Home shows just the hero
 
-  const current = artworks[spread]!;
+  // The open piece, or null while the book is shut.
+  const current = isOpenSpread(spread, count) ? artworks[spread]! : null;
 
   return (
     <div className={styles.sketchbook}>
@@ -142,8 +174,9 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
         aria-roledescription="3D sketchbook"
         aria-label="A sketchbook of artworks. Use the left and right arrow keys to turn the page, and Enter to open the artwork."
         onKeyDown={(event) => {
-          if (event.key === 'Enter') onOpen(current);
-          else onKeyDown(event);
+          if (event.key === 'Enter') {
+            if (current) onOpen(current);
+          } else onKeyDown(event);
         }}
         onPointerDown={(event) => {
           const { width, height } = event.currentTarget.getBoundingClientRect();
@@ -154,6 +187,7 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
             velocity: 0,
             // About a page's width on screen carries the page all the way over.
             span: width < height ? width * 0.75 : width * 0.4,
+            cover: null,
           };
         }}
         onPointerMove={(event) => {
@@ -166,14 +200,15 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
 
           const dx = event.clientX - press.startX;
           if (!dragTurn.current) {
-            if (Math.abs(dx) < DRAG_START) return;
+            if (press.cover || Math.abs(dx) < DRAG_START) return;
             const direction = dx < 0 ? 1 : -1;
-            if (direction === 1 ? spread >= count - 1 : spread === 0) return;
-            dragTurn.current = {
-              leaf: direction === 1 ? spread : spread - 1,
-              direction,
-              progress: direction === 1 ? 0 : 1,
-            };
+            const leaf = heldLeaf(spread, count, direction);
+            if (leaf === null) {
+              // No page to hold: a cover moves on release, if the book can go that way.
+              if (clampSpread(spread + direction, count) !== spread) press.cover = direction;
+              return;
+            }
+            dragTurn.current = { leaf, direction, progress: direction === 1 ? 0 : 1 };
           }
           dragTurn.current.progress = dragProgress(dx, press.span, dragTurn.current.direction);
         }}
@@ -189,13 +224,19 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
               instant={reduceMotion}
               dragTurn={dragTurn}
               onOpen={onOpen}
+              onCoverReady={onCoverReady}
             />
           </Canvas>
-        ) : (
+        ) : current ? (
           // No 3D: the open page, flat.
           <button type="button" className={styles.flat} onClick={() => onOpen(current)}>
             <ArtworkImage image={current.image} sizes="(min-width: 64rem) 40rem, 90vw" />
           </button>
+        ) : (
+          // No 3D, book shut: the cover's logo.
+          <div className={styles.flat}>
+            <img src="/brand/logo-256.webp" width={160} height={160} alt="" />
+          </div>
         )}
         <p className={styles.hint} aria-hidden="true">
           <span className={styles.wide}>
@@ -209,21 +250,31 @@ export default function SketchbookCanvas({ onOpen }: { onOpen: (artwork: Artwork
         <button
           type="button"
           onClick={() => turn(-1)}
-          disabled={spread === 0}
+          disabled={spread === CLOSED_FRONT}
           aria-label="Previous page"
         >
           ←
         </button>
         <p aria-live="polite">
-          <span className={styles.title}>{current.title}</span>
-          <span className={styles.position}>
-            {spread + 1} of {count}
-          </span>
+          {current ? (
+            <>
+              <span className={styles.title}>{current.title}</span>
+              <span className={styles.position}>
+                {spread + 1} of {count}
+              </span>
+            </>
+          ) : (
+            // Shut: the cover's name, and what's inside.
+            <>
+              <span className={styles.title}>Marigold &amp; Ink</span>
+              <span className={styles.position}>{count} pieces</span>
+            </>
+          )}
         </p>
         <button
           type="button"
           onClick={() => turn(1)}
-          disabled={spread === count - 1}
+          disabled={spread === count}
           aria-label="Next page"
         >
           →

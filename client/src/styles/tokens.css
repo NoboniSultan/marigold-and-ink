@@ -17,6 +17,10 @@
   --color-rule: #e6e1e2; /* borders and dividers */
   --color-marigold: #ff965b; /* accent only: buttons, underlines, active states, focus */
 
+  /* Chalkboard (Home sketchbook): black, as the owner asked, with chalk dust over it */
+  --color-chalkboard: #141414;
+  --chalk: color-mix(in srgb, var(--color-white) 7%, transparent);
+
   /* Notebook paper (Home hero): ruled lines and the margin, derived from the palette */
   --paper-line: color-mix(in srgb, var(--color-ink) 12%, transparent);
   --paper-margin: color-mix(in srgb, var(--color-marigold) 70%, transparent);

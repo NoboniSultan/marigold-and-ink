@@ -80,12 +80,17 @@ describe('Home', () => {
     // The whole gallery, so the picks can be found and mixed.
     expect(calls.find((c) => c.path === '/artworks')!.params.get('pageSize')).toBe('100');
     expect(within(book).getByText('1 of 2')).toBeInTheDocument();
-    expect(within(book).getByRole('button', { name: 'Previous page' })).toBeDisabled();
 
     await user.click(within(book).getByRole('button', { name: 'Next page' }));
     expect(within(book).getByText('Starry Night')).toBeInTheDocument();
     expect(within(book).getByText('2 of 2')).toBeInTheDocument();
+
+    // One more past the last page shuts the book; it can't go further.
+    await user.click(within(book).getByRole('button', { name: 'Next page' }));
+    expect(within(book).getByText('2 pieces')).toBeInTheDocument();
     expect(within(book).getByRole('button', { name: 'Next page' })).toBeDisabled();
+    await user.click(within(book).getByRole('button', { name: 'Previous page' }));
+    expect(within(book).getByText('2 of 2')).toBeInTheDocument();
 
     // The arrow keys turn pages too, and Enter opens the open piece.
     const stage = within(book).getByRole('application');
@@ -94,6 +99,22 @@ describe('Home', () => {
     expect(within(book).getByText('1 of 2')).toBeInTheDocument();
     await user.keyboard('{Enter}');
     expect(router.state.location.pathname).toBe('/gallery/embrace');
+  });
+
+  it('shuts with one more page back from the first, and opens again', async () => {
+    api();
+    const user = userEvent.setup();
+    renderRoute('/');
+
+    const book = await screen.findByRole('region', { name: 'Featured work' });
+    expect(await within(book).findByText('1 of 3')).toBeInTheDocument();
+    await user.click(within(book).getByRole('button', { name: 'Previous page' }));
+    expect(within(book).getByText('Marigold & Ink')).toBeInTheDocument();
+    expect(within(book).getByText('3 pieces')).toBeInTheDocument();
+    expect(within(book).getByRole('button', { name: 'Previous page' })).toBeDisabled();
+
+    await user.click(within(book).getByRole('button', { name: 'Next page' }));
+    expect(within(book).getByText('1 of 3')).toBeInTheDocument();
   });
 
   it('opens the piece on the open page when clicked', async () => {
