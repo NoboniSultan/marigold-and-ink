@@ -21,7 +21,12 @@ export function RichText({ text }: { text: string }) {
     if (match.index > last) parts.push(text.slice(last, match.index));
     const [, bold, code, label, href] = match;
     if (bold !== undefined) {
-      parts.push(<strong key={match.index}>{bold}</strong>);
+      // Bold text may hold a link or code of its own: **[Our page](/giving)**.
+      parts.push(
+        <strong key={match.index}>
+          <RichText text={bold} />
+        </strong>,
+      );
     } else if (code !== undefined) {
       parts.push(<code key={match.index}>{code}</code>);
     } else if (href!.startsWith('mailto:')) {

@@ -23,6 +23,7 @@ export function Footer() {
             <Link to="/about">About</Link>
             <Link to="/commission">Commission</Link>
             <Link to="/giving">Giving</Link>
+            <Link to="/terms">Terms</Link>
             <Link to="/privacy">Privacy</Link>
           </nav>
           <p className={styles.legal}>
