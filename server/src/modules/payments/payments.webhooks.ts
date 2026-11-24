@@ -163,6 +163,28 @@ async function onCheckoutExpired(sessionId: string, tx: PoolClient) {
 }
 
 /**
+ * The site never refunds tree money (ADR 0013), but a refund made in the Stripe Dashboard
+ * can't be stopped. When one reaches into it, say so loudly: those trees are on order and
+ * still owed to the planting partner, so the owner pays for them out of pocket.
+ */
+async function warnIfTreeMoneyRefunded(commissionId: number, tx: PoolClient) {
+  const withheldForTreesCents = await givingService.withheldForTreesCents(commissionId, {
+    client: tx,
+  });
+  if (withheldForTreesCents === 0) return;
+  const { paidCents, refundedOrPendingCents } = await paymentsRepository.commissionRefundPosition(
+    commissionId,
+    tx,
+  );
+  if (refundedOrPendingCents > paidCents - withheldForTreesCents) {
+    logger.warn(
+      { commissionId, paidCents, refundedCents: refundedOrPendingCents, withheldForTreesCents },
+      'a Stripe Dashboard refund gave back tree money; those trees are on order and still owed',
+    );
+  }
+}
+
+/**
  * A refund was created or changed: by this app (already recorded; update its status), or
  * directly in the Stripe Dashboard (record it now). Once everything paid is refunded, the
  * commission becomes `refunded` where the state machine allows it.
@@ -193,6 +215,7 @@ async function onRefundChanged(refund: RefundInfo, tx: PoolClient) {
       },
       tx,
     );
+    await warnIfTreeMoneyRefunded(original.commissionId, tx);
   } else if (row.status !== refund.status) {
     row = await paymentsRepository.updateRefund(
       row.id,
