@@ -102,3 +102,39 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
   return json as T;
 }
+
+/**
+ * Uploads one file as the request body (the server checks its real type), with its name in
+ * X-Filename. Resolves to the response's JSON, or throws ApiError like `request`.
+ */
+export async function upload<T>(path: string, file: Blob, filename: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-Filename': encodeURIComponent(filename),
+      },
+      body: file,
+    });
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', "Can't reach the server. Check your connection.");
+  }
+  const json: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = (json as ApiErrorBody | null)?.error;
+    throw new ApiError(
+      response.status,
+      error?.code ?? (response.status === 413 ? 'PAYLOAD_TOO_LARGE' : 'UNKNOWN_ERROR'),
+      error?.message ??
+        (response.status === 413
+          ? 'That file is too large.'
+          : 'Something went wrong. Please try again.'),
+      error?.details,
+    );
+  }
+  return json as T;
+}

@@ -8,6 +8,7 @@ import {
   aboutApi,
   accountApi,
   adminApi,
+  filesApi,
   givingApi,
   artworksApi,
   authApi,
@@ -30,6 +31,7 @@ export const queryKeys = {
   giving: ['giving'] as const,
   commissionOptions: ['commission-options'] as const,
   providers: ['auth-providers'] as const,
+  files: (commissionId: number) => ['files', commissionId] as const,
   // The admin screens. Everything under 'admin' is refreshed together after a change.
   admin: ['admin'] as const,
   adminCommissions: (filters: { page: number; status?: string }) =>
@@ -188,5 +190,19 @@ export function useMonthlyReport(year: number) {
   return useQuery({
     queryKey: queryKeys.monthlyReport(year),
     queryFn: ({ signal }) => adminApi.monthlyReport(year, signal),
+  });
+}
+
+/**
+ * A commission's files. Their links expire in minutes, so the list is refreshed every five
+ * minutes while the page is open (and whenever the window regains focus).
+ */
+export function useCommissionFiles(commissionId: number) {
+  return useQuery({
+    queryKey: queryKeys.files(commissionId),
+    queryFn: ({ signal }) => filesApi.list(commissionId, signal),
+    staleTime: 0,
+    refetchInterval: 5 * 60_000,
+    refetchOnWindowFocus: true,
   });
 }

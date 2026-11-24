@@ -7,6 +7,7 @@ import { useCommissionOptions } from '../api/queries.ts';
 import { ErrorMessage, Loading } from '../components/Loading.tsx';
 import buttonStyles from '../components/Button.module.css';
 import styles from './SimplePage.module.css';
+import { ReferencesForNewRequest } from '../features/files/CommissionFiles.tsx';
 
 const FULFILLMENT_LABELS: Record<FulfillmentType, string> = {
   digital: 'Digital',
@@ -77,6 +78,7 @@ function CommissionForm({ options }: { options: CommissionOptions }) {
           {created.isRush ? ', rush' : ''}.
         </p>
         <p>The next step is a quote. Nothing is charged before you accept it.</p>
+        <ReferencesForNewRequest commissionId={created.id} />
         <p>
           <Link to={`/commissions/${created.id}`}>View your request</Link> or go{' '}
           <Link to="/gallery">back to the gallery</Link>.

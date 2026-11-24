@@ -4,8 +4,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { AdminCommissionDetails, Quote } from '@shared/types/admin.ts';
 import type { CommissionStatus } from '@shared/types/commission.ts';
 import { fieldErrors, formMessage } from '../../api/client.ts';
-import { adminApi } from '../../api/endpoints.ts';
-import { queryKeys, useAdminCommission, useAdminQuote, usePayments } from '../../api/queries.ts';
+import { adminApi, filesApi } from '../../api/endpoints.ts';
+import { FilePicker, formatBytes, useUploader } from '../../features/files/CommissionFiles.tsx';
+import {
+  queryKeys,
+  useAdminCommission,
+  useAdminQuote,
+  useCommissionFiles,
+  usePayments,
+} from '../../api/queries.ts';
 import { FormField } from '../../components/FormField.tsx';
 import { ErrorMessage, Loading } from '../../components/Loading.tsx';
 import buttonStyles from '../../components/Button.module.css';
@@ -85,6 +92,7 @@ export function AdminCommissionPage() {
         </dl>
       </section>
       <QuoteSection id={id} status={commission.status} />
+      <FilesSection id={id} status={commission.status} />
       <StatusSection details={details.data} />
       <MoneySection details={details.data} />
     </>
@@ -533,5 +541,133 @@ function MoneySection({ details }: { details: AdminCommissionDetails }) {
         </form>
       )}
     </section>
+  );
+}
+
+/** Statuses where previews and final files can be added (after the deposit, not ended). */
+const DELIVERABLE_STATUSES = new Set<string>([
+  'deposit_paid',
+  'in_progress',
+  'revision',
+  'awaiting_final_payment',
+  'ready_to_ship',
+  'shipped',
+  'delivered',
+  'completed',
+]);
+
+/** References from the client; previews (watermarked on upload) and final files from you. */
+function FilesSection({ id, status }: { id: number; status: CommissionStatus }) {
+  const files = useCommissionFiles(id);
+  const queryClient = useQueryClient();
+  const previews = useUploader(id, filesApi.uploadPreview, files.data?.meta.previewMaxBytes ?? 0);
+  const finals = useUploader(id, filesApi.uploadFinal, files.data?.meta.finalMaxBytes ?? 0);
+  const [removeError, setRemoveError] = useState<unknown>(null);
+
+  if (files.isPending) return <Loading label="Loading files" />;
+  if (files.isError) {
+    return <ErrorMessage message="The files couldn't load." onRetry={() => files.refetch()} />;
+  }
+  const { data: list, meta } = files.data;
+  if (!meta.filesEnabled) {
+    return (
+      <section className={styles.section} aria-labelledby="files-heading">
+        <h2 id="files-heading">Files</h2>
+        <p className={styles.muted}>
+          File uploads are off until file storage is set up (docs/setup-r2.md).
+        </p>
+      </section>
+    );
+  }
+  const canAdd = DELIVERABLE_STATUSES.has(status);
+
+  async function remove(fileId: number) {
+    if (!window.confirm('Delete this file? It can’t be recovered.')) return;
+    setRemoveError(null);
+    try {
+      await filesApi.remove(id, fileId);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.files(id) });
+    } catch (err) {
+      setRemoveError(err);
+    }
+  }
+
+  const listOf = (kind: 'reference' | 'preview' | 'final') => {
+    const ofKind = list.filter((f) => f.kind === kind);
+    if (ofKind.length === 0) return <p className={styles.muted}>None yet.</p>;
+    return (
+      <ul className={styles.fileList}>
+        {ofKind.map((file) => (
+          <li key={file.id}>
+            {file.url && <img src={file.url} alt="" className={styles.thumb} />}
+            <a href={file.downloadUrl}>{file.originalFilename ?? `${kind} ${file.id}`}</a>{' '}
+            <span className={styles.muted}>({formatBytes(file.sizeBytes)})</span>{' '}
+            <button type="button" className={styles.linkButton} onClick={() => remove(file.id)}>
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  return (
+    <section className={styles.section} aria-labelledby="files-heading">
+      <h2 id="files-heading">Files</h2>
+      {removeError ? (
+        <p className={styles.error} role="alert">
+          {formMessage(removeError)}
+        </p>
+      ) : null}
+      <h3>Reference photos from the client</h3>
+      {listOf('reference')}
+      <h3>Previews (the client sees these, watermarked)</h3>
+      {listOf('preview')}
+      {canAdd && (
+        <div className={styles.actions}>
+          <FilePicker
+            label="Add previews"
+            accept="image/jpeg,image/png,image/webp,image/tiff"
+            multiple
+            disabled={previews.busy !== null}
+            onFiles={previews.uploadAll}
+          />
+        </div>
+      )}
+      <UploadNote uploader={previews} />
+      <h3>Final files (downloadable once paid in full)</h3>
+      {listOf('final')}
+      {canAdd ? (
+        <div className={styles.actions}>
+          <FilePicker
+            label="Add final files"
+            accept="image/jpeg,image/png,image/tiff,application/pdf"
+            multiple
+            disabled={finals.busy !== null}
+            onFiles={finals.uploadAll}
+          />
+        </div>
+      ) : (
+        <p className={styles.muted}>
+          Previews and final files can be added once the deposit is paid.
+        </p>
+      )}
+      <UploadNote uploader={finals} />
+    </section>
+  );
+}
+
+function UploadNote({ uploader }: { uploader: { busy: string | null; errors: string[] } }) {
+  return (
+    <>
+      {uploader.busy && <p role="status">Uploading {uploader.busy}…</p>}
+      {uploader.errors.length > 0 && (
+        <ul className={styles.error} role="alert">
+          {uploader.errors.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }

@@ -157,3 +157,41 @@
   margin: 0;
   font-size: var(--text-lg);
 }
+
+.fileList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fileList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.thumb {
+  width: 3rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-marigold);
+  cursor: pointer;
+  font: inherit;
+}
+
+.section h3 {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-base, 1rem);
+}

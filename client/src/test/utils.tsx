@@ -17,7 +17,9 @@ export interface Call {
   method: string;
   path: string;
   params: URLSearchParams;
+  /** JSON bodies are parsed; anything else (an uploaded File) is kept as sent. */
   body: unknown;
+  headers: Headers;
 }
 
 /**
@@ -32,7 +34,8 @@ export function mockApi(handler: (call: Call) => MockResponse | undefined) {
       method: init.method ?? 'GET',
       path: url.pathname.replace(/^\/api\/v1/, ''),
       params: url.searchParams,
-      body: init.body ? JSON.parse(String(init.body)) : undefined,
+      body: typeof init.body === 'string' ? JSON.parse(init.body) : (init.body ?? undefined),
+      headers: new Headers(init.headers),
     };
     calls.push(call);
     const response = handler(call) ?? {

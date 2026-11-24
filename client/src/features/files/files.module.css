@@ -1,0 +1,80 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--space-4);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.tile {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.tile img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--color-rule);
+}
+
+.previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-4);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* Previews are shown whole: the work in progress shouldn't be cropped. */
+.previews img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  background: var(--color-rule);
+}
+
+.name {
+  overflow-wrap: anywhere;
+}
+
+.linkButton {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-marigold);
+  cursor: pointer;
+  font: inherit;
+}
+
+.picker {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-gray);
+  font-size: var(--text-sm);
+}
+
+.error {
+  margin: 0;
+  font-weight: 600;
+}
+
+.downloads {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
