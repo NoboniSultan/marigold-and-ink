@@ -49,7 +49,7 @@ Once a commission is fully paid, its trees are on order and can't be cancelled, 
 
 ## If something goes wrong
 
-If Digital Humani can't be reached, the payment still goes through. The trees stay **pending** and are retried after the next payment and whenever the server restarts. If an answer was lost, the retry first asks Digital Humani what it already has under that commission's reference, so trees are never ordered twice.
+If Digital Humani can't be reached, the payment still goes through. The trees stay **pending** and are retried after the next payment and whenever the server restarts. If an answer was lost, the retry first asks Digital Humani how many trees it already has under that commission's reference and orders only what's missing, so trees are never ordered twice.
 
 ## Going live
 

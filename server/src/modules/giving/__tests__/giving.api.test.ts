@@ -189,8 +189,10 @@ describe('requestPendingTrees (retries)', () => {
 
     expect(await requestPendingTrees(trees.planter)).toEqual({ requested: 1, failed: 0 });
 
+    // Digital Humani counted the trees under the commission's reference, so nothing was
+    // planted again. It can't say which request they came from, so there's no ID to keep.
     expect(trees.requests).toHaveLength(1);
-    expect((await donations())[0]).toMatchObject({ status: 'owed', tree_request_id: 'tree-req-1' });
+    expect((await donations())[0]).toMatchObject({ status: 'owed', tree_request_id: null });
   });
 
   it('counts a failure to check Digital Humani as failed, and keeps the row pending', async () => {
@@ -201,19 +203,19 @@ describe('requestPendingTrees (retries)', () => {
       `UPDATE donations SET request_attempted_at = now() - make_interval(mins => $1)`,
       [RETRY_AFTER_MINUTES + 1],
     );
-    trees.failNext.find = true;
+    trees.failNext.count = true;
 
     expect(await requestPendingTrees(trees.planter)).toEqual({ requested: 0, failed: 1 });
     expect((await donations())[0].status).toBe('pending');
   });
 
-  it("ignores an earlier request that isn't this donation's, and plants it", async () => {
+  it('plants only the trees not already counted under the reference, never more', async () => {
     trees.failNext.plant = true;
     const commission = await fullyPaid();
     await waitForFailedAttempt();
-    // A request under the same reference, but for a different number of trees.
+    // 3 of the 25 trees are somehow already under this commission's reference.
     trees.requests.push({
-      uuid: 'unrelated',
+      uuid: 'earlier',
       treeCount: 3,
       reference: `commission-${commission.id}`,
     });
@@ -223,7 +225,15 @@ describe('requestPendingTrees (retries)', () => {
     );
 
     expect(await requestPendingTrees(trees.planter)).toEqual({ requested: 1, failed: 0 });
+    expect(trees.requests.map((r) => r.treeCount)).toEqual([3, 22]);
     expect((await donations())[0]).toMatchObject({ status: 'owed', tree_request_id: 'tree-req-1' });
+  });
+
+  it('never asks Digital Humani to count on a first attempt', async () => {
+    trees.failNext.count = true; // would fail the request if it were asked
+    await fullyPaid();
+    await waitForRequests(1);
+    await vi.waitFor(async () => expect((await donations())[0].status).toBe('owed'));
   });
 
   it('does nothing without Digital Humani configured', async () => {

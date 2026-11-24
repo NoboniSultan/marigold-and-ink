@@ -4,9 +4,11 @@
  *
  * - POST /tree asks a planting partner to plant `treeCount` trees. Trees cost $1 each and
  *   the partner invoices the owner directly; the API itself doesn't take money.
- * - A request can't be cancelled, and the API has no idempotency key. So the `user` field
- *   carries our own reference (e.g. "commission-12"), and GET /tree?user= lets the giving
- *   service check whether a request already went through before it retries.
+ * - A request can't be cancelled, and the API has no idempotency key and no way to list
+ *   requests. So the `user` field carries our own reference, one per commission (e.g.
+ *   "commission-12"), and GET /tree?enterpriseId=&user= *counts* the trees under it: the
+ *   giving service checks that count before it retries, so a request that went through
+ *   without an answer is never sent twice.
  * - `user` is our reference, never a client's name or email: Digital Humani gets no
  *   personal data.
  */
@@ -25,8 +27,8 @@ export interface TreeRequest {
 
 export interface TreePlanter {
   plantTrees(input: { treeCount: number; reference: string }): Promise<TreeRequest>;
-  /** Requests already made under `reference`, to avoid planting twice after a lost answer. */
-  findRequests(reference: string): Promise<TreeRequest[]>;
+  /** Trees already requested under `reference`, to avoid planting twice after a lost answer. */
+  countTrees(reference: string): Promise<number>;
 }
 
 export class TreePlanterError extends Error {
@@ -40,6 +42,8 @@ export class TreePlanterError extends Error {
 }
 
 const treeSchema = z.object({ uuid: z.string().min(1), treeCount: z.number().int().positive() });
+/** GET /tree?enterpriseId=&user= answers `{ enterpriseId, user, count }`. */
+const countSchema = z.object({ count: z.number().int().nonnegative() });
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -86,12 +90,12 @@ export function createTreePlanter({
       return parsed.data;
     },
 
-    async findRequests(reference) {
+    async countTrees(reference) {
       const query = new URLSearchParams({ enterpriseId, user: reference });
       const body = await call(`/tree?${query}`);
-      const parsed = z.array(treeSchema).safeParse(body);
+      const parsed = countSchema.safeParse(body);
       if (!parsed.success) throw new TreePlanterError('Unexpected answer from Digital Humani', 200);
-      return parsed.data;
+      return parsed.data.count;
     },
   };
 }

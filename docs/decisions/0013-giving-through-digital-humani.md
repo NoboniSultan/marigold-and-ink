@@ -22,8 +22,10 @@ The owner's decisions for milestone 8:
 - **Requesting:** after the webhook commits, and when the server starts, `requestPendingTrees` sends each pending row. To avoid ordering trees twice without an idempotency key:
   1. a short transaction claims the row (`FOR UPDATE SKIP LOCKED`), stamps `request_attempted_at`, and commits **before** the call;
   2. a row attempted in the last 5 minutes is skipped (it may still be in flight);
-  3. a row attempted before asks Digital Humani for requests under its reference (`commission-<id>`, our only identifier there) and adopts a matching one instead of planting again;
-  4. success records Digital Humani's request ID and moves the row to `owed`.
+  3. a row attempted before asks Digital Humani how many trees it has under its reference (`commission-<id>`, our only identifier there, one per commission) and plants only what's missing (usually nothing: the earlier request went through);
+  4. success moves the row to `owed`, with Digital Humani's request ID when there was a new request.
+
+  *Amended in milestone 8c:* this first said a retry would *list* the reference's requests and adopt a matching one. The live sandbox showed `GET /tree?user=` answers only a count (`{ enterpriseId, user, count }`), and the API has no way to list requests. A row adopted from the count has no request ID, so `donations_requested_fields_check` now requires only `requested_at`.
 - **Refund cap:** the admin refund flow caps a commission's refunds at paid − already refunded − tree money (`withheldForTreesCents`: non-reversed tree rows). A refund before the final payment is unaffected.
 - **Configuration:** `DIGITALHUMANI_*` and `DONATION_PERCENT` (no code default) switch giving on together, and need payments on. `DIGITALHUMANI_ENVIRONMENT=production` is refused while Stripe is test-only.
 - **Public total:** `GET /api/v1/giving` returns the trees funded (non-reversed tree rows). The page's morph uses flubber and Motion's `useTransform`, and is loaded only on `/giving`.
