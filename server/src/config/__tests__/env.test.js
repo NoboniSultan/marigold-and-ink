@@ -257,3 +257,36 @@ describe('loadConfig: giving (Digital Humani)', () => {
     expect(() => loadConfig({ ...givingEnv, DONATION_PERCENT: value })).toThrow(/DONATION_PERCENT/);
   });
 });
+
+describe('loadConfig: files (Cloudflare R2)', () => {
+  const filesEnv = {
+    ...validEnv,
+    R2_ACCOUNT_ID: '0123456789abcdef0123456789abcdef',
+    R2_ACCESS_KEY_ID: 'access-key',
+    R2_SECRET_ACCESS_KEY: 'secret-key',
+    R2_BUCKET: 'marigold-files',
+  };
+
+  it('is off without the R2 settings', () => {
+    expect(loadConfig(validEnv).files).toBeNull();
+  });
+
+  it('reads every setting when switched on', () => {
+    expect(loadConfig(filesEnv).files).toEqual({
+      accountId: '0123456789abcdef0123456789abcdef',
+      accessKeyId: 'access-key',
+      secretAccessKey: 'secret-key',
+      bucket: 'marigold-files',
+    });
+  });
+
+  it('requires all four once any is set', () => {
+    const { R2_SECRET_ACCESS_KEY: _s, R2_BUCKET: _b, ...missing } = filesEnv;
+    expect(() => loadConfig(missing)).toThrow(/R2_SECRET_ACCESS_KEY[\s\S]*R2_BUCKET/);
+  });
+
+  it('rejects a malformed account ID or bucket name', () => {
+    expect(() => loadConfig({ ...filesEnv, R2_ACCOUNT_ID: 'abc' })).toThrow(/R2_ACCOUNT_ID/);
+    expect(() => loadConfig({ ...filesEnv, R2_BUCKET: 'Has_Capitals' })).toThrow(/R2_BUCKET/);
+  });
+});

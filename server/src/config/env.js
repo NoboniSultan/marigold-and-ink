@@ -100,9 +100,25 @@ const envSchema = z.object({
       message: 'may have at most two decimal places',
     })
     .optional(),
+
+  // Files (milestone 10): reference photos, watermarked previews, and final files, kept
+  // in a private Cloudflare R2 bucket. All four switch it on together (checked below).
+  // Secrets: .env / Render only. See docs/setup-r2.md.
+  R2_ACCOUNT_ID: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/, 'must be the 32-character account ID from the R2 dashboard')
+    .optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  // Bucket names: 3–63 lowercase letters, digits, and hyphens.
+  R2_BUCKET: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, 'must be an R2 bucket name')
+    .optional(),
 });
 
 const STRIPE_KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'PAYMENT_CURRENCY'];
+const FILES_KEYS = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET'];
 const GIVING_KEYS = [
   'DIGITALHUMANI_API_KEY',
   'DIGITALHUMANI_ENTERPRISE_ID',
@@ -165,6 +181,12 @@ function groupProblems(env) {
     problems.push(
       '✖ giving needs payments switched on (trees follow paid commissions)\n  → at STRIPE_SECRET_KEY',
     );
+  }
+  const filesOn = FILES_KEYS.some((key) => env[key]);
+  for (const key of FILES_KEYS) {
+    if (filesOn && !env[key]) {
+      problems.push(`✖ is required for file uploads (with the other R2 settings)\n  → at ${key}`);
+    }
   }
   // Stripe only ever takes test money (live keys are refused), so real trees would be paid
   // for by the owner with no real income behind them.
@@ -285,6 +307,15 @@ export function loadConfig(rawEnv) {
           projectId: e.DIGITALHUMANI_PROJECT_ID,
           environment: e.DIGITALHUMANI_ENVIRONMENT,
           donationPercent: e.DONATION_PERCENT,
+        })
+      : null,
+    // null = file uploads are off: the file endpoints answer 503 FILES_UNAVAILABLE.
+    files: e.R2_BUCKET
+      ? Object.freeze({
+          accountId: e.R2_ACCOUNT_ID,
+          accessKeyId: e.R2_ACCESS_KEY_ID,
+          secretAccessKey: e.R2_SECRET_ACCESS_KEY,
+          bucket: e.R2_BUCKET,
         })
       : null,
   });

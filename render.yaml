@@ -99,4 +99,14 @@ services:
       # The owner's promise: 25% of every commission's full price goes to trees.
       - key: DONATION_PERCENT
         value: '25'
+      # Files (milestone 10): reference photos, previews, and final files in a private
+      # Cloudflare R2 bucket. Off until all four are set (docs/setup-r2.md).
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
 # No `databases:` section: the database lives on Neon, not Render (ADR 0006).
