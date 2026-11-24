@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginationQuery } from '../../lib/pagination.js';
-import { displayName, newPassword } from '../auth/auth.validation.js';
+import { displayName, email, emailCode, newPassword } from '../auth/auth.validation.js';
 
 export const userIdParams = z.object({
   id: z.coerce.number().int().positive(),
@@ -15,6 +15,14 @@ export const changePasswordBody = z.object({
   currentPassword: z.string().min(1).max(200),
   newPassword,
 });
+
+// The password is required when the account has one (the service decides).
+export const changeEmailStartBody = z.object({
+  newEmail: email,
+  password: z.string().min(1).max(200).optional(),
+});
+
+export const changeEmailCompleteBody = z.object({ newEmail: email, code: emailCode });
 
 // One of the two, depending on the account (the service decides which it needs).
 export const deleteAccountBody = z
