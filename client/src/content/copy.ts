@@ -65,29 +65,5 @@ export const COPY = {
     ],
     closing: "Let's make something beautiful, and let something beautiful grow.",
   },
-  /**
-   * The Privacy page (/privacy). Google requires a public privacy policy before the app can
-   * be published. docs/privacy-data-inventory.md lists what the site actually collects.
-   */
-  privacy: {
-    lastUpdated: 'PLACEHOLDER: the date this policy last changed',
-    sections: [
-      {
-        heading: 'PLACEHOLDER: What you collect',
-        paragraphs: ['PLACEHOLDER: accounts, commission requests, payments (see the inventory)'],
-      },
-      {
-        heading: 'PLACEHOLDER: Who you share it with',
-        paragraphs: ['PLACEHOLDER: Render, Neon, Stripe, Google, Resend, and why'],
-      },
-      {
-        heading: 'PLACEHOLDER: Cookies',
-        paragraphs: ['PLACEHOLDER: the one sign-in cookie; no analytics or advertising'],
-      },
-      {
-        heading: 'PLACEHOLDER: Your choices and how to contact you',
-        paragraphs: ['PLACEHOLDER: how to ask for a copy or deletion of your data'],
-      },
-    ],
-  },
+  // The Privacy page's text is in content/privacy.md (the owner's policy, in Markdown).
 } as const;

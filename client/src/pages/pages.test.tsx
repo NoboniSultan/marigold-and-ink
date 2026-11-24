@@ -10,6 +10,7 @@ import type { Call, MockResponse } from '../test/utils.tsx';
 import { ARTWORKS, SIGNED_OUT, USER, mockApi, page, renderRoute } from '../test/utils.tsx';
 import { safeNextPath } from '../auth/RequireAuth.tsx';
 import { COPY } from '../content/copy.ts';
+import privacyPolicy from '../content/privacy.md?raw';
 import { SEED } from '../features/giving/treeStages.ts';
 
 const OPTIONS = {
@@ -323,16 +324,28 @@ describe('Giving', () => {
 });
 
 describe('Privacy', () => {
-  it('shows the policy from the copy file, linked from the footer', async () => {
+  it("shows the owner's policy from privacy.md, linked from the footer", async () => {
     api();
     renderRoute('/privacy');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Privacy policy' }),
+      await screen.findByRole('heading', { level: 1, name: 'Privacy Policy' }),
     ).toBeInTheDocument();
-    for (const section of COPY.privacy.sections) {
-      expect(screen.getByRole('heading', { level: 2, name: section.heading })).toBeInTheDocument();
-    }
+    // Every section of the policy file is on the page, in order.
+    const sections = [...privacyPolicy.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+    expect(sections).toHaveLength(13);
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(sections);
+    // Links inside the policy: same-site ones stay in the app, others open a new tab.
+    expect(screen.getByRole('link', { name: 'Rooted in Something Bigger' })).toHaveAttribute(
+      'href',
+      '/giving',
+    );
+    expect(screen.getByRole('link', { name: "Stripe's Privacy Policy" })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
     const footer = screen.getByRole('navigation', { name: 'Footer' });
     expect(within(footer).getByRole('link', { name: 'Privacy' })).toHaveAttribute(
       'href',
