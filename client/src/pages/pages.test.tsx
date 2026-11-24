@@ -11,6 +11,7 @@ import { ARTWORKS, SIGNED_OUT, USER, mockApi, page, renderRoute } from '../test/
 import { safeNextPath } from '../auth/RequireAuth.tsx';
 import { COPY } from '../content/copy.ts';
 import privacyPolicy from '../content/privacy.md?raw';
+import termsOfService from '../content/terms.md?raw';
 import { SEED } from '../features/giving/treeStages.ts';
 
 const OPTIONS = {
@@ -351,6 +352,28 @@ describe('Privacy', () => {
       'href',
       '/privacy',
     );
+  });
+});
+
+describe('Terms', () => {
+  it("shows the owner's terms from terms.md, linked from the footer", async () => {
+    api();
+    renderRoute('/terms');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Terms of Service' }),
+    ).toBeInTheDocument();
+    const sections = [...termsOfService.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+    expect(sections).toHaveLength(14);
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(sections);
+    expect(screen.getByRole('link', { name: 'Rooted in Something Bigger' })).toHaveAttribute(
+      'href',
+      '/giving',
+    );
+    const footer = screen.getByRole('navigation', { name: 'Footer' });
+    expect(within(footer).getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms');
   });
 });
 

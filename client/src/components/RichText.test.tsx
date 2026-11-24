@@ -62,4 +62,17 @@ describe('RichText', () => {
     expect(link).toHaveAttribute('href', 'mailto:hello@noboni.art');
     expect(link).not.toHaveAttribute('target');
   });
+
+  it('reads links inside bold text', () => {
+    render(
+      <MemoryRouter>
+        <p>
+          <RichText text="Visit our **[Rooted in Something Bigger](/giving)** page." />
+        </p>
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link', { name: 'Rooted in Something Bigger' });
+    expect(link).toHaveAttribute('href', '/giving');
+    expect(link.parentElement?.tagName).toBe('STRONG');
+  });
 });

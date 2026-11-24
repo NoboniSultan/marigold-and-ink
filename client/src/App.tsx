@@ -34,6 +34,10 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/PrivacyPage.tsx')).PrivacyPage }),
       },
       {
+        path: 'terms',
+        lazy: async () => ({ Component: (await import('./pages/TermsPage.tsx')).TermsPage }),
+      },
+      {
         // Loaded on demand: the tree morph's library (flubber) is only needed here.
         path: 'giving',
         lazy: async () => ({ Component: (await import('./pages/GivingPage.tsx')).GivingPage }),
