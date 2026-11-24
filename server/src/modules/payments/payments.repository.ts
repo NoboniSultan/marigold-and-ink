@@ -302,3 +302,45 @@ export async function recordProcessedEvent(
   );
   return rowCount === 1;
 }
+
+export interface MonthlyPayments {
+  month: string;
+  salesCents: number;
+  refundsCents: number;
+}
+
+/**
+ * Each month of `year`, in `timeZone` (ADR 0015): deposits and final payments that
+ * succeeded, and refunds that succeeded, by the day each payment row was created (a
+ * Checkout page is paid, or expires, within a day of being opened).
+ */
+export async function monthlyPayments(
+  year: number,
+  timeZone: string,
+  client: Db = pool,
+): Promise<MonthlyPayments[]> {
+  const { rows } = await client.query(
+    `WITH months AS (
+       SELECT m::date AS starts, (m + interval '1 month')::date AS ends
+         FROM generate_series(make_date($1, 1, 1), make_date($1, 12, 1), interval '1 month') AS m
+     ),
+     moved AS (
+       SELECT (created_at AT TIME ZONE $2)::date AS day, type, amount_cents
+         FROM payments WHERE status = 'succeeded'
+     )
+     SELECT to_char(months.starts, 'YYYY-MM') AS month,
+       coalesce((SELECT sum(amount_cents) FROM moved
+                  WHERE type <> 'refund' AND day >= months.starts AND day < months.ends), 0)::int
+         AS sales_cents,
+       coalesce((SELECT sum(amount_cents) FROM moved
+                  WHERE type = 'refund' AND day >= months.starts AND day < months.ends), 0)::int
+         AS refunds_cents
+       FROM months ORDER BY months.starts`,
+    [year, timeZone],
+  );
+  return rows.map((row) => ({
+    month: row.month,
+    salesCents: row.sales_cents,
+    refundsCents: row.refunds_cents,
+  }));
+}

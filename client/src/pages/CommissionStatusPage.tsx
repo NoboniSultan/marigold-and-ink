@@ -9,6 +9,7 @@ import { ErrorMessage, Loading } from '../components/Loading.tsx';
 import buttonStyles from '../components/Button.module.css';
 import { STATUS_TEXT } from '../features/commissions/statusText.ts';
 import styles from './SimplePage.module.css';
+import { formatMoney } from '../features/commissions/money.ts';
 
 /** Leaving the site for Stripe's page. An object so tests can replace it. */
 export const externalNavigation = {
@@ -33,13 +34,8 @@ const PAYMENT_LABEL: Record<Payment['type'], string> = {
 const CONFIRM_FOR_MS = 60_000;
 const POLL_MS = 2_000;
 
-export function formatMoney(cents: number, currency: string | null): string {
-  if (!currency) return (cents / 100).toFixed(2);
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-  }).format(cents / 100);
-}
+// Kept importable from here for existing callers; it lives in features/commissions/money.ts.
+export { formatMoney };
 
 /** Money that actually moved: completed payments, and refunds that aren't failed. */
 const shown = (p: Payment) =>

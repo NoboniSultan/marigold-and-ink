@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createBrowserRouter, type RouteObject } from 'react-router';
+import { Navigate, createBrowserRouter, type RouteObject } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
@@ -62,6 +62,42 @@ export const routes: RouteObject[] = [
             <AccountPage />
           </RequireAuth>
         ),
+      },
+      {
+        // The admin area: its pages load on demand, so visitors never download them.
+        path: 'admin',
+        lazy: async () => ({
+          Component: (await import('./pages/admin/AdminLayout.tsx')).AdminLayout,
+        }),
+        children: [
+          { index: true, element: <Navigate to="commissions" replace /> },
+          {
+            path: 'commissions',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminCommissionsPage.tsx'))
+                .AdminCommissionsPage,
+            }),
+          },
+          {
+            path: 'commissions/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminCommissionPage.tsx'))
+                .AdminCommissionPage,
+            }),
+          },
+          {
+            path: 'giving',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminGivingPage.tsx')).AdminGivingPage,
+            }),
+          },
+          {
+            path: 'report',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminReportPage.tsx')).AdminReportPage,
+            }),
+          },
+        ],
       },
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },

@@ -140,3 +140,156 @@ export async function ensureActiveCharity(
   );
   return rows[0].created ? 'created' : 'activated';
 }
+
+// --- The admin screens (milestone 9) ---
+
+export interface DonationRecord {
+  id: number;
+  commissionId: number;
+  treeCount: number | null;
+  amountCents: number;
+  status: 'pending' | 'owed' | 'paid' | 'reversed';
+  requestedAt: Date | null;
+  treeRequestId: string | null;
+  /** YYYY-MM-DD (a date column, read as text so no time zone can shift it). */
+  payoutDate: string | null;
+  receiptReference: string | null;
+  createdAt: Date;
+}
+
+const DONATION_COLUMNS = `id, commission_id, tree_count, donation_amount_cents, status,
+  requested_at, tree_request_id, payout_date::text AS payout_date, receipt_reference, created_at`;
+
+function toDonation(row: Record<string, unknown>): DonationRecord {
+  return {
+    id: Number(row.id),
+    commissionId: Number(row.commission_id),
+    treeCount: row.tree_count === null ? null : Number(row.tree_count),
+    amountCents: Number(row.donation_amount_cents),
+    status: row.status as DonationRecord['status'],
+    requestedAt: row.requested_at as Date | null,
+    treeRequestId: row.tree_request_id as string | null,
+    payoutDate: row.payout_date as string | null,
+    receiptReference: row.receipt_reference as string | null,
+    createdAt: row.created_at as Date,
+  };
+}
+
+/** Donations, newest first, optionally by status, with the total for paging. */
+export async function listDonations(
+  {
+    status,
+    limit,
+    offset,
+  }: { status: DonationRecord['status'] | undefined; limit: number; offset: number },
+  client: Db = pool,
+): Promise<{ donations: DonationRecord[]; total: number }> {
+  const { rows } = await client.query(
+    `SELECT ${DONATION_COLUMNS}, count(*) OVER () AS total FROM donations
+      WHERE ($1::text IS NULL OR status = $1)
+      ORDER BY created_at DESC, id DESC
+      LIMIT $2 OFFSET $3`,
+    [status ?? null, limit, offset],
+  );
+  if (rows.length > 0) return { donations: rows.map(toDonation), total: Number(rows[0].total) };
+  const { rows: counted } = await client.query(
+    'SELECT count(*)::int AS total FROM donations WHERE ($1::text IS NULL OR status = $1)',
+    [status ?? null],
+  );
+  return { donations: [], total: counted[0].total };
+}
+
+/** Locks the given donations (for marking paid), in ID order so two batches can't deadlock. */
+export async function lockDonations(ids: number[], client: Db): Promise<DonationRecord[]> {
+  const { rows } = await client.query(
+    `SELECT ${DONATION_COLUMNS} FROM donations WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE`,
+    [ids],
+  );
+  return rows.map(toDonation);
+}
+
+/** Owed → paid, with the day the invoice was paid and its receipt. */
+export async function markPaid(
+  ids: number[],
+  { payoutDate, receiptReference }: { payoutDate: string; receiptReference: string },
+  client: Db,
+): Promise<DonationRecord[]> {
+  const { rows } = await client.query(
+    `UPDATE donations SET status = 'paid', payout_date = $2, receipt_reference = $3
+      WHERE id = ANY($1::bigint[]) AND status = 'owed'
+      RETURNING ${DONATION_COLUMNS}`,
+    [ids, payoutDate, receiptReference],
+  );
+  return rows.map(toDonation).sort((a, b) => a.id - b.id);
+}
+
+/** A commission's tree donation (there's at most one: its final payment's). */
+export async function treeDonationForCommission(
+  commissionId: number,
+  client: Db = pool,
+): Promise<DonationRecord | null> {
+  const { rows } = await client.query(
+    `SELECT ${DONATION_COLUMNS} FROM donations
+      WHERE commission_id = $1 AND tree_count IS NOT NULL
+      ORDER BY id DESC LIMIT 1`,
+    [commissionId],
+  );
+  return rows[0] ? toDonation(rows[0]) : null;
+}
+
+export interface MonthlyGiving {
+  month: string;
+  treesOrdered: number;
+  treesOrderedCents: number;
+  donationsPaidCents: number;
+  donationsOwedAtMonthEndCents: number;
+}
+
+/**
+ * Each month of `year`, in `timeZone` (ADR 0015):
+ * - trees ordered: tree donations Digital Humani accepted that month (by requested_at);
+ * - paid: donations whose invoice was paid that month (by payout_date);
+ * - owed at month end: tree money requested by the end of the month and not yet paid then.
+ */
+export async function monthlyGiving(
+  year: number,
+  timeZone: string,
+  client: Db = pool,
+): Promise<MonthlyGiving[]> {
+  const { rows } = await client.query(
+    `WITH months AS (
+       SELECT m::date AS starts, (m + interval '1 month')::date AS ends
+         FROM generate_series(make_date($1, 1, 1), make_date($1, 12, 1), interval '1 month') AS m
+     ),
+     trees AS (
+       SELECT (requested_at AT TIME ZONE $2)::date AS requested_on, tree_count,
+              donation_amount_cents, payout_date
+         FROM donations
+        WHERE tree_count IS NOT NULL AND requested_at IS NOT NULL
+          AND status IN ('owed', 'paid')
+     )
+     SELECT to_char(months.starts, 'YYYY-MM') AS month,
+       coalesce((SELECT sum(tree_count) FROM trees
+                  WHERE requested_on >= months.starts AND requested_on < months.ends), 0)::int
+         AS trees_ordered,
+       coalesce((SELECT sum(donation_amount_cents) FROM trees
+                  WHERE requested_on >= months.starts AND requested_on < months.ends), 0)::int
+         AS trees_ordered_cents,
+       coalesce((SELECT sum(donation_amount_cents) FROM donations
+                  WHERE status = 'paid' AND payout_date >= months.starts
+                    AND payout_date < months.ends), 0)::int AS paid_cents,
+       coalesce((SELECT sum(donation_amount_cents) FROM trees
+                  WHERE requested_on < months.ends
+                    AND (payout_date IS NULL OR payout_date >= months.ends)), 0)::int
+         AS owed_cents
+       FROM months ORDER BY months.starts`,
+    [year, timeZone],
+  );
+  return rows.map((row) => ({
+    month: row.month,
+    treesOrdered: row.trees_ordered,
+    treesOrderedCents: row.trees_ordered_cents,
+    donationsPaidCents: row.paid_cents,
+    donationsOwedAtMonthEndCents: row.owed_cents,
+  }));
+}

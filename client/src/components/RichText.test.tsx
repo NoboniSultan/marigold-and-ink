@@ -51,4 +51,15 @@ describe('RichText', () => {
     );
     expect(container.querySelector('a')).toBeNull();
   });
+
+  it('renders mailto links as plain email links', () => {
+    render(
+      <p>
+        <RichText text="Write to [hello@noboni.art](mailto:hello@noboni.art)." />
+      </p>,
+    );
+    const link = screen.getByRole('link', { name: 'hello@noboni.art' });
+    expect(link).toHaveAttribute('href', 'mailto:hello@noboni.art');
+    expect(link).not.toHaveAttribute('target');
+  });
 });

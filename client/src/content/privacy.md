@@ -334,7 +334,7 @@ If you have questions about this Privacy Policy, would like to request access to
 
 **Marigold & Ink**
 
-Email: PLACEHOLDER: your business email address
+Email: [hello@noboni.art](mailto:hello@noboni.art)
 
 Location: New York, United States
 

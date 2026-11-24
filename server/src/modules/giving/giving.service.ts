@@ -15,6 +15,8 @@
 import type { PoolClient } from 'pg';
 import type { TreePlanter } from '../../adapters/digitalHumani.ts';
 import { withTransaction } from '../../db/transaction.ts';
+import { BusinessRuleError, ConflictError, NotFoundError } from '../../errors/index.js';
+import { todayInBusinessZone } from '../../lib/businessTime.ts';
 import { logger } from '../../lib/logger.js';
 import { treesFor } from './giving.calculator.ts';
 import * as givingRepository from './giving.repository.ts';
@@ -134,4 +136,81 @@ export const DEFAULT_CHARITY = Object.freeze({
 
 export function ensureCharity() {
   return givingRepository.ensureActiveCharity(DEFAULT_CHARITY);
+}
+
+// --- The admin screens (milestone 9) ---
+
+/** A commission's trees, for its admin page: the money held back, and the donation's state. */
+export async function treeSummary(commissionId: number) {
+  const [withheldForTreesCents, donation] = await Promise.all([
+    givingRepository.withheldForTreesCents(commissionId),
+    givingRepository.treeDonationForCommission(commissionId),
+  ]);
+  return {
+    withheldForTreesCents,
+    trees:
+      donation && donation.treeCount !== null
+        ? { count: donation.treeCount, status: donation.status }
+        : null,
+  };
+}
+
+export async function listDonations({
+  status,
+  page,
+  pageSize,
+}: {
+  status?: givingRepository.DonationRecord['status'];
+  page: number;
+  pageSize: number;
+}) {
+  const { donations, total } = await givingRepository.listDonations({
+    status,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+  return { donations, meta: { page, pageSize, total } };
+}
+
+/**
+ * Records that the planting partner's invoice was paid, for several donations at once (one
+ * invoice usually covers several commissions). All or nothing: every donation must exist
+ * and be owed, and the payout date can't be in the future (the shop's time zone).
+ */
+export async function markDonationsPaid(
+  {
+    donationIds,
+    payoutDate,
+    receiptReference,
+  }: { donationIds: number[]; payoutDate: string; receiptReference: string },
+  { now = new Date() }: { now?: Date } = {},
+) {
+  if (payoutDate > todayInBusinessZone(now)) {
+    throw new BusinessRuleError("The payout date can't be in the future", {
+      code: 'PAYOUT_DATE_IN_FUTURE',
+    });
+  }
+  const ids = [...new Set(donationIds)];
+  return withTransaction(async (tx) => {
+    const found = await givingRepository.lockDonations(ids, tx);
+    const missing = ids.filter((id) => !found.some((d) => d.id === id));
+    if (missing.length > 0) {
+      throw new NotFoundError('Some of these donations do not exist', {
+        code: 'DONATION_NOT_FOUND',
+        details: { donationIds: missing },
+      });
+    }
+    const notOwed = found.filter((d) => d.status !== 'owed');
+    if (notOwed.length > 0) {
+      throw new ConflictError('Only owed donations can be marked paid', {
+        code: 'DONATION_NOT_OWED',
+        details: { donations: notOwed.map((d) => ({ id: d.id, status: d.status })) },
+      });
+    }
+    return givingRepository.markPaid(ids, { payoutDate, receiptReference }, tx);
+  });
+}
+
+export function monthlyGiving(year: number, timeZone: string) {
+  return givingRepository.monthlyGiving(year, timeZone);
 }

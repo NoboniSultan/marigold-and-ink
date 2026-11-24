@@ -2,7 +2,7 @@
 
 What personal data the site collects, where it goes, and how long it stays, taken from the code. It's the factual basis for the privacy policy at `/privacy` (the owner's text, in `client/src/content/privacy.md`), not the policy itself. When this file changes, check the policy still matches.
 
-**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 8d.
+**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 9.
 
 ## 1. Accounts (`users`, `auth_identities`)
 
@@ -15,6 +15,8 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Role, email-verified date, created/updated dates | The app | |
 
 **Self-service** (the account page, `/account`): see your details and commissions, change your name, password, and **email address** (confirmed by a code sent to the new address; the old address is told), **download your data** (a JSON file of the account and each commission with its history, quote, and payments), and **delete the account**. A forgotten password is reset with a code emailed to the account's address (`/forgot-password`; [ADR 0014](decisions/0014-password-reset-and-email-change.md)). Deletion anonymizes it ([ADR 0012](decisions/0012-account-deletion-by-anonymization.md)): email, name, password, Google link, pending sign-up code, sessions, and commission notes are removed; the commission and payment records stay as "Deleted user" for the shop's accounts. Not removed: status-change reasons the client typed (the history is append-only), Stripe's own copy of the email on payments, and database backups until they expire. Deletion is refused while a paid commission is in progress.
+
+**The admin screens** (`/admin`, milestone 9) show the owner each commission's client name and email, alongside the commission. The monthly report and its CSV contain only totals: no names, emails, or commission details.
 
 ## 2. Emailed codes (`email_verifications`)
 

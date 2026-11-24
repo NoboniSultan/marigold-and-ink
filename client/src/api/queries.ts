@@ -3,9 +3,11 @@
  * refreshed, or invalidated reliably (e.g. after login, `queryKeys.me` is updated).
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { ApiError } from './client.ts';
 import {
   aboutApi,
   accountApi,
+  adminApi,
   givingApi,
   artworksApi,
   authApi,
@@ -28,6 +30,15 @@ export const queryKeys = {
   giving: ['giving'] as const,
   commissionOptions: ['commission-options'] as const,
   providers: ['auth-providers'] as const,
+  // The admin screens. Everything under 'admin' is refreshed together after a change.
+  admin: ['admin'] as const,
+  adminCommissions: (filters: { page: number; status?: string }) =>
+    ['admin', 'commissions', filters] as const,
+  adminCommission: (id: number) => ['admin', 'commission', id] as const,
+  adminQuote: (id: number) => ['admin', 'quote', id] as const,
+  adminDonations: (filters: { page: number; status: string }) =>
+    ['admin', 'donations', filters] as const,
+  monthlyReport: (year: number) => ['admin', 'report', year] as const,
 };
 
 export function useArtworks(filters: ArtworkFilters) {
@@ -127,5 +138,55 @@ export function usePayments(commissionId: number, { pollMs }: { pollMs?: number 
     queryKey: queryKeys.payments(commissionId),
     queryFn: ({ signal }) => paymentsApi.list(commissionId, signal),
     refetchInterval: pollMs ?? false,
+  });
+}
+
+// --- The admin screens ---
+
+export function useAdminCommissions(filters: { page: number; status?: string }) {
+  return useQuery({
+    queryKey: queryKeys.adminCommissions(filters),
+    queryFn: ({ signal }) => adminApi.commissions(filters, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAdminCommission(id: number) {
+  return useQuery({
+    queryKey: queryKeys.adminCommission(id),
+    queryFn: ({ signal }) => adminApi.commission(id, signal),
+  });
+}
+
+/** The commission's current quote, or null before one is generated (the API answers 404). */
+export function useAdminQuote(id: number) {
+  return useQuery({
+    queryKey: queryKeys.adminQuote(id),
+    queryFn: async ({ signal }) => {
+      try {
+        return await adminApi.quote(id, signal);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) return null;
+        throw err;
+      }
+    },
+  });
+}
+
+export function useAdminDonations(filters: {
+  page: number;
+  status: 'pending' | 'owed' | 'paid' | 'reversed';
+}) {
+  return useQuery({
+    queryKey: queryKeys.adminDonations(filters),
+    queryFn: ({ signal }) => adminApi.donations(filters, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useMonthlyReport(year: number) {
+  return useQuery({
+    queryKey: queryKeys.monthlyReport(year),
+    queryFn: ({ signal }) => adminApi.monthlyReport(year, signal),
   });
 }

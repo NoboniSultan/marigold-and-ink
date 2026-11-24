@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-24 (Milestone 9: admin screens)
+
+### Added
+
+- **The admin area** (`/admin`, an "Admin" link in the header for the admin only; loaded on demand; [ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)):
+  - **Commissions:** every request with its client's name and email, filterable by status. Each commission's page shows its details; **generates, adjusts, and sends the quote**; offers the **status moves** the state machine allows (cancelling asks first); and shows its **money**: paid, refunded, held for trees, still refundable, with a warning if a Stripe Dashboard refund gave back tree money, and a **refund form** that respects the tree-money rule.
+  - **Giving:** tree donations owed, paid, and waiting for Digital Humani. **Tick several owed donations and mark them paid with one invoice** (payout date, receipt number); all or nothing.
+  - **Monthly report:** per month (New York time) sales, refunds, net sales, trees ordered, donations paid, and tree money owed at month end, with the year's total and a **CSV download**.
+- **API:** `GET /admin/commissions`, `GET /admin/commissions/:id`, `GET /admin/donations`, `POST /admin/donations/mark-paid`, `GET /admin/reports/monthly` (and `.csv`). Quotes, status changes, and refunds use the existing endpoints.
+- **The privacy policy's contact address**, `hello@noboni.art` (forwarded through Porkbun), and email links in the site's copy (`[text](mailto:…)`).
+- **Tests:** 24 new server tests (917 in all; every admin route: happy path, validation, 401, 403; the New York month boundary; the CSV) and 17 new client tests (138 in all: the admin guard, each admin page, the dollars-to-cents parser).
+
+### Changed
+
+- `formatMoney` moved to `features/commissions/money.ts`; the Stripe guide's quote step points to the admin screen.
+- Initial JavaScript per page is unchanged (about 171 KB gzipped); the bundler now folds a shared chunk into the main one, and the admin pages are separate chunks.
+
 ## [0.9.4] - 2026-11-24 (Milestone 8e: the privacy policy)
 
 ### Added
