@@ -3,15 +3,16 @@ import { Link, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Account } from '@shared/types/user.ts';
 import { ApiError, fieldErrors, formMessage } from '../api/client.ts';
-import { accountApi } from '../api/endpoints.ts';
+import { ACCOUNT_EXPORT_URL, accountApi } from '../api/endpoints.ts';
 import { queryKeys, useAccount, useMyCommissions } from '../api/queries.ts';
 import { FormField } from '../components/FormField.tsx';
 import { ErrorMessage, Loading } from '../components/Loading.tsx';
+import { useCountdown } from '../hooks/useCountdown.ts';
 import buttonStyles from '../components/Button.module.css';
 import { STATUS_TEXT } from '../features/commissions/statusText.ts';
 import styles from './SimplePage.module.css';
 
-/** The signed-in user's account: details, commissions, password, and deletion. */
+/** The signed-in user's account: details, email, commissions, password, data, and deletion. */
 export function AccountPage() {
   const account = useAccount();
 
@@ -24,8 +25,10 @@ export function AccountPage() {
     <article className={`${styles.page} ${styles.wide}`}>
       <h1>Your account</h1>
       <ProfileSection account={account.data} />
+      <EmailSection account={account.data} />
       <CommissionsSection />
       <PasswordSection account={account.data} />
+      <DataSection />
       <DeleteSection account={account.data} />
     </article>
   );
@@ -98,6 +101,197 @@ function ProfileSection({ account }: { account: Account }) {
         </div>
         {saved && <p role="status">Your name is saved.</p>}
       </form>
+    </section>
+  );
+}
+
+/**
+ * Email change in two steps (ADR 0014): the new address (and the password, if the account
+ * has one) sends a code there; the code moves the account and signs other devices out.
+ */
+function EmailSection({ account }: { account: Account }) {
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState<'address' | 'code'>('address');
+  const [newEmail, setNewEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [changedTo, setChangedTo] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useCountdown();
+
+  // The admin's address comes from the server settings, not this page.
+  if (account.role === 'admin') return null;
+
+  async function sendCode() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await accountApi.startEmailChange({
+        newEmail,
+        ...(account.hasPassword ? { password } : {}),
+      });
+      setResendIn(result.resendAfterSeconds);
+      setStep('code');
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'CODE_RESEND_TOO_SOON') {
+        setResendIn((err.details as { retryAfterSeconds?: number })?.retryAfterSeconds ?? 60);
+        setStep('code');
+      }
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSubmitAddress(event: FormEvent) {
+    event.preventDefault();
+    setChangedTo(null);
+    await sendCode();
+  }
+
+  async function onSubmitCode(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await accountApi.confirmEmailChange({ newEmail, code: code.trim() });
+      queryClient.setQueryData(queryKeys.account, updated);
+      queryClient.setQueryData(queryKeys.me, (me: object | null | undefined) =>
+        me ? { ...me, email: updated.email } : me,
+      );
+      setChangedTo(updated.email);
+      setStep('address');
+      setNewEmail('');
+      setPassword('');
+      setCode('');
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const fields = fieldErrors(error);
+  const errorBox = error ? (
+    <p className={styles.formError} role="alert">
+      {formMessage(error)}
+    </p>
+  ) : null;
+
+  return (
+    <section className={styles.section} aria-labelledby="email-heading">
+      <h2 id="email-heading">Email address</h2>
+      {changedTo && (
+        <p role="status">
+          Your email is now {changedTo}. Other devices have been signed out, and your old address
+          was told about the change.
+        </p>
+      )}
+      {step === 'address' ? (
+        <form key="address" className={styles.form} onSubmit={onSubmitAddress} noValidate>
+          {errorBox}
+          <FormField
+            label="New email address"
+            name="newEmail"
+            type="email"
+            autoComplete="email"
+            required
+            value={newEmail}
+            onChange={(event) => setNewEmail(event.target.value)}
+            error={fields.newEmail}
+          />
+          {account.hasPassword && (
+            <FormField
+              label="Password, to confirm it's you"
+              name="emailChangePassword"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              error={fields.password}
+            />
+          )}
+          <div>
+            <button
+              type="submit"
+              className={`${buttonStyles.button} ${buttonStyles.secondary}`}
+              disabled={busy}
+            >
+              {busy ? 'Sending…' : 'Email a code to the new address'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <form key="code" className={styles.form} onSubmit={onSubmitCode} noValidate>
+          <p className={styles.notice} role="status">
+            We sent a 6-digit code to {newEmail}. It works for 15 minutes.
+          </p>
+          {errorBox}
+          <FormField
+            label="6-digit code"
+            name="emailChangeCode"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            required
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            error={fields.code}
+          />
+          <div>
+            <button
+              type="submit"
+              className={`${buttonStyles.button} ${buttonStyles.primary}`}
+              disabled={busy}
+            >
+              {busy ? 'Saving…' : 'Change email'}
+            </button>
+          </div>
+          <p className={styles.row}>
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={sendCode}
+              disabled={resendIn > 0 || busy}
+            >
+              {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+            </button>
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={() => {
+                setStep('address');
+                setError(null);
+              }}
+            >
+              Use a different address
+            </button>
+          </p>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/** "Download my data": a JSON file the browser downloads with the session cookie. */
+function DataSection() {
+  return (
+    <section className={styles.section} aria-labelledby="data-heading">
+      <h2 id="data-heading">Your data</h2>
+      <p>
+        Download everything the site holds about you: your account details, and each commission with
+        its history, quote, and payments, as a JSON file.
+      </p>
+      <a
+        href={ACCOUNT_EXPORT_URL}
+        download="marigold-and-ink-my-data.json"
+        className={`${buttonStyles.button} ${buttonStyles.secondary}`}
+      >
+        Download my data
+      </a>
     </section>
   );
 }

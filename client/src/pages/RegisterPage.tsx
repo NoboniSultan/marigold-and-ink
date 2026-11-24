@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { ApiError, fieldErrors, formMessage } from '../api/client.ts';
 import { authApi } from '../api/endpoints.ts';
@@ -7,22 +7,12 @@ import { useAuth } from '../auth/AuthContext.tsx';
 import { GoogleButton } from '../auth/GoogleButton.tsx';
 import { safeNextPath } from '../auth/RequireAuth.tsx';
 import { FormField } from '../components/FormField.tsx';
+import { useCountdown } from '../hooks/useCountdown.ts';
 import buttonStyles from '../components/Button.module.css';
 import styles from './SimplePage.module.css';
 
 /** The server enforces the same rule; this only explains it up front. */
 const PASSWORD_HINT = 'At least 12 characters. A short sentence works well.';
-
-/** Seconds left before another code may be sent; counts down once a second. */
-function useCountdown() {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    if (seconds <= 0) return;
-    const timer = setTimeout(() => setSeconds((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [seconds]);
-  return [seconds, setSeconds] as const;
-}
 
 /**
  * Sign-up in two steps: (1) email, and we send a 6-digit code; (2) the code plus name and
@@ -108,7 +98,7 @@ export function RegisterPage() {
       {emailSignupOff ? (
         <p className={styles.notice}>Sign-up by email opens soon.</p>
       ) : step === 'email' ? (
-        <form className={styles.form} onSubmit={onSubmitEmail} noValidate>
+        <form key="email" className={styles.form} onSubmit={onSubmitEmail} noValidate>
           {errorBox}
           <FormField
             label="Email"
@@ -129,7 +119,7 @@ export function RegisterPage() {
           </button>
         </form>
       ) : (
-        <form className={styles.form} onSubmit={onSubmitCode} noValidate>
+        <form key="code" className={styles.form} onSubmit={onSubmitCode} noValidate>
           {notice && (
             <p className={styles.notice} role="status">
               {notice}

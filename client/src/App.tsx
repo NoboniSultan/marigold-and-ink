@@ -15,6 +15,7 @@ import { CommissionPage } from './pages/CommissionPage.tsx';
 import { CommissionStatusPage } from './pages/CommissionStatusPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { RegisterPage } from './pages/RegisterPage.tsx';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
 import { PrivacyPage } from './pages/PrivacyPage.tsx';
 import { AccountPage } from './pages/AccountPage.tsx';
@@ -61,6 +62,7 @@ export const routes: RouteObject[] = [
       },
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
+      { path: 'forgot-password', element: <ForgotPasswordPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
