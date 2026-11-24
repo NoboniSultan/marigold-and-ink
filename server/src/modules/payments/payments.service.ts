@@ -319,3 +319,31 @@ export async function expireOpenCheckouts(commissionId: number, gateway: Payment
     }
   }
 }
+
+// --- The admin screens (milestone 9) ---
+
+/**
+ * Where a commission's money stands, for its admin page and refund form: paid in, given
+ * back (succeeded or still processing), held back for trees (never refunded, ADR 0013),
+ * and what can still be refunded. `treeMoneyRefundedCents` is above 0 only if a refund made
+ * in the Stripe Dashboard reached into the tree money.
+ */
+export async function moneySummary(commissionId: number) {
+  const [{ paidCents, refundedOrPendingCents }, trees] = await Promise.all([
+    paymentsRepository.commissionRefundPosition(commissionId),
+    givingService.treeSummary(commissionId),
+  ]);
+  const keptCents = paidCents - trees.withheldForTreesCents;
+  return {
+    paidCents,
+    refundedCents: refundedOrPendingCents,
+    withheldForTreesCents: trees.withheldForTreesCents,
+    refundableCents: Math.max(0, keptCents - refundedOrPendingCents),
+    treeMoneyRefundedCents: Math.max(0, refundedOrPendingCents - keptCents),
+    trees: trees.trees,
+  };
+}
+
+export function monthlyPayments(year: number, timeZone: string) {
+  return paymentsRepository.monthlyPayments(year, timeZone);
+}

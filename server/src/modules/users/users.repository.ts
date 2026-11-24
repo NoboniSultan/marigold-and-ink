@@ -50,6 +50,16 @@ export async function findById(id: number, client: Db = pool): Promise<UserRecor
   return firstUser(rows);
 }
 
+/** Several users at once (the admin commission list); deleted accounts are left out. */
+export async function findByIds(ids: number[], client: Db = pool): Promise<UserRecord[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = ANY($1::bigint[]) AND deleted_at IS NULL`,
+    [ids],
+  );
+  return rows.map(toUser);
+}
+
 /**
  * Like findForAuthByEmail, by ID: for confirming a signed-in user's password before a
  * password change or account deletion. Includes passwordHash, so only the auth module uses it.

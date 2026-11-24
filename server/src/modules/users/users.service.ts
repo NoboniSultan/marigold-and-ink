@@ -17,6 +17,12 @@ export function findById(id: number, { client }: Tx = {}): Promise<UserRecord | 
   return usersRepository.findById(id, client);
 }
 
+/** By ID, for several users at once; a deleted account is simply missing from the map. */
+export async function findByIds(ids: number[]): Promise<Map<number, UserRecord>> {
+  const users = await usersRepository.findByIds([...new Set(ids)]);
+  return new Map(users.map((user) => [user.id, user]));
+}
+
 export async function getById(id: number, { client }: Tx = {}): Promise<UserRecord> {
   const user = await usersRepository.findById(id, client);
   if (!user) throw new NotFoundError('User not found', { code: 'USER_NOT_FOUND' });
