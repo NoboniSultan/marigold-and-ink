@@ -27,7 +27,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Stripe deposit and final payments, webhooks, refunds, commission page with "Pay" | Built, **test mode**; needs [setup](docs/setup-stripe.md) |
 | Account page: details, own commissions, name, password, and email changes, data download, account deletion; forgot-password reset | Built |
 | Giving: 25% of every fully paid commission plants trees through Digital Humani; Giving page with a growing tree; refunds never give back tree money | Built (sandbox); needs [setup](docs/setup-digital-humani.md) |
-| Donation reports and marking invoices paid | Planned |
+| Admin screens: commissions (quote, status, refunds), giving (mark tree invoices paid in batches), monthly report with CSV | Built ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)) |
 | File uploads, messaging, shipping, shop, slots | Later (see backlog) |
 
 ## Tech stack
@@ -257,6 +257,11 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | GET | `/api/v1/artworks/:slug` | Public | One published artwork. Drafts answer 404, like missing artworks. |
 | GET | `/api/v1/tags` | Public | Tags used by published artworks, with counts. |
 | GET | `/api/v1/about` | Public | The About page photo and bio. |
+| GET | `/api/v1/admin/commissions` | Admin | Commissions newest first, each with its `client` (`null` once deleted). `?status=`, `?page=`. |
+| GET | `/api/v1/admin/commissions/:id` | Admin | `{ commission, client, money }`: details with allowed moves, the client, and paid / refunded / tree money / still refundable ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)). |
+| GET | `/api/v1/admin/donations` | Admin | Tree donations, newest first. `?status=owed|paid|pending|reversed`, `?page=`. |
+| POST | `/api/v1/admin/donations/mark-paid` | Admin | `{ donationIds, payoutDate, receiptReference }`: one invoice's donations, all or nothing; each must be owed (409 `DONATION_NOT_OWED`), and the date can't be in the future (422). |
+| GET | `/api/v1/admin/reports/monthly` | Admin | One row per month (New York time) up to now: sales, refunds, net, trees ordered, donations paid, owed at month end. `?year=`. `/monthly.csv` downloads it. |
 | GET | `/api/v1/giving` | Public | `{ trees }`: trees funded so far by fully paid commissions ([ADR 0013](docs/decisions/0013-giving-through-digital-humani.md)). |
 | GET | `/api/v1/admin/artworks` | Admin | All artworks, including drafts. `?status=all\|published\|draft` plus the public filters. |
 | GET | `/api/v1/admin/artworks/:id` | Admin | One artwork with admin fields (`isPublished`, `contentManaged`, ...). |
@@ -331,6 +336,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0012: Account deletion by anonymization](docs/decisions/0012-account-deletion-by-anonymization.md)
 - [0013: Giving through Digital Humani](docs/decisions/0013-giving-through-digital-humani.md)
 - [0014: Password reset and email change by emailed code](docs/decisions/0014-password-reset-and-email-change.md)
+- [0015: Admin screens and the monthly report](docs/decisions/0015-admin-screens-and-monthly-report.md)
 
 ## Roadmap
 

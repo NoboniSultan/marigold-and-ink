@@ -61,7 +61,7 @@ cd server && npm run dev       cd client && npm run dev
 ## 5. A test deposit, start to finish
 
 1. **Open the site** (<http://localhost:5173>), sign up as a client (with the default `EMAIL_TRANSPORT=log`, the 6-digit code prints in terminal 2), and **request a commission**. Note its number (Request #…).
-2. **Send it a quote as the admin.** There's no admin screen yet, so use the API. In a fourth terminal, from the repo folder (the commands read your admin email from `.env`), replacing `12` with your request number:
+2. **Send it a quote as the admin.** Log in with the admin account and open **Admin → Commissions → #12**: press **Generate quote**, adjust the price if you like, then **Send quote to the client** (milestone 9). Or, through the API, in a fourth terminal from the repo folder (the commands read your admin email from `.env`), replacing `12` with your request number:
 
    ```sh
    read -s "ADMIN_PASSWORD?Admin password: " && echo
