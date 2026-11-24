@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { RichText } from './RichText.tsx';
 
 describe('RichText', () => {
@@ -25,5 +26,29 @@ describe('RichText', () => {
     );
     expect(container.querySelector('a, b')).toBeNull();
     expect(container.textContent).toBe('[x](javascript:alert(1)) <b>hi</b>');
+  });
+
+  it('renders `code`, and same-site paths as in-app links (no new tab)', () => {
+    render(
+      <MemoryRouter>
+        <p>
+          <RichText text="Marked `HttpOnly`; see the [account page](/account)." />
+        </p>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('HttpOnly').tagName).toBe('CODE');
+    const link = screen.getByRole('link', { name: 'account page' });
+    expect(link).toHaveAttribute('href', '/account');
+    expect(link).not.toHaveAttribute('target');
+  });
+
+  it('never treats //other-site as a same-site path', () => {
+    const { container } = render(
+      <p>
+        <RichText text="[x](//evil.example)" />
+      </p>,
+    );
+    expect(container.querySelector('a')).toBeNull();
   });
 });

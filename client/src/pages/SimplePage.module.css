@@ -179,3 +179,30 @@
   color: var(--color-gray);
   margin-top: 0;
 }
+
+/* A long document (the privacy policy): comfortable spacing between its parts. */
+.policy h2 {
+  margin-top: var(--space-12);
+  font-size: var(--text-xl);
+}
+
+.policy h3 {
+  margin-top: var(--space-8);
+  font-size: var(--text-lg);
+}
+
+.policy ul {
+  padding-left: var(--space-6);
+  list-style: disc; /* the global reset removes markers; a policy's lists need them */
+}
+
+.policy li + li {
+  margin-top: var(--space-2);
+}
+
+.policy code {
+  font-size: 0.9em;
+  padding: 0 0.2em;
+  border-radius: var(--radius);
+  background: var(--color-rule);
+}

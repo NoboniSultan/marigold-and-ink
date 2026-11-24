@@ -126,7 +126,8 @@ The site and API share one origin in both development (Vite's proxy) and product
 
 ### Site text and design
 
-- Text the owner writes lives in [`client/src/content/copy.ts`](client/src/content/copy.ts): the typewriter lines, the main button, and the footer's charity line. Everything starting with `PLACEHOLDER` is waiting for real copy.
+- Text the owner writes lives in [`client/src/content/copy.ts`](client/src/content/copy.ts): the typewriter lines, the main button, the footer's charity line, and the Giving page. Everything starting with `PLACEHOLDER` is waiting for real copy.
+- The privacy policy is [`client/src/content/privacy.md`](client/src/content/privacy.md), plain Markdown (headings, paragraphs, `- ` lists, `**bold**`, `` `code` ``, and links to `https://…` or a site path like `/giving`). Change its "Last Updated" date with any edit, and keep it in step with [docs/privacy-data-inventory.md](docs/privacy-data-inventory.md).
 - The palette, fonts, spacing, and motion timing are CSS variables in [`client/src/styles/tokens.css`](client/src/styles/tokens.css).
 - Every animation, with its reduced-motion fallback, is described in [docs/motion.md](docs/motion.md).
 

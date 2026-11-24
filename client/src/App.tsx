@@ -17,7 +17,6 @@ import { LoginPage } from './pages/LoginPage.tsx';
 import { RegisterPage } from './pages/RegisterPage.tsx';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
-import { PrivacyPage } from './pages/PrivacyPage.tsx';
 import { AccountPage } from './pages/AccountPage.tsx';
 
 /** Every page, under the shared layout. Exported so tests can mount the same routes. */
@@ -29,7 +28,11 @@ export const routes: RouteObject[] = [
       { path: 'gallery', element: <GalleryPage /> },
       { path: 'gallery/:slug', element: <ArtworkPage /> },
       { path: 'about', element: <AboutPage /> },
-      { path: 'privacy', element: <PrivacyPage /> },
+      {
+        path: 'privacy',
+        // Loaded on demand: the policy's text shouldn't weigh on every other page.
+        lazy: async () => ({ Component: (await import('./pages/PrivacyPage.tsx')).PrivacyPage }),
+      },
       {
         // Loaded on demand: the tree morph's library (flubber) is only needed here.
         path: 'giving',

@@ -1,6 +1,6 @@
 # Privacy data inventory
 
-What personal data the site collects, where it goes, and how long it stays, taken from the code. It's the factual basis for the privacy policy at `/privacy` (text in `client/src/content/copy.ts`), not the policy itself.
+What personal data the site collects, where it goes, and how long it stays, taken from the code. It's the factual basis for the privacy policy at `/privacy` (the owner's text, in `client/src/content/privacy.md`), not the policy itself. When this file changes, check the policy still matches.
 
 **Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 8d.
 
