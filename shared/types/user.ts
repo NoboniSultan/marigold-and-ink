@@ -68,3 +68,27 @@ export interface DeleteAccountRequest {
   password?: string;
   confirmEmail?: string;
 }
+
+/** Forgot password, step 1: where to send the code (the answer is the same for any address). */
+export interface PasswordResetStartRequest {
+  email: string;
+}
+
+/** Forgot password, step 2: the emailed code and the new password; signs in on success. */
+export interface PasswordResetCompleteRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+/** Email change, step 1: the new address, and the password if the account has one. */
+export interface ChangeEmailStartRequest {
+  newEmail: string;
+  password?: string;
+}
+
+/** Email change, step 2: the code sent to the new address. */
+export interface ChangeEmailConfirmRequest {
+  newEmail: string;
+  code: string;
+}
