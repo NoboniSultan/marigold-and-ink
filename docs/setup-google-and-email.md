@@ -70,23 +70,54 @@ The site answers page requests on one address only, `PUBLIC_URL`. In production,
 
 ## Sign-up emails (Resend)
 
-Sign-up sends a 6-digit code by email. Real email needs **a domain you own** (e.g. `marigoldandink.com`), because email providers only deliver mail "from" a domain whose owner has proven control of it.
+Sign-up sends a 6-digit code by email through [Resend](https://resend.com) (free up to 3,000 emails a month). Email providers only deliver mail "from" a domain whose owner has proven control of it, so Resend needs a few DNS records on **noboni.art**, which you add at **Hover** (where the domain is registered).
 
-1. **Get a domain** from any registrar, if you don't have one.
-2. **Create a Resend account** at <https://resend.com> (free for up to 3,000 emails a month).
-3. **Add your domain** in Resend → **Domains**. Resend shows a few DNS records (TXT and MX, for SPF and DKIM). Add them at your registrar exactly as shown, then press **Verify** in Resend. DNS can take minutes to hours.
-4. **Create an API key** in Resend → **API Keys**, with **sending access** only, limited to your domain.
-5. **Configure the app:**
-   - **On Render** (Dashboard → Environment):
-     ```
-     EMAIL_TRANSPORT=resend
-     RESEND_API_KEY=re_...
-     EMAIL_FROM=Marigold & Ink <hello@your-domain.com>
-     ```
-     `PUBLIC_URL` is also required with `resend` (emails link back to the site); `render.yaml` already sets it.
-   - **Locally** you can keep the default (`log`: codes print in the server terminal), or use the same three values plus `PUBLIC_URL` to receive real email.
+**Which domain to enter: `mail.noboni.art`.** Resend recommends sending from a subdomain rather than the main domain, "to isolate your sending reputation" ([Resend docs](https://resend.com/docs/dashboard/domains/introduction)). It costs nothing extra and changes nothing about the website: noboni.art keeps working exactly as it does. The emails then come **from an address at that subdomain**, `hello@mail.noboni.art` (Resend only sends from the domain you verified).
 
-Then sign up on the live site with your own address to check the code arrives. If sending fails, the visitor sees "We couldn't send the email" and can retry at once, and the server log says why (for example, a domain that isn't verified yet).
+### 1. Add the domain in Resend
+
+1. Sign up at <https://resend.com> and open **Domains → Add Domain**.
+2. **Name:** `mail.noboni.art`. **Region:** North Virginia (`us-east-1`), closest to most of your visitors.
+3. Resend opens the domain's **Records** tab: usually an **MX** and a **TXT** record on `send.mail`, and a **TXT** record on `resend._domainkey.mail` (newer domains may get **CNAME** records instead). Whatever it shows is what you add next; keep the tab open.
+
+### 2. Add the records at Hover
+
+In Hover: **Domains → noboni.art → DNS → Add a record**, once for each record in Resend's Records tab:
+
+| In Hover | What to enter |
+| --- | --- |
+| **Type** | The record's type in Resend (MX, TXT, or CNAME) |
+| **Hostname** | The record's name **without** `.noboni.art`: Hover adds the domain itself. So `send.mail.noboni.art` becomes `send.mail`, and `resend._domainkey.mail.noboni.art` becomes `resend._domainkey.mail`. If Resend already shows `send.mail`, type it as is. |
+| **Value / Target** | Copy and paste Resend's value exactly (the long DKIM key included). For TXT, leave out any surrounding quotation marks. |
+| **Priority** (MX only) | The priority Resend shows (usually `10`) |
+
+None of these touch the website's records (the `A`/`CNAME` records Render uses) or any email you receive. The MX record is on `send.mail.noboni.art` and only collects bounce reports for Resend.
+
+Back in Resend, press **Verify DNS Records**. It's often verified within 15 minutes and can take up to 72 hours. A record that stays red is usually a Hostname typed with `.noboni.art` on the end, or a value cut short when pasting.
+
+**Recommended once verified (helps Gmail and Yahoo trust the mail):** add a DMARC record at Hover: Type **TXT**, Hostname `_dmarc`, Value `v=DMARC1; p=none;`. It only asks receivers to report; it blocks nothing.
+
+### 3. Create an API key
+
+Resend → **API Keys → Create API Key**: name it (e.g. `marigold-render`), **Permission: Sending access**, **Domain: mail.noboni.art**. Copy the key (it starts with `re_`); Resend shows it only once. Don't paste it anywhere but Render (and your own `.env`).
+
+### 4. Configure the app
+
+**On Render** (Dashboard → the service → **Environment**):
+
+```
+EMAIL_TRANSPORT=resend
+RESEND_API_KEY=re_...                          # from step 3
+EMAIL_FROM=Marigold & Ink <hello@mail.noboni.art>
+```
+
+`PUBLIC_URL` is also required with `resend` (the email links back to the site); `render.yaml` already sets it to `https://noboni.art`. Render redeploys on save.
+
+**Locally** you can keep the default (`EMAIL_TRANSPORT` unset or `log`: codes print in the server terminal), or put the same three values in `.env` to receive real email while developing.
+
+### 5. Check it
+
+Sign up on <https://noboni.art> with your own email address. The code should arrive within a minute, from "Marigold & Ink" `<hello@mail.noboni.art>` (check spam the first time). If sending fails, the visitor sees "We couldn't send the email" and can retry at once, and the Render log says why (for example, a domain that isn't verified yet). Replies to `hello@mail.noboni.art` aren't received anywhere; the code email doesn't ask for one.
 
 ### How sign-up codes work
 
