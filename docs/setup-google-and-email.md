@@ -43,10 +43,13 @@ You need a free Google Cloud project. The console's labels change from time to t
 
 Before anyone outside your test users can sign in, Google needs a public homepage and privacy policy. In Google Auth Platform → **Branding**:
 - **Application home page:** `https://noboni.art`
-- **Application privacy policy link:** `https://noboni.art/privacy` (its text lives in `client/src/content/copy.ts`; write it before publishing)
+- **Application privacy policy link:** `https://noboni.art/privacy` (its text is `client/src/content/privacy.md`)
+- **Application terms of service link:** `https://noboni.art/terms` (`client/src/content/terms.md`)
 - **Authorized domains:** `noboni.art`. Google may ask you to prove you own it through Google Search Console, which means adding one TXT record at your registrar.
 
-Then **Audience → Publish app**. With only the three basic scopes, Google doesn't need to review the app.
+Then **Audience → Publish app**. With only the three basic scopes, Google doesn't need to review the app. Until the brand is verified, Google's sign-in screen shows the domain (`noboni.art`) rather than the app's name and logo.
+
+**Showing the name and logo (brand verification):** add the app logo (a square 120 × 120 PNG or JPG, under 1 MB) and the terms link on **Branding**, then **Verification Center → Verify branding**. Google's checks usually finish in minutes; then press **Publish branding** within 7 days. The homepage, privacy policy, and terms must all be on the verified domain (`noboni.art`, verified in Google Search Console by a project owner or editor).
 
 ### Changing the site's domain
 

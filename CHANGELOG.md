@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-24 (Milestone 9b: the terms of service)
+
+### Added
+
+- **The owner's terms of service** at `/terms` (`client/src/content/terms.md`, Markdown like the privacy policy), linked from the footer, and loaded on demand. Two factual fixes to the owner's draft: account deletion *does* cancel unpaid requests and is refused while a paid commission is in progress (section 2), and the Giving page link points to `/giving` (section 6); "account dashboard" links to `/account`.
+- `RichText` reads links inside bold text (`**[text](/path)**`).
+- **Tests:** 2 new client tests (140 in all).
+
+### Changed
+
+- The 50% deposit and two included revisions are the owner's own values now (stated in the terms), not placeholders. The Google setup guide covers the terms link and brand verification; the backlog records quote expiry (the terms say 14 days; not enforced yet).
+
 ## [0.10.0] - 2026-11-24 (Milestone 9: admin screens)
 
 ### Added
