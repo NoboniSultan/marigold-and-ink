@@ -70,7 +70,7 @@ The site answers page requests on one address only, `PUBLIC_URL`. In production,
 
 ## Sign-up emails (Resend)
 
-Sign-up sends a 6-digit code by email through [Resend](https://resend.com) (free up to 3,000 emails a month). Email providers only deliver mail "from" a domain whose owner has proven control of it, so Resend needs a few DNS records on **noboni.art**, which you add at **Porkbun** (where the domain is registered).
+Sign-up, a forgotten password, and an email change each send a 6-digit code by email through [Resend](https://resend.com) (free up to 3,000 emails a month). Email providers only deliver mail "from" a domain whose owner has proven control of it, so Resend needs a few DNS records on **noboni.art**, which you add at **Porkbun** (where the domain is registered).
 
 **Which domain to enter: `mail.noboni.art`.** Resend recommends sending from a subdomain rather than the main domain, "to isolate your sending reputation" ([Resend docs](https://resend.com/docs/dashboard/domains/introduction)). It costs nothing extra and changes nothing about the website: noboni.art keeps working exactly as it does. The emails then come **from an address at that subdomain**, `hello@mail.noboni.art` (Resend only sends from the domain you verified).
 

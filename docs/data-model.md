@@ -56,7 +56,9 @@ erDiagram
         citext email
     }
     email_verifications {
+        text purpose PK
         citext email PK
+        bigint user_id FK
         text code_hash
         smallint attempts
         timestamptz expires_at
@@ -230,7 +232,12 @@ erDiagram
 | `auth_identities_provider_check` | CHECK | Only `google` for now. |
 | `auth_identities_provider_user_id_check` | CHECK | The provider's account ID is 1–255 characters, so an empty ID can never match. |
 | `auth_identities.user_id` | FK, `ON DELETE CASCADE` | A sign-in method means nothing without its user and holds no money or history. |
-| `email_verifications_pkey` | PRIMARY KEY `(email)` | At most one pending code per address: a new code replaces the old one. |
+| `email_verifications_pkey` | PRIMARY KEY `(purpose, email)` | At most one pending code per address and purpose (`signup`, `password_reset`, `email_change`): a new code replaces the old one ([ADR 0014](decisions/0014-password-reset-and-email-change.md), milestone 8d). |
+| `email_verifications_purpose_check` | CHECK | Only the three purposes. |
+| `email_verifications_user_check` | CHECK | An email-change code belongs to the account that asked for it (`user_id`); sign-up and reset codes are by address alone. |
+| `email_verifications.user_id` | FK, `ON DELETE CASCADE` | A pending email change means nothing without its account. |
+| `email_verifications_user_id_idx` | Partial index `(user_id) WHERE user_id IS NOT NULL` | Account deletion removes a user's pending email change; serves the foreign key too. |
+| `email_verifications_expires_at_idx` | Index `(expires_at)` | Expired codes are deleted whenever a new one is issued. |
 | `email_verifications_code_hash_check` | CHECK | A SHA-256 hex digest: only an HMAC of the code is stored, never the code. |
 | `email_verifications_attempts_check` | CHECK | Never negative. Five wrong tries use a code up (enforced by the service). |
 

@@ -5,6 +5,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-24 (Milestone 8d: account recovery, email change, and data download)
+
+### Added
+
+- **Forgot password** (`/forgot-password`, linked from the login page; [ADR 0014](docs/decisions/0014-password-reset-and-email-change.md)): a 6-digit code emailed to the account's address, then a new password, which signs out every other device and signs this browser in. The page answers the same for any address, so it never reveals who has an account. Google-only accounts can use it to add a password; the admin can't (its password is in the server settings).
+- **Change your email** on the account page: the password confirms it (none for Google-only accounts), a code goes to the new address, and the old address is told once the account has moved. Other devices are signed out.
+- **Download my data** on the account page: a JSON file with the account and each commission's history, quote, and payments, as the client sees them.
+- **A warning in the server log** when a refund made in the Stripe Dashboard reaches into tree money (the site can't stop those).
+- **Migration:** `email_verifications` gains `purpose` and `user_id`, keyed by `(purpose, email)`, with constraints and indexes; expired codes are deleted whenever a new one is issued.
+- **Tests:** 38 new server tests (password reset, email change, data export, the Dashboard-refund warning, constraints; 893 in all) and 9 new client tests (114 in all).
+
+### Changed
+
+- Sign-up, password reset, and email change share one set of code rules (`auth.codes.ts`); sign-up behaves exactly as before.
+- Privacy inventory, data model, backlog, and README updated; the backlog loses the items built here (and real email and the Giving page, already done).
+
+### Fixed
+
+- **Two-step forms reused the first step's input:** when the code step's layout lines up with the email step's, React kept the typed email in the code box. Each step's form now has its own key (found by the new forgot-password test; sign-up and the account page got the same safeguard).
+
 ## [0.9.2] - 2026-11-24 (Milestone 8c: fixes from the first live Digital Humani test)
 
 ### Fixed

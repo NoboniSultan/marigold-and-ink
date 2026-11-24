@@ -1,6 +1,6 @@
 # Backlog
 
-Work that is out of scope for the current build session (milestones 0 to 8). Each item links back to the relevant section of [proposal.md](proposal.md).
+Work that is out of scope for the current build session (milestones 0 to 8d). Next: milestone 9, admin screens (quotes, status changes, refunds, tree invoices and the monthly donation report); then file uploads and delivery, and US shipping. Each item links back to the relevant section of [proposal.md](proposal.md).
 
 ## Deferred features
 
@@ -12,14 +12,14 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Shipping** (7): addresses, live rates (EasyPost or Shippo), labels, tracking webhooks, insurance, and local pickup for furniture.
 - **Shop** (6.10): products, variants, cart, inventory with row-level locking for one-of-a-kind pieces, expiring reservations, and an inventory movement log.
 - **Admin dashboard UI and analytics** (6.8): revenue by month, turnaround time, popular styles, best sellers.
-- **Public transparency page** (8): the frontend for the running donation total. Its API endpoint comes in milestone 8.
 - **Monthly donation report** (8): total sales, donations owed, and donations paid out.
 
 ## Ideas and notes
 
 - **Mark tree invoices paid** (milestone 8): donations move to `owed` when Digital Humani accepts them; an admin screen should record the planting partner's invoice as `paid` (payout date, receipt reference), plus the monthly donation report (proposal section 8).
 - **Scheduled retry for pending trees:** today they're retried after the next payment and at startup. Move it to the background jobs when those exist.
-- **Stripe Dashboard refunds bypass the tree-money cap** (ADR 0013): the webhook could flag them (refunded beyond paid − tree money) in the log or an admin view.
+- **Scheduled cleanup of expired codes:** since milestone 8d expired `email_verifications` rows are deleted whenever a new code is issued; move it to the background jobs when those exist, so an unused address can't linger in a quiet week.
+- **Stripe Dashboard refunds bypass the tree-money cap** (ADR 0013): since milestone 8d the webhook logs a warning when one reaches into tree money. Show it in the admin screens (milestone 9).
 - **Digital Humani production** goes with live Stripe: production key, `DIGITALHUMANI_ENVIRONMENT=production`, and lifting the config check (docs/setup-digital-humani.md).
 
 - **Owner decisions for later milestones (2026-11-22):**
@@ -30,8 +30,6 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Make `REDIS_URL` required** once a feature (BullMQ jobs) depends on Redis. It is validated but optional for now.
 - **Shared rate-limit store**: login and registration counters are in memory, per instance, and reset on restart. Move them to Redis if the API ever runs on more than one instance.
 - **"Log out everywhere"**: `authRepository.deleteSessionsForUser` already revokes a user's sessions by matching the JSON `userId` (used when Google takes over an unverified account). If it becomes frequent, add an indexed `user_id` column to `sessions`.
-- **Password reset**: email verification is done (milestone 5c). Reset can reuse the same code mechanism (`email_verifications` with a purpose column): email a code, set a new password, sign out other sessions.
-- **Real email in production**: the domain (`noboni.art`) is bought and live; verify it in Resend and set `EMAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `EMAIL_FROM` on Render. Until then production email sign-up says "opens soon" (docs/setup-google-and-email.md).
 - **Connect Google from account settings**: let a logged-in user link Google deliberately (today linking happens by matching verified email at sign-in).
 - **Real backups before real customers use the site**: Neon Free keeps only 6 hours of restore history and 1 GB of storage. Move to a paid Neon or Render Postgres plan; only `DATABASE_URL` changes. On a paid Render web instance, also move `migrate:up && seed` to `preDeployCommand`.
 - **Browser tests in CI:** milestone 5b was checked in headless Chrome by hand (Playwright driving the real site: morph, Escape close, 3D, register → commission). Add Playwright to CI so the shared-layout exit and the 3D scene, which jsdom can't run, are tested on every PR.
@@ -47,9 +45,6 @@ Work that is out of scope for the current build session (milestones 0 to 8). Eac
 - **Refunds after the final payment** (milestone 7 decision): they move money only. If a commission refunded in full after delivery should end as `refunded`, add those transitions to the state machine.
 - **Admin screens for quotes and refunds:** both work through the API (see docs/setup-stripe.md); there's no admin UI yet.
 - **Delayed payment methods** (bank debits, etc.): Checkout is cards-only so `checkout.session.completed` means paid. Others need the `checkout.session.async_payment_succeeded` / `_failed` events.
-- **Change email address** from the account page: needs a code sent to the new address (reuse `email_verifications`), then sign out other sessions.
-- **Download my data:** a JSON export of the account, commissions, and payments, for privacy requests.
-- **Clean up unused sign-up codes:** an `email_verifications` row for a code that was never used stays until a new code replaces it. Delete expired rows on a schedule (with the background jobs) or when a new code is sent for any address.
 - **Privacy policy text:** `/privacy` shows placeholders until the owner writes it (`client/src/content/copy.ts`). Keep `docs/privacy-data-inventory.md` current as features are added (reference uploads, messaging, shipping addresses).
 - **Two paid sessions for one stage** can't both be recorded (ADR 0011): the second event would keep failing and retrying. Practically impossible with page reuse and expiry on cancel; if it ever happens, refund it automatically like a late payment.
 - **Adjustment note visibility**: clients currently see the quote's `adjustmentNote`. Decide whether it is client-facing ("returning client discount") or internal-only.
