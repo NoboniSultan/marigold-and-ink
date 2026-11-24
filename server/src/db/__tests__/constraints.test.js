@@ -169,6 +169,55 @@ describe('email_verifications', () => {
   });
 });
 
+describe('files', () => {
+  const file = async (overrides = {}) => {
+    const commission = await createCommission();
+    return pool.query(
+      `INSERT INTO files (commission_id, uploaded_by_user_id, kind, storage_key, original_filename,
+                          content_type, size_bytes, width, height)
+       VALUES ($1, $2, 'reference', $3, $4, 'image/jpeg', 10, $5, $6)`,
+      [
+        commission.id,
+        commission.client_id,
+        `key-${Math.random()}`,
+        overrides.originalFilename ?? null,
+        overrides.width ?? null,
+        overrides.height ?? null,
+      ],
+    );
+  };
+
+  it('needs both image sizes or neither, and positive ones', async () => {
+    await expectViolation(file({ width: 10 }), CHECK_VIOLATION, 'files_dimensions_check');
+    await expectViolation(file({ width: 0, height: 5 }), CHECK_VIOLATION, 'files_dimensions_check');
+    await expect(file({ width: 10, height: 5 })).resolves.toBeDefined();
+  });
+
+  it('keeps a plain file name: never a path, never empty, at most 200 characters', async () => {
+    await expectViolation(
+      file({ originalFilename: '../x.jpg' }),
+      CHECK_VIOLATION,
+      'files_original_filename_check',
+    );
+    await expectViolation(
+      file({ originalFilename: 'a\\b.jpg' }),
+      CHECK_VIOLATION,
+      'files_original_filename_check',
+    );
+    await expectViolation(
+      file({ originalFilename: '' }),
+      CHECK_VIOLATION,
+      'files_original_filename_check',
+    );
+    await expectViolation(
+      file({ originalFilename: 'n'.repeat(201) }),
+      CHECK_VIOLATION,
+      'files_original_filename_check',
+    );
+    await expect(file({ originalFilename: 'Benito.jpg' })).resolves.toBeDefined();
+  });
+});
+
 describe('artworks', () => {
   it('rejects a slug that is not URL-safe', async () => {
     await expectViolation(

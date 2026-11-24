@@ -57,6 +57,22 @@ describe('app-level middleware', () => {
     expect(res.headers['x-powered-by']).toBeUndefined();
   });
 
+  it("lets pages show images only from the site, and from the file bucket once it's set up", async () => {
+    const imgSrc = (header) => header.split(';').find((part) => part.trim().startsWith('img-src'));
+
+    const without = await request(app).get('/api/v1/health');
+    expect(imgSrc(without.headers['content-security-policy'])).toBe("img-src 'self' data:");
+
+    const bucket =
+      'https://marigold-files.0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com';
+    const withFiles = createApp({
+      adapters: { email: null, google: null, payments: null },
+      fileOrigin: bucket,
+    });
+    const res = await request(withFiles).get('/api/v1/health');
+    expect(imgSrc(res.headers['content-security-policy'])).toBe(`img-src 'self' data: ${bucket}`);
+  });
+
   it('allows CORS only for configured origins', async () => {
     const allowedOrigin = process.env.CORS_ORIGINS.split(',')[0].trim();
 

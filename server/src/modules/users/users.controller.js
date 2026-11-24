@@ -1,5 +1,6 @@
 import * as usersService from './users.service.ts';
 import * as accountService from '../auth/auth.account.service.ts';
+import * as filesService from '../files/files.service.ts';
 import { logger } from '../../lib/logger.js';
 import {
   SESSION_COOKIE_NAME,
@@ -57,7 +58,12 @@ export async function exportMe(req, res) {
 }
 
 export async function deleteMe(req, res) {
-  const canceled = await accountService.deleteAccount(req.user.id, req.validated.body);
+  const { canceled, removedFileKeys } = await accountService.deleteAccount(
+    req.user.id,
+    req.validated.body,
+  );
+  // The reference photos' rows went with the account; now remove the stored files.
+  await filesService.removeStoredObjects(req.app.locals.adapters?.storage, removedFileKeys);
   // As after any cancel: close the commissions' open Stripe pages. The deletion has
   // committed, so a failure here is logged, never reported as a failure.
   for (const commission of canceled) {

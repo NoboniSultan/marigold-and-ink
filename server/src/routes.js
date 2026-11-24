@@ -16,6 +16,7 @@ import { paymentsRouter, adminRefundsRouter } from './modules/payments/payments.
 import { adminDonationsRouter, givingRouter } from './modules/giving/giving.routes.ts';
 import { adminCommissionsRouter } from './modules/admin/admin.routes.ts';
 import { adminReportsRouter } from './modules/reports/reports.routes.ts';
+import { adminFilesRouter, filesRouter } from './modules/files/files.routes.ts';
 import { requireAuth, requireRole } from './middleware/auth.js';
 
 /** Mounts every module's router. app.js mounts this whole router under /api/v1. */
@@ -27,6 +28,7 @@ apiRouter.use('/users', usersRouter);
 // The more specific /commissions/:id/... routers are mounted before /commissions.
 apiRouter.use('/commissions/:id/quote', quotesRouter);
 apiRouter.use('/commissions/:id/payments', paymentsRouter);
+apiRouter.use('/commissions/:id/files', filesRouter);
 apiRouter.use('/commissions', commissionsRouter);
 apiRouter.use('/artworks', artworksRouter);
 apiRouter.use('/tags', tagsRouter);
@@ -41,6 +43,7 @@ adminRouter.use(requireAuth, requireRole('admin'));
 adminRouter.use('/artworks', adminArtworksRouter);
 adminRouter.use('/tags', adminTagsRouter);
 adminRouter.use('/commissions/:id/refunds', adminRefundsRouter);
+adminRouter.use('/commissions/:id/files', adminFilesRouter);
 // After the refunds router: it owns POST /commissions/:id/refunds; this one only answers GETs.
 adminRouter.use('/commissions', adminCommissionsRouter);
 adminRouter.use('/donations', adminDonationsRouter);

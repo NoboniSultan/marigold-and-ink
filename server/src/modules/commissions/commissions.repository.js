@@ -168,3 +168,30 @@ export async function listEvents(commissionId, client = pool) {
   );
   return rows.map(toEvent);
 }
+
+/**
+ * For each commission: its status, when it was first paid in full (the balance moved it to
+ * ready_to_ship or delivered), and, once it has ended (completed, canceled, or refunded),
+ * when it reached that status. The files module dates its deletions from these (ADR 0016).
+ */
+export async function milestoneTimes(commissionIds, client = pool) {
+  if (commissionIds.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT c.id, c.status,
+       (SELECT min(e.created_at) FROM commission_events e
+         WHERE e.commission_id = c.id AND e.to_status IN ('ready_to_ship', 'delivered'))
+         AS paid_in_full_at,
+       CASE WHEN c.status IN ('completed', 'canceled', 'refunded') THEN
+         (SELECT max(e.created_at) FROM commission_events e
+           WHERE e.commission_id = c.id AND e.to_status = c.status)
+       END AS ended_at
+     FROM commissions c WHERE c.id = ANY($1::bigint[])`,
+    [commissionIds],
+  );
+  return rows.map((row) => ({
+    id: Number(row.id),
+    status: row.status,
+    paidInFullAt: row.paid_in_full_at,
+    endedAt: row.ended_at,
+  }));
+}

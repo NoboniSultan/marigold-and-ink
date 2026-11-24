@@ -21,6 +21,7 @@ import type { UserRecord } from '../users/users.service.ts';
 import * as commissionsService from '../commissions/commissions.service.js';
 import * as quotesService from '../quotes/quotes.service.js';
 import * as paymentsService from '../payments/payments.service.ts';
+import * as filesService from '../files/files.service.ts';
 import * as authRepository from './auth.repository.ts';
 import {
   CODE_TTL_MINUTES,
@@ -200,14 +201,16 @@ export async function changePassword(
  *   1. confirm: the password, or for a Google-only account, the email typed again;
  *   2. refuse admins and clients with a paid commission still in progress;
  *   3. cancel unpaid requests and clear commission notes (commissions service);
- *   4. unlink Google, drop any pending sign-up code, sign out everywhere;
+ *   4. unlink Google, drop any pending codes, remove their reference photos (ADR 0016),
+ *      sign out everywhere;
  *   5. anonymize the user row (no email, name, or password left).
- * Returns the commissions it cancelled, for the after-cancel step.
+ * Returns the commissions it cancelled (for the after-cancel step) and the storage keys of
+ * the removed photos (for the caller to delete from storage once this has committed).
  */
 export async function deleteAccount(
   userId: number,
   { password, confirmEmail }: { password?: string; confirmEmail?: string },
-): Promise<Commission[]> {
+): Promise<{ canceled: Commission[]; removedFileKeys: string[] }> {
   return withTransaction(async (client) => {
     const record = await usersService.findForAuthById(userId, { client, forUpdate: true });
     // requireAuth already checked the account exists; a concurrent deletion can't get here.
@@ -235,8 +238,9 @@ export async function deleteAccount(
     const canceled = await commissionsService.closeForDeletedClient(userId, { client });
     await authRepository.deleteIdentitiesForUser(userId, client);
     await authRepository.deleteVerificationsForUser(userId, record.email, client);
+    const removedFileKeys = await filesService.takeReferencesForDeletedClient(userId, { client });
     await authRepository.deleteSessionsForUser(userId, client);
     await usersService.anonymize(userId, { client });
-    return canceled;
+    return { canceled, removedFileKeys };
   });
 }
