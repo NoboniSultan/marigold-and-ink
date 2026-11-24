@@ -28,7 +28,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Account page: details, own commissions, name, password, and email changes, data download, account deletion; forgot-password reset | Built |
 | Giving: 25% of every fully paid commission plants trees through Digital Humani; Giving page with a growing tree; refunds never give back tree money | Built (sandbox); needs [setup](docs/setup-digital-humani.md) |
 | Admin screens: commissions (quote, status, refunds), giving (mark tree invoices paid in batches), monthly report with CSV | Built ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)) |
-| File uploads, messaging, shipping, shop, slots | Later (see backlog) |
+| Files: reference photos (metadata stripped), watermarked previews, final-file downloads; private R2 storage with signed links and automatic deletion | Built; needs [setup](docs/setup-r2.md) ([ADR 0016](docs/decisions/0016-commission-files-on-r2.md)) |
+| Messaging, shipping, shop, slots | Later (see backlog) |
 
 ## Tech stack
 
@@ -257,6 +258,11 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | GET | `/api/v1/artworks/:slug` | Public | One published artwork. Drafts answer 404, like missing artworks. |
 | GET | `/api/v1/tags` | Public | Tags used by published artworks, with counts. |
 | GET | `/api/v1/about` | Public | The About page photo and bio. |
+| GET | `/api/v1/commissions/:id/files` | Owner or admin | `{ data, meta }`: the commission's files with signed links (10 minutes); final files only once paid in full (admin: always). `meta.filesEnabled`, `referencesOpen`, and the limits. |
+| POST | `/api/v1/commissions/:id/files/references` | Owner or admin | A reference photo as the raw body (`X-Filename` header): JPEG, PNG, or WebP, ≤ 15 MB, at most 10, until work starts. Stored re-encoded with no metadata. 201. |
+| DELETE | `/api/v1/commissions/:id/files/:fileId` | Owner or admin | The client removes their reference photos until work starts; the admin removes any file. 204. |
+| POST | `/api/v1/admin/commissions/:id/files/previews` | Admin | A work-in-progress image (≤ 25 MB), watermarked before it's stored. |
+| POST | `/api/v1/admin/commissions/:id/files/finals` | Admin | A final file as uploaded: JPEG, PNG, PDF, or TIFF, ≤ 100 MB. |
 | GET | `/api/v1/admin/commissions` | Admin | Commissions newest first, each with its `client` (`null` once deleted). `?status=`, `?page=`. |
 | GET | `/api/v1/admin/commissions/:id` | Admin | `{ commission, client, money }`: details with allowed moves, the client, and paid / refunded / tree money / still refundable ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)). |
 | GET | `/api/v1/admin/donations` | Admin | Tree donations, newest first. `?status=owed|paid|pending|reversed`, `?page=`. |
@@ -337,6 +343,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0013: Giving through Digital Humani](docs/decisions/0013-giving-through-digital-humani.md)
 - [0014: Password reset and email change by emailed code](docs/decisions/0014-password-reset-and-email-change.md)
 - [0015: Admin screens and the monthly report](docs/decisions/0015-admin-screens-and-monthly-report.md)
+- [0016: Commission files on Cloudflare R2](docs/decisions/0016-commission-files-on-r2.md)
 
 ## Roadmap
 

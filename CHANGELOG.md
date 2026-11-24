@@ -5,6 +5,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-24 (Milestone 10: files)
+
+### Added
+
+- **Commission files** in a private Cloudflare R2 bucket ([ADR 0016](docs/decisions/0016-commission-files-on-r2.md); setup in `docs/setup-r2.md`; off until configured):
+  - **Reference photos:** clients add up to 10 (JPEG, PNG, or WebP, 15 MB each) right after sending a request or on the commission's page, and can remove them, until work starts. Each is re-encoded upright, at most 2400 px, **with all metadata removed** (no GPS, camera, or time).
+  - **Previews:** the owner uploads work in progress from the admin commission page; the server **watermarks** it ("Marigold & Ink · PREVIEW", tiled) before storing, so no clean copy is kept. Clients see them on their commission's page.
+  - **Final files:** the owner uploads the deliverable (JPEG, PNG, PDF, or TIFF, up to 100 MB), stored as is; the client gets a **download** button once the commission is paid in full, with the date it stays available until.
+  - **Privacy and safety:** the real file type is read from its bytes; every read is a signed link that expires in 10 minutes; the security policy allows images from the bucket only; at most 60 uploads an hour per user.
+  - **Automatic deletion:** reference photos 90 days after a commission ends; previews and finals a year after full payment (or 90 days after an unpaid end); a sweep runs at startup and daily. **Account deletion** removes the client's reference photos.
+- **API:** `GET /commissions/:id/files`, `POST /commissions/:id/files/references`, `DELETE /commissions/:id/files/:fileId`, `POST /admin/commissions/:id/files/previews` and `/finals`.
+- **Migration:** `files.width`/`height` and the file-name rule, with constraints.
+- **Dependencies:** `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` (3.1165.0, exact) for R2's S3 API; `sharp` moves to production dependencies (it was dev-only for `npm run media`).
+- **Tests:** 43 new server tests (960 in all: uploads, limits, types, metadata stripping, watermarking, visibility, deletion, the expiry sweep, account deletion, the adapter with a fake S3 client, config, constraints, the security policy) and 7 new client tests (147 in all).
+
+### Changed
+
+- Helmet's Content-Security-Policy now names `img-src` explicitly: the site, `data:`, and the R2 bucket once configured.
+- The privacy data inventory covers files and R2; the owner adds a part to the privacy policy before switching uploads on (backlog).
+
 ## [0.10.1] - 2026-11-24 (Milestone 9b: the terms of service)
 
 ### Added

@@ -355,6 +355,10 @@ Only the tables exist so far; the endpoints come in a later phase.
 | --- | --- | --- |
 | `files_kind_check` | CHECK | `reference` (the client's photo), `preview` (watermarked work in progress), or `final` (the deliverable). |
 | `files_storage_key_key` | UNIQUE | Each stored object is described by exactly one row. |
+| `files_dimensions_check` | CHECK | `width` and `height` both set (positive) or both empty: images have a size, a PDF has none (milestone 10). Written as `(width IS NULL) = (height IS NULL) AND …` so a half-filled pair can't pass as "unknown". |
+| `files_original_filename_check` | CHECK | The uploader's file name, 1–200 characters, never containing `/` or `\` (a name, not a path). |
+
+Files are used from milestone 10 ([ADR 0016](decisions/0016-commission-files-on-r2.md)): the bytes live in a private R2 bucket under `storage_key` (`commissions/<id>/<kind>/<uuid>.<ext>`); rows are deleted, with their objects, when the keeping period ends (90 days after a commission ends for reference photos; a year after full payment for previews and final files).
 | `files_size_check` | CHECK | `size_bytes > 0`. |
 | `files_content_type_check` | CHECK | A MIME type shape such as `image/jpeg`. |
 | `files_commission_kind_idx` | Index `(commission_id, kind)` | "Previews for this commission". |
