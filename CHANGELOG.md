@@ -14,7 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ### Changed
 
-- **Resend setup guide rewritten** for noboni.art: send from the subdomain `mail.noboni.art` (Resend's advice: it keeps sending reputation apart from the main domain), the exact DNS records to add at Hover, and the `EMAIL_FROM` address to match.
+- **Resend setup guide rewritten** for noboni.art: send from the subdomain `mail.noboni.art` (Resend's advice: it keeps sending reputation apart from the main domain), the exact DNS records to add at Porkbun (the registrar), and the `EMAIL_FROM` address to match.
 
 ### Added
 
