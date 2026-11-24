@@ -70,7 +70,7 @@ The site answers page requests on one address only, `PUBLIC_URL`. In production,
 
 ## Sign-up emails (Resend)
 
-Sign-up sends a 6-digit code by email through [Resend](https://resend.com) (free up to 3,000 emails a month). Email providers only deliver mail "from" a domain whose owner has proven control of it, so Resend needs a few DNS records on **noboni.art**, which you add at **Hover** (where the domain is registered).
+Sign-up sends a 6-digit code by email through [Resend](https://resend.com) (free up to 3,000 emails a month). Email providers only deliver mail "from" a domain whose owner has proven control of it, so Resend needs a few DNS records on **noboni.art**, which you add at **Porkbun** (where the domain is registered).
 
 **Which domain to enter: `mail.noboni.art`.** Resend recommends sending from a subdomain rather than the main domain, "to isolate your sending reputation" ([Resend docs](https://resend.com/docs/dashboard/domains/introduction)). It costs nothing extra and changes nothing about the website: noboni.art keeps working exactly as it does. The emails then come **from an address at that subdomain**, `hello@mail.noboni.art` (Resend only sends from the domain you verified).
 
@@ -80,22 +80,23 @@ Sign-up sends a 6-digit code by email through [Resend](https://resend.com) (free
 2. **Name:** `mail.noboni.art`. **Region:** North Virginia (`us-east-1`), closest to most of your visitors.
 3. Resend opens the domain's **Records** tab: usually an **MX** and a **TXT** record on `send.mail`, and a **TXT** record on `resend._domainkey.mail` (newer domains may get **CNAME** records instead). Whatever it shows is what you add next; keep the tab open.
 
-### 2. Add the records at Hover
+### 2. Add the records at Porkbun
 
-In Hover: **Domains → noboni.art → DNS → Add a record**, once for each record in Resend's Records tab:
+In Porkbun: **Account → Domain Management**, then on **noboni.art** open **Details → DNS Records** (the "DNS" link). Add one record for each row of Resend's Records tab:
 
-| In Hover | What to enter |
+| In Porkbun | What to enter |
 | --- | --- |
 | **Type** | The record's type in Resend (MX, TXT, or CNAME) |
-| **Hostname** | The record's name **without** `.noboni.art`: Hover adds the domain itself. So `send.mail.noboni.art` becomes `send.mail`, and `resend._domainkey.mail.noboni.art` becomes `resend._domainkey.mail`. If Resend already shows `send.mail`, type it as is. |
-| **Value / Target** | Copy and paste Resend's value exactly (the long DKIM key included). For TXT, leave out any surrounding quotation marks. |
+| **Host** | The record's name **without** `.noboni.art`: Porkbun adds the domain itself (it shows `.noboni.art` after the box). So `send.mail.noboni.art` becomes `send.mail`, and `resend._domainkey.mail.noboni.art` becomes `resend._domainkey.mail`. If Resend already shows `send.mail`, type it as is. |
+| **Answer** | Copy and paste Resend's value exactly (the long DKIM key included). For TXT, leave out any surrounding quotation marks. |
 | **Priority** (MX only) | The priority Resend shows (usually `10`) |
+| **TTL** | Leave Porkbun's default |
 
 None of these touch the website's records (the `A`/`CNAME` records Render uses) or any email you receive. The MX record is on `send.mail.noboni.art` and only collects bounce reports for Resend.
 
-Back in Resend, press **Verify DNS Records**. It's often verified within 15 minutes and can take up to 72 hours. A record that stays red is usually a Hostname typed with `.noboni.art` on the end, or a value cut short when pasting.
+Back in Resend, press **Verify DNS Records**. It's often verified within 15 minutes and can take up to 72 hours. A record that stays red is usually a Host typed with `.noboni.art` on the end, or a value cut short when pasting.
 
-**Recommended once verified (helps Gmail and Yahoo trust the mail):** add a DMARC record at Hover: Type **TXT**, Hostname `_dmarc`, Value `v=DMARC1; p=none;`. It only asks receivers to report; it blocks nothing.
+**Recommended once verified (helps Gmail and Yahoo trust the mail):** add a DMARC record at Porkbun: Type **TXT**, Host `_dmarc`, Value `v=DMARC1; p=none;`. It only asks receivers to report; it blocks nothing.
 
 ### 3. Create an API key
 
