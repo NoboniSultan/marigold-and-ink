@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-24 (Milestone 8e: the privacy policy)
+
+### Added
+
+- **The owner's privacy policy** at `/privacy`, in `client/src/content/privacy.md` (Markdown, so the owner can edit it directly). Three factual updates were made to the owner's draft so it matches milestone 8d (password reset and email change codes, self-service email change and data download, Resend as an active service), plus in-site links to the Giving and account pages. The contact email is still a `PLACEHOLDER`.
+- **A small, safe Markdown renderer** (`components/Markdown.tsx`): headings (with linkable IDs), paragraphs with line breaks, bullet lists, and inline `RichText`. React elements only, never raw HTML.
+- `RichText` also renders `` `code` `` and same-site links (`/giving`), which stay in the app; `//other-site` is never treated as same-site.
+- The Privacy page is loaded on demand (about 7 KB gzipped), so the main bundle stays at 164 KB.
+- **Tests:** 7 new client tests (121 in all).
+
+### Changed
+
+- The backlog records the contact email, publishing the Google sign-in app, the live site's admin login, and quoting commission #2 on the live site.
+
 ## [0.9.3] - 2026-11-24 (Milestone 8d: account recovery, email change, and data download)
 
 ### Added
