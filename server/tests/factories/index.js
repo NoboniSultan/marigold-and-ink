@@ -163,6 +163,26 @@ export async function createPayment(overrides = {}) {
   });
 }
 
+/** A shipment row for a physical commission; full address and package unless overridden. */
+export async function createShipment(overrides = {}) {
+  const commissionId =
+    overrides.commissionId ??
+    (await createQuotedCommission({ status: 'in_progress', fulfillmentType: 'physical' })).id;
+  return insert('shipments', {
+    recipientName: 'Test Client',
+    addressLine1: '1 Main St',
+    city: 'Testville',
+    state: 'NY',
+    postalCode: '10001',
+    weightOz: 12,
+    lengthIn: 18,
+    widthIn: 14,
+    heightIn: 1,
+    ...overrides,
+    commissionId,
+  });
+}
+
 export function createCharity(overrides = {}) {
   const n = next();
   return insert('charities', { name: `Test Charity ${n}`, ...overrides });

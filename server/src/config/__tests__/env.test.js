@@ -290,3 +290,85 @@ describe('loadConfig: files (Cloudflare R2)', () => {
     expect(() => loadConfig({ ...filesEnv, R2_BUCKET: 'Has_Capitals' })).toThrow(/R2_BUCKET/);
   });
 });
+
+describe('loadConfig: shipping (Shippo)', () => {
+  const paymentsEnv = {
+    ...validEnv,
+    PUBLIC_URL: 'https://example.com',
+    STRIPE_SECRET_KEY: 'sk_test_abc123',
+    STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
+    PAYMENT_CURRENCY: 'usd',
+  };
+  const shippingEnv = {
+    ...paymentsEnv,
+    SHIPPO_API_KEY: 'shippo_test_abc123',
+    PACKAGING_FEE_CENTS: '400', // a test value
+    SHIP_FROM_NAME: 'Test Studio',
+    SHIP_FROM_STREET1: '1 Test St',
+    SHIP_FROM_CITY: 'Testville',
+    SHIP_FROM_STATE: 'NY',
+    SHIP_FROM_ZIP: '10001',
+  };
+
+  it('is off without the Shippo settings', () => {
+    expect(loadConfig(paymentsEnv).shipping).toBeNull();
+  });
+
+  it('reads every setting when switched on, with an optional second street line', () => {
+    expect(loadConfig(shippingEnv).shipping).toEqual({
+      apiKey: 'shippo_test_abc123',
+      packagingFeeCents: 400,
+      from: {
+        name: 'Test Studio',
+        street1: '1 Test St',
+        street2: null,
+        city: 'Testville',
+        state: 'NY',
+        zip: '10001',
+      },
+    });
+    expect(loadConfig({ ...shippingEnv, SHIP_FROM_STREET2: 'Unit 2' }).shipping?.from.street2).toBe(
+      'Unit 2',
+    );
+  });
+
+  it('accepts a packaging fee of zero', () => {
+    expect(
+      loadConfig({ ...shippingEnv, PACKAGING_FEE_CENTS: '0' }).shipping?.packagingFeeCents,
+    ).toBe(0);
+  });
+
+  it('requires the rest once any is set, the packaging fee included', () => {
+    const { PACKAGING_FEE_CENTS: _f, SHIP_FROM_ZIP: _z, ...missing } = shippingEnv;
+    expect(() => loadConfig(missing)).toThrow(/PACKAGING_FEE_CENTS[\s\S]*SHIP_FROM_ZIP/);
+    expect(() => loadConfig({ ...paymentsEnv, SHIP_FROM_STREET2: 'Unit 2' })).toThrow(
+      /SHIPPO_API_KEY/,
+    );
+  });
+
+  it('needs payments switched on', () => {
+    const {
+      STRIPE_SECRET_KEY: _k,
+      STRIPE_WEBHOOK_SECRET: _w,
+      PAYMENT_CURRENCY: _c,
+      ...noPayments
+    } = shippingEnv;
+    expect(() => loadConfig(noPayments)).toThrow(/shipping needs payments[\s\S]*STRIPE_SECRET_KEY/);
+  });
+
+  it('refuses a live token while payments are test-only', () => {
+    expect(() => loadConfig({ ...shippingEnv, SHIPPO_API_KEY: 'shippo_live_abc' })).toThrow(
+      /real postage[\s\S]*SHIPPO_API_KEY/,
+    );
+  });
+
+  it.each([
+    ['SHIPPO_API_KEY', 'not-a-token'],
+    ['PACKAGING_FEE_CENTS', '-1'],
+    ['PACKAGING_FEE_CENTS', '3.50'],
+    ['SHIP_FROM_STATE', 'New York'],
+    ['SHIP_FROM_ZIP', '1234'],
+  ])('rejects %s=%s', (key, value) => {
+    expect(() => loadConfig({ ...shippingEnv, [key]: value })).toThrow(new RegExp(key));
+  });
+});

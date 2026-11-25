@@ -46,6 +46,17 @@ export function sumCents(amounts) {
   return amounts.reduce((total, amount) => total + assertCents(amount), 0);
 }
 
+/**
+ * A decimal amount written as text, as payment and shipping services send it, to exact
+ * cents without passing through a float: centsFromDecimal('7.58') -> 758,
+ * centsFromDecimal('12') -> 1200, centsFromDecimal('0.5') -> 50.
+ */
+export function centsFromDecimal(text) {
+  const match = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(typeof text === 'string' ? text.trim() : '');
+  if (!match) throw new TypeError(`expected an amount like "12.34", got ${JSON.stringify(text)}`);
+  return Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
+}
+
 /** Formats cents for display: formatCents(123456) -> "$1,234.56". Never use for calculation. */
 export function formatCents(amountCents, currency = 'USD', locale = 'en-US') {
   return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amountCents / 100);

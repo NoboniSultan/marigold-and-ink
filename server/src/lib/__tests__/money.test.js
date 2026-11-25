@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { assertCents, percentOfCents, splitDeposit, sumCents, formatCents } from '../money.js';
+import {
+  assertCents,
+  percentOfCents,
+  splitDeposit,
+  sumCents,
+  formatCents,
+  centsFromDecimal,
+} from '../money.js';
 
 describe('assertCents', () => {
   it.each([0, 1, 123456])('accepts %i', (value) => {
@@ -70,6 +77,29 @@ describe('sumCents', () => {
 
   it('refuses floats', () => {
     expect(() => sumCents([100, 0.5])).toThrow(TypeError);
+  });
+});
+
+describe('centsFromDecimal', () => {
+  it.each([
+    ['7.58', 758],
+    ['12', 1200],
+    ['0.5', 50],
+    ['0.05', 5],
+    [' 3.10 ', 310],
+    ['0', 0],
+    ['999999999.99', 99_999_999_999],
+  ])('reads %j as %i cents', (text, cents) => {
+    expect(centsFromDecimal(text)).toBe(cents);
+  });
+
+  it.each(['', '1.234', '-1.00', '1e3', '.5', 'abc', '1,000.00'])('refuses %j', (text) => {
+    expect(() => centsFromDecimal(text)).toThrow(TypeError);
+  });
+
+  it('refuses anything that is not text', () => {
+    expect(() => centsFromDecimal(7.58)).toThrow(TypeError);
+    expect(() => centsFromDecimal(null)).toThrow(TypeError);
   });
 });
 

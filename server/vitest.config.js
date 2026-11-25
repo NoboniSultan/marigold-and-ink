@@ -54,6 +54,14 @@ export default defineConfig({
       R2_ACCESS_KEY_ID: '',
       R2_SECRET_ACCESS_KEY: '',
       R2_BUCKET: '',
+      SHIPPO_API_KEY: '',
+      PACKAGING_FEE_CENTS: '',
+      SHIP_FROM_NAME: '',
+      SHIP_FROM_STREET1: '',
+      SHIP_FROM_STREET2: '',
+      SHIP_FROM_CITY: '',
+      SHIP_FROM_STATE: '',
+      SHIP_FROM_ZIP: '',
       // Small fixture content and images (tests/fixtures), so tests never depend on the
       // owner's real photos. content.real.test.ts validates the real files separately.
       CONTENT_DIR: path.join(import.meta.dirname, 'tests/fixtures/content'),
