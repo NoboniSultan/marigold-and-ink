@@ -18,6 +18,7 @@ import { createDefaultAdapters } from './adapters/index.ts';
 import { stripeWebhook } from './modules/payments/payments.controller.ts';
 import { expireOpenCheckouts } from './modules/payments/payments.service.ts';
 import { requestPendingTrees } from './modules/giving/giving.service.ts';
+import { purgeExpiredFiles } from './modules/files/files.service.ts';
 
 const MEDIA_COLLECTIONS = ['artworks', 'about'];
 
@@ -33,12 +34,18 @@ const MEDIA_COLLECTIONS = ['artworks', 'about'];
  * `canonicalUrl` is the one address the site answers page requests on (others redirect
  * there). It's PUBLIC_URL in production only: in development PUBLIC_URL is the Vite site,
  * not the API's own address.
+ *
+ * `fileOrigin` is the R2 bucket's own address, where signed links to commission images
+ * point (ADR 0016); the Content-Security-Policy lets pages show images from there only.
  */
 export function createApp({
   adapters = createDefaultAdapters(),
   // The share of a fully paid commission that goes to trees; null = giving is off.
   donationPercent = config.giving?.donationPercent ?? null,
   canonicalUrl = config.nodeEnv === 'production' ? config.publicUrl : null,
+  fileOrigin = config.files
+    ? `https://${config.files.bucket}.${config.files.accountId}.r2.cloudflarestorage.com`
+    : null,
 } = {}) {
   const app = express();
   app.locals.adapters = adapters;
@@ -49,6 +56,8 @@ export function createApp({
   // Sends pending tree requests to Digital Humani (after a payment, and at startup). Kept
   // here so the payments module needn't know about the trees adapter. Never throws.
   app.locals.requestPendingTrees = () => requestPendingTrees(adapters.trees);
+  // Deletes files whose keeping period is over (ADR 0016); server.js runs it daily.
+  app.locals.purgeExpiredFiles = () => purgeExpiredFiles(adapters.storage);
   app.locals.onCommissionStatusChange = async (commission) => {
     if (commission.status === 'canceled') {
       await expireOpenCheckouts(commission.id, adapters.payments);
@@ -69,7 +78,18 @@ export function createApp({
 
   // 2. Security headers, and only allow browser calls from known front-end origins.
   //    `credentials: true` lets those origins send the session cookie.
-  app.use(helmet());
+  //    Helmet's default Content-Security-Policy, plus images from the file bucket (signed
+  //    links to reference photos and previews), and nothing else from elsewhere.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'img-src': ["'self'", 'data:', ...(fileOrigin ? [fileOrigin] : [])],
+        },
+      },
+    }),
+  );
   app.use(cors({ origin: [...config.corsOrigins], credentials: true }));
 
   // 3. Processed images (npm run media). Before sessions, so an image never costs a session

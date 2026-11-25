@@ -54,3 +54,14 @@ export const passwordConfirmRateLimiter = createRateLimiter({
   skipSuccessfulRequests: true,
   keyGenerator: (req) => `user:${req.user.id}`,
 });
+
+/**
+ * Uploads (milestone 10): at most 60 an hour per signed-in user, counting every attempt.
+ * Each upload is processed and stored, so this keeps one account from filling the bucket
+ * or tying up the server. Use after requireAuth.
+ */
+export const uploadRateLimiter = createRateLimiter({
+  limit: 60,
+  windowMs: 60 * 60 * 1000,
+  keyGenerator: (req) => `upload:${req.user.id}`,
+});

@@ -4,12 +4,18 @@ import { logger } from './lib/logger.js';
 import { pool } from './db/pool.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
+/** How often expired files are swept (ADR 0016); also once at startup. */
+const FILE_SWEEP_MS = 24 * 60 * 60 * 1000;
 
 const app = createApp();
 const server = app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, 'server listening');
   // Tree requests that didn't go through before the last restart are retried now.
   app.locals.requestPendingTrees();
+  // Files past their keeping period are deleted now, then once a day. (The free Render
+  // plan also restarts the server often, so this runs at least that often.)
+  app.locals.purgeExpiredFiles();
+  setInterval(() => app.locals.purgeExpiredFiles(), FILE_SWEEP_MS).unref();
 });
 
 /**

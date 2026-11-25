@@ -38,7 +38,7 @@ export default defineConfig({
       STRIPE_WEBHOOK_SECRET: 'whsec_test_secret_for_tests',
       PAYMENT_CURRENCY: 'usd',
       // Third-party services off, whatever a developer's .env holds: a real Digital Humani,
-      // Resend, or Google key must never reach a test (blank counts as unset). Tests that
+      // Resend, Google, or R2 key must never reach a test (blank counts as unset). Tests that
       // need one switch it on with a fake adapter passed to createApp.
       DIGITALHUMANI_API_KEY: '',
       DIGITALHUMANI_ENTERPRISE_ID: '',
@@ -50,6 +50,10 @@ export default defineConfig({
       EMAIL_FROM: '',
       GOOGLE_CLIENT_ID: '',
       GOOGLE_CLIENT_SECRET: '',
+      R2_ACCOUNT_ID: '',
+      R2_ACCESS_KEY_ID: '',
+      R2_SECRET_ACCESS_KEY: '',
+      R2_BUCKET: '',
       // Small fixture content and images (tests/fixtures), so tests never depend on the
       // owner's real photos. content.real.test.ts validates the real files separately.
       CONTENT_DIR: path.join(import.meta.dirname, 'tests/fixtures/content'),

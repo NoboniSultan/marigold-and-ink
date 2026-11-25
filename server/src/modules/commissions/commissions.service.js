@@ -87,6 +87,15 @@ export async function listEvents(id, user) {
   return commissionsRepository.listEvents(id);
 }
 
+/**
+ * When each commission was paid in full and when it ended (see the repository), for the
+ * files module's retention rules. Map of commission ID → times.
+ */
+export async function milestoneTimes(commissionIds, { client } = {}) {
+  const rows = await commissionsRepository.milestoneTimes([...new Set(commissionIds)], client);
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
 /** A user changes a commission's status through the generic endpoint. */
 export async function changeStatus(id, user, { toStatus, reason }) {
   await getCommissionForUser(id, user); // 404 / 403 before revealing anything else

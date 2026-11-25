@@ -10,6 +10,7 @@ import buttonStyles from '../components/Button.module.css';
 import { STATUS_TEXT } from '../features/commissions/statusText.ts';
 import styles from './SimplePage.module.css';
 import { formatMoney } from '../features/commissions/money.ts';
+import { ClientFiles } from '../features/files/CommissionFiles.tsx';
 
 /** Leaving the site for Stripe's page. An object so tests can replace it. */
 export const externalNavigation = {
@@ -225,6 +226,8 @@ function CommissionStatus({ id }: { id: number }) {
           <p className={styles.notice}>Online payment opens soon.</p>
         )
       ) : null}
+
+      <ClientFiles commissionId={id} />
 
       <Details
         commission={commission.data}

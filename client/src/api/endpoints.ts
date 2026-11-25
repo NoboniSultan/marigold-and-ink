@@ -42,7 +42,8 @@ import type {
   UpdateProfileRequest,
   User,
 } from '@shared/types/user.ts';
-import { API_BASE, request } from './client.ts';
+import { API_BASE, request, upload } from './client.ts';
+import type { CommissionFile, FilesResponse } from '@shared/types/files.ts';
 
 export interface ArtworkFilters {
   page?: number;
@@ -191,3 +192,37 @@ export const adminApi = {
 /** The monthly report as a CSV file: a plain link the browser downloads with the session. */
 export const monthlyReportCsvUrl = (year: number) =>
   `${API_BASE}/admin/reports/monthly.csv?year=${year}`;
+
+/** A commission's files (milestone 10): reference photos, previews, and final files. */
+export const filesApi = {
+  list: (commissionId: number, signal?: AbortSignal) =>
+    request<FilesResponse>(`/commissions/${commissionId}/files`, { signal }),
+  uploadReference: (commissionId: number, file: File) =>
+    data(
+      upload<ApiResponse<CommissionFile>>(
+        `/commissions/${commissionId}/files/references`,
+        file,
+        file.name,
+      ),
+    ),
+  remove: (commissionId: number, fileId: number) =>
+    request<void>(`/commissions/${commissionId}/files/${fileId}`, { method: 'DELETE' }),
+  /** Admin: a work-in-progress image; the server watermarks it. */
+  uploadPreview: (commissionId: number, file: File) =>
+    data(
+      upload<ApiResponse<CommissionFile>>(
+        `/admin/commissions/${commissionId}/files/previews`,
+        file,
+        file.name,
+      ),
+    ),
+  /** Admin: the deliverable, stored exactly as uploaded. */
+  uploadFinal: (commissionId: number, file: File) =>
+    data(
+      upload<ApiResponse<CommissionFile>>(
+        `/admin/commissions/${commissionId}/files/finals`,
+        file,
+        file.name,
+      ),
+    ),
+};

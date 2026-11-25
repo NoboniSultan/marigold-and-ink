@@ -8,6 +8,7 @@ import { createEmailSender, type EmailSender } from './email.ts';
 import { createGoogleAuth, type GoogleAuth } from './googleOidc.ts';
 import { createStripeGateway, type PaymentGateway } from './stripe/stripeGateway.ts';
 import { createTreePlanter, type TreePlanter } from './digitalHumani.ts';
+import { createR2Storage, type FileStorage } from './r2Storage.ts';
 
 export interface AppAdapters {
   email: EmailSender | null;
@@ -15,6 +16,8 @@ export interface AppAdapters {
   payments: PaymentGateway | null;
   /** Optional, so tests that don't involve giving can leave it out (= giving is off). */
   trees?: TreePlanter | null;
+  /** Optional, so tests that don't involve files can leave it out (= uploads are off). */
+  storage?: FileStorage | null;
 }
 
 export function createDefaultAdapters(): AppAdapters {
@@ -38,6 +41,15 @@ export function createDefaultAdapters(): AppAdapters {
           enterpriseId: config.giving.enterpriseId!,
           projectId: config.giving.projectId!,
           environment: config.giving.environment!,
+        })
+      : null,
+    // The config check guarantees every R2 setting is set whenever the bucket is.
+    storage: config.files
+      ? createR2Storage({
+          accountId: config.files.accountId!,
+          accessKeyId: config.files.accessKeyId!,
+          secretAccessKey: config.files.secretAccessKey!,
+          bucket: config.files.bucket,
         })
       : null,
   };

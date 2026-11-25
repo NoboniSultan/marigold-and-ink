@@ -2,7 +2,7 @@
 
 What personal data the site collects, where it goes, and how long it stays, taken from the code. It's the factual basis for the privacy policy at `/privacy` (the owner's text, in `client/src/content/privacy.md`), not the policy itself. When this file changes, check the policy still matches.
 
-**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 9.
+**Keep it current:** any milestone that stores, logs, or sends new personal data updates this file in the same PR. Last checked at milestone 10.
 
 ## 1. Accounts (`users`, `auth_identities`)
 
@@ -29,6 +29,14 @@ What personal data the site collects, where it goes, and how long it stays, take
 - Size, medium, number of subjects, physical or digital, rush, and a **free-text notes field**. Notes can contain anything the client types, including details about the people or pets in the piece.
 - Status history: each change, who made it (client, admin, or system), and when.
 - Quotes and prices.
+
+## 3a. Files (`files`, and the R2 bucket; milestone 10, [ADR 0016](decisions/0016-commission-files-on-r2.md))
+
+- **Reference photos** a client uploads to their commission (up to 10): they may show the client, other people, or pets. Before storing, the server re-encodes each one as a JPEG of at most 2400 px **with all metadata removed** (no GPS location, camera, or time taken). The table keeps the name the file had, its size, and who uploaded it.
+- **Previews** (the artist's work in progress, watermarked) and **final files** (the deliverable) uploaded by the owner.
+- Stored in a **private Cloudflare R2 bucket**; read only through signed links that expire in 10 minutes. The client sees their own commission's files; final files only once it's paid in full.
+- **Deleted automatically:** reference photos **90 days after the commission ends** (completed, cancelled, or refunded); previews and final files **a year after full payment** (or 90 days after a commission that ended unpaid). **Account deletion** removes the client's reference photos at once.
+- Only active once R2 is configured (`R2_*` settings); the privacy policy should describe it before then (docs/setup-r2.md).
 
 ## 4. Payments (`payments`, `processed_webhook_events`)
 
@@ -60,12 +68,12 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Stripe | Payments | Email, amounts, card details (entered on Stripe's page) | Stripe's infrastructure |
 | Google | "Continue with Google" | That the person is signing in to this app | Google's infrastructure |
 | Resend | Sign-up emails (once configured) | Email address and the code | Resend's infrastructure |
+| Cloudflare R2 | Storing commission files (once configured) | Reference photos (metadata removed), previews, final files | Cloudflare's infrastructure (location automatic, or Eastern North America) |
 | Digital Humani | Requesting trees for fully paid commissions (once configured) | **No personal data:** a reference like `commission-12` and a number of trees | Digital Humani's infrastructure (Canada) |
 
 All the site's own data is stored in the United States.
 
 ## 8. Not built yet (update this file when they are)
 
-- **Reference photo uploads** (milestone 8): the `files` table exists but is unused.
 - **Messaging:** the `messages` table exists but is unused.
 - **Shipping addresses** (proposal section 7).

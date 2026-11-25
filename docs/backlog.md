@@ -1,10 +1,9 @@
 # Backlog
 
-Work that is out of scope for the current build session (milestones 0 to 9). Next: milestone 10, file uploads and delivery; then milestone 11, US shipping. Each item links back to the relevant section of [proposal.md](proposal.md).
+Work that is out of scope for the current build session (milestones 0 to 10). Next: milestone 11, US shipping. Each item links back to the relevant section of [proposal.md](proposal.md).
 
 ## Deferred features
 
-- **File handling** (proposal 6.5): reference photo uploads to object storage, server-side watermarked previews (Sharp), and final files served through expiring signed URLs.
 - **Messaging** (6.7): a message thread per commission. The `messages` table is created in milestone 2; its endpoints come later.
 - **Email notifications** (6.7): new messages, payment reminders, status changes, shipping updates, and the donation amount in order confirmations.
 - **Background jobs**: BullMQ on Redis for email and scheduled tasks.
@@ -51,7 +50,12 @@ Work that is out of scope for the current build session (milestones 0 to 9). Nex
 - **Two paid sessions for one stage** can't both be recorded (ADR 0011): the second event would keep failing and retrying. Practically impossible with page reuse and expiry on cancel; if it ever happens, refund it automatically like a late payment.
 - **Adjustment note visibility**: clients currently see the quote's `adjustmentNote`. Decide whether it is client-facing ("returning client discount") or internal-only.
 - **Donation adjustment history** (milestone 8): partial refunds need an auditable adjustment record; design it with the refund-after-payout rule.
-- **Artwork uploads** (with file handling): an upload flow that produces processed images like `npm run media` does. Until then, `POST /admin/artworks` can only use a processed image that no content entry claims. See ADR 0007.
+- **Artwork uploads** (gallery): an upload flow that produces processed images like `npm run media` does, perhaps reusing milestone 10's R2 storage. Until then, `POST /admin/artworks` can only use a processed image that no content entry claims. See ADR 0007.
 - **Revisit the content source of truth** when the admin UI exists: probably make the database the source after a final import from `content/artworks.json` (ADR 0007, "option B").
 - **Move `media/` to object storage** if the gallery grows past a few hundred images. Keep the `/media/...` URLs.
 - **Owner content to fill in:** the 30 "to fill in" drafts in `content/artworks.json`, written alt text for the published pieces (currently "title, medium"), years, the About bio and both photo descriptions (`content/about.json`), the site text in `client/src/content/copy.ts` (typewriter lines, main button, charity line), and the *Floral* image (a digital flower; not in `media-source` yet).
+- **Privacy policy: reference photos** (milestone 10): before switching R2 on in production, the owner adds to `client/src/content/privacy.md` that clients may upload reference photos (metadata removed), that they're stored with Cloudflare R2, and the keeping periods (90 days after a commission ends; previews and finals a year after full payment). See docs/setup-r2.md.
+- **Stream large uploads** (ADR 0016): uploads are held in memory while processed (up to about 100 MB for a final file). If big files become common, stream them to R2 instead.
+- **Orphan sweep for stored files**: list the bucket now and then and remove objects with no `files` row (left behind only if storage fails mid-deletion).
+- **HEIC from a computer**: iPhones send JPEG automatically, but a `.heic` file chosen on a Mac is refused. Converting HEIC on the server needs a libvips build with HEVC support.
+
