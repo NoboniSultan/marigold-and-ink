@@ -24,6 +24,7 @@ import {
   statusLabel,
 } from '../../features/admin/adminFormat.ts';
 import styles from './Admin.module.css';
+import { AdminShipping } from '../../features/shipping/Shipping.tsx';
 
 const money = (cents: number) => formatMoney(cents, CURRENCY);
 
@@ -93,6 +94,7 @@ export function AdminCommissionPage() {
       </section>
       <QuoteSection id={id} status={commission.status} />
       <FilesSection id={id} status={commission.status} />
+      {commission.fulfillmentType === 'physical' && <AdminShipping commissionId={id} />}
       <StatusSection details={details.data} />
       <MoneySection details={details.data} />
     </>

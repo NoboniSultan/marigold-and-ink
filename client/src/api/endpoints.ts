@@ -1,6 +1,13 @@
 /** Typed functions for each API endpoint the site uses. Types come from shared/types. */
 import type { AboutContent } from '@shared/types/about.ts';
 import type {
+  Shipment,
+  ShippingAddressInput,
+  ShippingOption,
+  ShippingPackage,
+  ShippingResponse,
+} from '@shared/types/shipping.ts';
+import type {
   AdjustQuoteRequest,
   AdminCommissionDetails,
   AdminCommissionRow,
@@ -147,6 +154,41 @@ export const paymentsApi = {
     data(
       request<ApiResponse<CheckoutStart>>(`/commissions/${commissionId}/payments/${type}`, {
         method: 'POST',
+      }),
+    ),
+};
+
+/** Shipping a physical commission (milestone 11). Prices come from the server, never the page. */
+export const shippingApi = {
+  get: (commissionId: number, signal?: AbortSignal) =>
+    request<ShippingResponse>(`/commissions/${commissionId}/shipping`, { signal }),
+  setAddress: (commissionId: number, address: ShippingAddressInput) =>
+    data(
+      request<ApiResponse<Shipment>>(`/commissions/${commissionId}/shipping/address`, {
+        method: 'PUT',
+        body: address,
+      }),
+    ),
+  /** Live prices for the address and package, cheapest first. */
+  options: (commissionId: number) =>
+    data(
+      request<ApiResponse<ShippingOption[]>>(`/commissions/${commissionId}/shipping/options`, {
+        method: 'POST',
+      }),
+    ),
+  choose: (commissionId: number, rateId: string) =>
+    data(
+      request<ApiResponse<Shipment>>(`/commissions/${commissionId}/shipping/choice`, {
+        method: 'PUT',
+        body: { rateId },
+      }),
+    ),
+  /** Admin: the package's weight (ounces) and size (inches). */
+  setPackage: (commissionId: number, parcel: ShippingPackage) =>
+    data(
+      request<ApiResponse<Shipment>>(`/admin/commissions/${commissionId}/shipping/package`, {
+        method: 'PUT',
+        body: parcel,
       }),
     ),
 };

@@ -63,8 +63,9 @@ export function AdminReportPage() {
         </a>
       </div>
       <p className={styles.muted}>
-        Months are in New York time. Sales are deposits and final payments received; trees are
-        counted when Digital Humani accepts them, and paid when you record their invoice.
+        Months are in New York time. Sales are deposits and final payments received, shipping
+        included (shown on its own too); trees are counted when Digital Humani accepts them, and
+        paid when you record their invoice.
       </p>
 
       {report.isPending && <Loading label="Loading the report" />}
@@ -79,6 +80,9 @@ export function AdminReportPage() {
                 <th scope="col">Month</th>
                 <th scope="col" className={styles.number}>
                   Sales
+                </th>
+                <th scope="col" className={styles.number}>
+                  Of which shipping
                 </th>
                 <th scope="col" className={styles.number}>
                   Refunds
@@ -102,6 +106,7 @@ export function AdminReportPage() {
                 <tr key={row.month}>
                   <th scope="row">{monthName(row.month)}</th>
                   <td className={styles.number}>{money(row.salesCents)}</td>
+                  <td className={styles.number}>{money(row.shippingCents)}</td>
                   <td className={styles.number}>{money(row.refundsCents)}</td>
                   <td className={styles.number}>{money(row.netSalesCents)}</td>
                   <td className={styles.number}>
@@ -116,6 +121,7 @@ export function AdminReportPage() {
               <tr>
                 <td>{year} so far</td>
                 <td className={styles.number}>{money(sum((r) => r.salesCents))}</td>
+                <td className={styles.number}>{money(sum((r) => r.shippingCents))}</td>
                 <td className={styles.number}>{money(sum((r) => r.refundsCents))}</td>
                 <td className={styles.number}>{money(sum((r) => r.netSalesCents))}</td>
                 <td className={styles.number}>
