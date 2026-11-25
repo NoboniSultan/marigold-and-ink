@@ -16,6 +16,7 @@ describe('toCsv', () => {
   const row = (month: string, cents: number, owed: number): MonthlyReportRow => ({
     month,
     salesCents: cents,
+    shippingCents: 150,
     refundsCents: 100,
     netSalesCents: cents - 100,
     treesOrdered: 2,
@@ -28,16 +29,16 @@ describe('toCsv', () => {
     const csv = toCsv([row('2026-01', 1000, 300), row('2026-02', 2000, 450)]);
 
     expect(csv.split('\r\n')).toEqual([
-      'Month,Sales (USD),Refunds (USD),Net sales (USD),Trees ordered,Trees ordered (USD),Donations paid (USD),Donations owed at month end (USD)',
-      '2026-01,10.00,1.00,9.00,2,2.00,0.50,3.00',
-      '2026-02,20.00,1.00,19.00,2,2.00,0.50,4.50',
-      'Total,30.00,2.00,28.00,4,4.00,1.00,4.50',
+      'Month,Sales (USD),Of which shipping (USD),Refunds (USD),Net sales (USD),Trees ordered,Trees ordered (USD),Donations paid (USD),Donations owed at month end (USD)',
+      '2026-01,10.00,1.50,1.00,9.00,2,2.00,0.50,3.00',
+      '2026-02,20.00,1.50,1.00,19.00,2,2.00,0.50,4.50',
+      'Total,30.00,3.00,2.00,28.00,4,4.00,1.00,4.50',
       '',
     ]);
   });
 
   it('has a zero total for an empty report', () => {
-    expect(toCsv([]).split('\r\n')[1]).toBe('Total,0.00,0.00,0.00,0,0.00,0.00,0.00');
+    expect(toCsv([]).split('\r\n')[1]).toBe('Total,0.00,0.00,0.00,0.00,0,0.00,0.00,0.00');
   });
 });
 

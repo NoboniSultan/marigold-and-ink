@@ -22,6 +22,7 @@ import * as commissionsService from '../commissions/commissions.service.js';
 import * as quotesService from '../quotes/quotes.service.js';
 import * as paymentsService from '../payments/payments.service.ts';
 import * as filesService from '../files/files.service.ts';
+import * as shippingService from '../shipping/shipping.service.ts';
 import * as authRepository from './auth.repository.ts';
 import {
   CODE_TTL_MINUTES,
@@ -155,9 +156,10 @@ export async function exportData(user: UserRecord) {
     });
     for (const commission of batch) {
       if (!commission) continue;
-      const [events, payments] = await Promise.all([
+      const [events, payments, shipment] = await Promise.all([
         commissionsService.listEvents(commission.id, user),
         paymentsService.listPayments(commission.id, user),
+        shippingService.shipmentForExport(commission.id),
       ]);
       let quote = null;
       try {
@@ -165,7 +167,7 @@ export async function exportData(user: UserRecord) {
       } catch (err) {
         if (!(err instanceof NotFoundError)) throw err; // no quote sent yet
       }
-      commissions.push({ ...commission, events, quote, payments });
+      commissions.push({ ...commission, events, quote, payments, shipment });
     }
     if (page * 100 >= meta.total) break;
   }
@@ -239,6 +241,8 @@ export async function deleteAccount(
     await authRepository.deleteIdentitiesForUser(userId, client);
     await authRepository.deleteVerificationsForUser(userId, record.email, client);
     const removedFileKeys = await filesService.takeReferencesForDeletedClient(userId, { client });
+    // Name and street off past shipments; the city, state, and ZIP stay for records.
+    await shippingService.removeAddressesForDeletedClient(userId, { client });
     await authRepository.deleteSessionsForUser(userId, client);
     await usersService.anonymize(userId, { client });
     return { canceled, removedFileKeys };

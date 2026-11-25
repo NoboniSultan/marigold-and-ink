@@ -336,10 +336,10 @@ describe('POST /webhooks/stripe: deposit', () => {
 });
 
 describe('POST /webhooks/stripe: final payment', () => {
+  // Physical work adds shipping to this payment: see shipping.api.test.ts.
   it.each([
     ['digital', 'delivered'],
-    ['physical', 'ready_to_ship'],
-    ['mixed_media', 'ready_to_ship'],
+    ['mixed_media', 'delivered'],
   ])('moves a %s commission to %s', async (fulfillmentType, expected) => {
     const { agent, commission } = await quotedForClient({
       status: 'awaiting_final_payment',

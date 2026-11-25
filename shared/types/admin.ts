@@ -113,6 +113,8 @@ export interface MonthlyReportRow {
   /** YYYY-MM. */
   month: string;
   salesCents: number;
+  /** The part of sales that paid for shipping and packaging (milestone 11). */
+  shippingCents: number;
   refundsCents: number;
   netSalesCents: number;
   treesOrdered: number;

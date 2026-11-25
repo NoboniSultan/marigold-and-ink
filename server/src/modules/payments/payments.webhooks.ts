@@ -60,9 +60,9 @@ export async function handleStripeWebhook(
 
 /**
  * The client paid. Record it, then move the commission on: deposit → deposit_paid; final →
- * ready_to_ship (physical, mixed media) or delivered (digital). If the commission is no
- * longer waiting for this payment (it was cancelled while the Stripe page was open), the
- * money is refunded automatically and the status is left alone.
+ * ready_to_ship (physical) or delivered (digital and mixed media, delivered as files). If
+ * the commission is no longer waiting for this payment (it was cancelled while the Stripe
+ * page was open), the money is refunded automatically and the status is left alone.
  */
 async function onCheckoutCompleted(
   session: CompletedSession,
@@ -97,9 +97,9 @@ async function onCheckoutCompleted(
     const toStatus =
       payment.type === 'deposit'
         ? 'deposit_paid'
-        : commission.fulfillmentType === 'digital'
-          ? 'delivered'
-          : 'ready_to_ship';
+        : commission.fulfillmentType === 'physical'
+          ? 'ready_to_ship'
+          : 'delivered';
     await commissionsService.applyTransition(
       {
         commissionId: commission.id,

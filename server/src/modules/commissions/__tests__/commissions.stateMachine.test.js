@@ -24,7 +24,7 @@ const EXPECTED = {
   'in_progress>refunded': { actors: ['admin', 'system'], via: 'refund' },
   'revision>in_progress': { actors: ['admin'] },
   'awaiting_final_payment>ready_to_ship': { actors: ['system'], fulfillment: 'physical' },
-  'awaiting_final_payment>delivered': { actors: ['system'], fulfillment: 'digital' },
+  'awaiting_final_payment>delivered': { actors: ['system'], fulfillment: 'digital or mixed_media' },
   'awaiting_final_payment>refunded': { actors: ['admin', 'system'], via: 'refund' },
   'ready_to_ship>shipped': { actors: ['admin'] },
   'shipped>delivered': { actors: ['admin'] },
@@ -163,25 +163,29 @@ describe('guards', () => {
     expect(canTransition(c, 'revision', OWNER).allowed).toBe(false);
   });
 
-  it.each(['physical', 'mixed_media'])(
-    '%s work goes to ready_to_ship, not straight to delivered',
+  it('physical work goes to ready_to_ship, not straight to delivered', () => {
+    const c = commission({ status: 'awaiting_final_payment', fulfillmentType: 'physical' });
+
+    expect(canTransition(c, 'ready_to_ship', SYSTEM_ACTOR).allowed).toBe(true);
+    expect(canTransition(c, 'delivered', SYSTEM_ACTOR).failure).toMatchObject({
+      kind: 'invalid',
+      message: 'Physical commissions must be shipped before delivery',
+    });
+  });
+
+  // Mixed media is a sketch finished digitally, delivered as files (owner, 2026-11-25).
+  it.each(['digital', 'mixed_media'])(
+    '%s work goes straight to delivered and is never shipped',
     (type) => {
       const c = commission({ status: 'awaiting_final_payment', fulfillmentType: type });
 
-      expect(canTransition(c, 'ready_to_ship', SYSTEM_ACTOR).allowed).toBe(true);
-      expect(canTransition(c, 'delivered', SYSTEM_ACTOR).failure.kind).toBe('invalid');
+      expect(canTransition(c, 'delivered', SYSTEM_ACTOR).allowed).toBe(true);
+      expect(canTransition(c, 'ready_to_ship', SYSTEM_ACTOR).failure).toMatchObject({
+        kind: 'invalid',
+        message: 'Digital and mixed-media commissions are delivered as files, not shipped',
+      });
     },
   );
-
-  it('digital work goes straight to delivered and is never shipped', () => {
-    const c = commission({ status: 'awaiting_final_payment', fulfillmentType: 'digital' });
-
-    expect(canTransition(c, 'delivered', SYSTEM_ACTOR).allowed).toBe(true);
-    expect(canTransition(c, 'ready_to_ship', SYSTEM_ACTOR).failure).toMatchObject({
-      kind: 'invalid',
-      message: 'Digital-only commissions are delivered, not shipped',
-    });
-  });
 });
 
 describe('effects', () => {

@@ -343,6 +343,7 @@ describe('GET /api/v1/admin/reports/monthly', () => {
       commissionId: commission.id,
       type: 'final',
       amountCents: 5000,
+      shippingCents: 1100,
       createdAt: new Date('2025-02-01T04:30:00Z'),
     });
     await createPayment({
@@ -379,6 +380,7 @@ describe('GET /api/v1/admin/reports/monthly', () => {
     expect(res.body.data[0]).toEqual({
       month: '2025-01',
       salesCents: 10000,
+      shippingCents: 1100,
       refundsCents: 0,
       netSalesCents: 10000,
       treesOrdered: 25,
@@ -424,9 +426,9 @@ describe('GET /api/v1/admin/reports/monthly.csv', () => {
     expect(res.headers['content-disposition']).toContain('marigold-and-ink-report-2025.csv');
     const lines = res.text.trim().split('\r\n');
     expect(lines[0]).toBe(
-      'Month,Sales (USD),Refunds (USD),Net sales (USD),Trees ordered,Trees ordered (USD),Donations paid (USD),Donations owed at month end (USD)',
+      'Month,Sales (USD),Of which shipping (USD),Refunds (USD),Net sales (USD),Trees ordered,Trees ordered (USD),Donations paid (USD),Donations owed at month end (USD)',
     );
-    expect(lines[1]).toBe('2025-01,0.00,0.00,0.00,0,0.00,0.00,0.00');
+    expect(lines[1]).toBe('2025-01,0.00,0.00,0.00,0.00,0,0.00,0.00,0.00');
     expect(lines).toHaveLength(14); // header, 12 months, total
     expect(lines.at(-1)).toMatch(/^Total,/);
   });
