@@ -1,6 +1,6 @@
 # Backlog
 
-Work that is out of scope for the current build session (milestones 0 to 10). Next: milestone 11, US shipping. Each item links back to the relevant section of [proposal.md](proposal.md).
+Work that is out of scope for the current build session (milestones 0 to 11a). Next: milestone 11b, shipping labels and tracking. Each item links back to the relevant section of [proposal.md](proposal.md).
 
 ## Deferred features
 
@@ -8,7 +8,7 @@ Work that is out of scope for the current build session (milestones 0 to 10). Ne
 - **Email notifications** (6.7): new messages, payment reminders, status changes, shipping updates, and the donation amount in order confirmations.
 - **Background jobs**: BullMQ on Redis for email and scheduled tasks.
 - **Slots and waitlist** (6.6): a maximum number of active commissions per period, with automatic promotion from the waitlist.
-- **Shipping** (7): addresses, live rates (EasyPost or Shippo), labels, tracking webhooks, insurance, and local pickup for furniture.
+- **Shipping 11b** (7, ADR 0017): buy labels from the admin page (Shippo), tracking updates by webhook (confirmed by asking Shippo), `shipped`/`delivered` set by the system, and the shipped and delivered emails. Later: insurance for originals, signature on delivery, a saved address book (with the shop), local pickup for furniture, international shipping.
 - **Shop** (6.10): products, variants, cart, inventory with row-level locking for one-of-a-kind pieces, expiring reservations, and an inventory movement log.
 - **Admin dashboard UI and analytics** (6.8): revenue by month, turnaround time, popular styles, best sellers.
 
@@ -19,7 +19,7 @@ Work that is out of scope for the current build session (milestones 0 to 10). Ne
 - **Digital Humani production** goes with live Stripe: production key, `DIGITALHUMANI_ENVIRONMENT=production`, and lifting the config check (docs/setup-digital-humani.md).
 
 - **Owner decisions for later milestones (2026-11-22):**
-  - **Shipping:** physical and mixed-media work ships within the US only; digital work is sold worldwide.
+  - **Shipping:** physical work ships within the US only; digital work is sold worldwide. Mixed media is delivered as files (2026-11-25).
   - **Donations:** 25% of each commission's full price, as trees through Digital Humani (One Tree Planted project), requested automatically once a commission is fully paid; built in milestone 8 (ADR 0013).
 - **Artwork alt text and titles:** the 30 pieces published in milestone 7d use their title as alt text, which tells a screen-reader user little. Ask the owner for a one-line description of each, and for better titles where the file name shows (Clay 2, Portrait Example, Sketch 1).
 
@@ -39,7 +39,9 @@ Work that is out of scope for the current build session (milestones 0 to 10). Ne
 - **Admin pricing management**: endpoints to list, create, and deactivate pricing rules, so prices change without a migration.
 - **Rush fee shape**: `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column and a branch in `pricing.engine.ts`.
 - **Re-quote after sending**: a sent quote can't change. If the price must change after sending, add a "revise quote" flow (supersede the sent quote, and move the commission back to inquiry or keep it quoted, as the owner decides).
-- **Shipping and tax on the final payment** (with shipping): the balance is charged as quoted. Add the shipping cost for physical and mixed-media work, and decide on sales tax (Stripe Tax or a fixed rule) with the owner.
+- **Sales tax on the final payment**: shipping is added since milestone 11a; decide on sales tax (Stripe Tax or a fixed rule) with the owner.
+- **Privacy policy: shipping addresses** (milestone 11): before switching shipping on in production, the owner adds that physical commissions collect a US shipping address, that it's shared with Shippo to check it, price postage, and (11b) buy labels and track the package, and that account deletion removes the name and street. See docs/setup-shippo.md and docs/privacy-data-inventory.md section 3b.
+- **Bundle:** the shipping section adds about 3 KB (gzipped) to the main bundle, since the commission page isn't split out. Fold into "Trim the main bundle".
 - **Refunds after the final payment** (milestone 7 decision): they move money only. If a commission refunded in full after delivery should end as `refunded`, add those transitions to the state machine.
 - **Delayed payment methods** (bank debits, etc.): Checkout is cards-only so `checkout.session.completed` means paid. Others need the `checkout.session.async_payment_succeeded` / `_failed` events.
 - **Publish the Google sign-in app** once the contact email is in: Google Cloud → OAuth consent screen → app name, support email, homepage `https://noboni.art`, privacy policy `https://noboni.art/privacy`, authorized domain `noboni.art` (verified in Google Search Console with a TXT record at Porkbun), then **Publish app**.
