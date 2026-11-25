@@ -84,6 +84,14 @@ Payment records cannot be independently deleted while their associated commissio
 
 For more information about how Stripe handles payment information, please review [Stripe's Privacy Policy](https://stripe.com/privacy).
 
+### E. Reference Photos and Artwork Files
+
+If you place a commission, you may upload reference photos to help me create your artwork. Before storage, location and camera details (metadata) are removed from uploaded photos.
+
+Reference photos are stored using Cloudflare R2, with storage located in the United States. Reference photos are deleted 90 days after the commission ends or when your account is deleted, whichever happens first.
+
+Previews and final artwork files are retained for one year after the commission has been fully paid. After that period, these files are deleted.
+
 ## 2. How We Use Your Information
 
 We use the information we collect for the following purposes:

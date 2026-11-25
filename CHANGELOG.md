@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+### Added
+
+- **Privacy policy, section 1E:** reference photos and artwork files (metadata removed, stored with Cloudflare R2 in the United States, keeping periods). The R2 setup guide now places the bucket in Eastern North America to match.
+
 ## [0.11.0] - 2026-11-24 (Milestone 10: files)
 
 ### Added

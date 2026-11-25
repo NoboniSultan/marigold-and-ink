@@ -2,7 +2,7 @@
 
 Reference photos, previews, and final files are kept in a **private Cloudflare R2 bucket** ([ADR 0016](decisions/0016-commission-files-on-r2.md)). Until it's set up, uploads stay off and the pages don't offer them.
 
-**Before you switch it on in production:** add a short part to the privacy policy (`client/src/content/privacy.md`) about reference photos: that clients may upload them, that location and camera details are removed, that they're stored with Cloudflare R2 (United States), and that they're deleted 90 days after the commission ends (or when the account is deleted). Final files and previews are kept a year after full payment.
+The privacy policy (section 1E) already describes reference photos, the files' keeping periods, and that they are stored with Cloudflare R2 **in the United States**, so the bucket must be placed there (step 1).
 
 **Cost:** R2's free tier covers 10 GB of storage and has no download fees at all; this shop's files are expected to stay well under that. Cloudflare may still ask for a card to switch R2 on.
 
@@ -10,8 +10,9 @@ Reference photos, previews, and final files are kept in a **private Cloudflare R
 
 1. Sign in (or sign up) at <https://dash.cloudflare.com>.
 2. Open **R2 Object Storage**. If asked, add a payment method and confirm the R2 plan (the free tier applies).
-3. **Create bucket**: name it `marigold-files`. Leave the location on automatic (or pick Eastern North America) and the storage class on **Standard**.
-4. Leave **public access off** (the default). The site only ever hands out short-lived signed links; nothing in the bucket is public.
+3. **Create bucket**: name it `marigold-files`. Under **Location**, choose **Provide a location hint** → **Eastern North America (ENAM)** (not Automatic, which could pick another region; the privacy policy says the files are in the United States). Leave the storage class on **Standard**.
+4. Open the new bucket's **Settings** and check that its location shows **ENAM**. A location hint is a strong preference, not a guarantee; if it shows anything else, delete the empty bucket and try again.
+5. Leave **public access off** (the default). The site only ever hands out short-lived signed links; nothing in the bucket is public.
 
 ## 2. Create an access key for this bucket only
 
