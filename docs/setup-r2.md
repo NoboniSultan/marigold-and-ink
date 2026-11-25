@@ -42,6 +42,17 @@ Restart `npm run dev` in `server/`.
 2. As the admin, on a commission past its deposit, **Add previews**: the client's page shows it with the watermark.
 3. Add a **final file**; it shows on the client's page once the commission is paid in full.
 
+## 5. A separate bucket for local development
+
+Your computer and the live site should not share a bucket. Commission numbers overlap between the dev and production databases. File names are unique, so nothing is overwritten, but test files would sit beside real client files, and the live site's clean-up never removes them because its database doesn't know them.
+
+1. In R2, **Create bucket** `marigold-files-dev`, with the same settings as step 1 (Eastern North America, Standard, public access off).
+2. **Create API token** as in step 2, limited to `marigold-files-dev` only.
+3. In your local `.env` only, set `R2_BUCKET=marigold-files-dev` and replace `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` with the new key's values. `R2_ACCOUNT_ID` stays the same. Restart `npm run dev`.
+4. Render keeps `marigold-files` and the production key. Never put the production key in `.env`.
+
+Test files left in the dev bucket can be emptied any time from the bucket's page in Cloudflare.
+
 ## Keeping costs down
 
 - Uploads are limited (10 photos of 15 MB per commission, previews 25 MB, finals 100 MB, 60 uploads an hour per person), photos are shrunk before they're stored, and old files are deleted automatically.
