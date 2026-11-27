@@ -52,6 +52,7 @@ erDiagram
 
     payments ||--o{ payments : "refunded by"
     payments ||--o| donations : "funds (one each)"
+    orders ||--o| donations : "funds once delivered"
     charities ||--o{ donations : "receives"
 
     users {
@@ -518,7 +519,11 @@ Files are used from milestone 10 ([ADR 0016](decisions/0016-commission-files-on-
 | `donations_tree_request_id_key` | UNIQUE | One Digital Humani request is never recorded twice. |
 | `donations_pending_trees_idx` | Partial index `(id) WHERE status = 'pending' AND tree_count IS NOT NULL` | The retry finds tree requests that haven't gone through. |
 
-**Tree donations** ([ADR 0013](decisions/0013-giving-through-digital-humani.md)): the final payment records one, `pending`. `request_attempted_at` is stamped and committed before calling Digital Humani, so a lost answer is detected: the retry asks Digital Humani how many trees it already has under the commission's reference and plants only what's missing, never twice. Once accepted, the row is `owed` (the planting partner will invoice the owner) with `requested_at`, and `tree_request_id` when a new request was made. The refund flow never refunds a commission's tree money.
+| `donations.order_id` (12d) | FK, `ON DELETE RESTRICT` | A delivered shop order's trees ([ADR 0022](decisions/0022-trees-for-shop-orders.md)); `payment_id` and `commission_id` became nullable. |
+| `donations_order_id_key` (12d) | UNIQUE | One donation per order: delivering it by tracking and by hand records it once. |
+| `donations_source_check` (12d) | CHECK | A donation comes from a commission payment (`payment_id` and `commission_id`) or an order (`order_id`, always with trees), never both or neither. |
+
+**Tree donations** ([ADR 0013](decisions/0013-giving-through-digital-humani.md)): the final payment records one, `pending`. `request_attempted_at` is stamped and committed before calling Digital Humani, so a lost answer is detected: the retry asks Digital Humani how many trees it already has under the commission's reference and plants only what's missing, never twice. Once accepted, the row is `owed` (the planting partner will invoice the owner) with `requested_at`, and `tree_request_id` when a new request was made. The refund flow never refunds a commission's tree money. From milestone 12d a shop order records its trees when it's delivered (on its items, not shipping), under the reference `order-<id>`, and a later refund gives back everything else.
 
 ### sessions
 

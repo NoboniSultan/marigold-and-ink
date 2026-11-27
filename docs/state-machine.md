@@ -109,4 +109,4 @@ stateDiagram-v2
 | paid | delivered | admin | Pickups only: "Mark picked up" (12c) |
 | paid, shipped, delivered | refunded | admin, system | Once refunds cover the whole order (items and shipping); items go back on sale if the admin asked |
 
-409 `ORDER_INVALID_TRANSITION` for a move that doesn't exist (including shipping a pickup, or picking up a shipped order), 403 `ORDER_TRANSITION_FORBIDDEN` for the wrong actor. Like commissions, tracking that reports delivered as its first news moves the order through shipped, with one email for each.
+409 `ORDER_INVALID_TRANSITION` for a move that doesn't exist (including shipping a pickup, or picking up a shipped order), 403 `ORDER_TRANSITION_FORBIDDEN` for the wrong actor. Like commissions, tracking that reports delivered as its first news moves the order through shipped, with one email for each. Every move to `delivered` records the order's trees in the same transaction (milestone 12d, [ADR 0022](decisions/0022-trees-for-shop-orders.md)); a later refund gives back everything but that tree money.

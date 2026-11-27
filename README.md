@@ -31,8 +31,9 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Files: reference photos (metadata stripped), watermarked previews, final-file downloads; private R2 storage with signed links and automatic deletion | Built; needs [setup](docs/setup-r2.md) ([ADR 0016](docs/decisions/0016-commission-files-on-r2.md)) |
 | Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)) |
 | Labels and tracking: buy, print, and void USPS labels from the admin page; tracking by webhook and a daily check moves the commission to shipped and delivered; shipped, delivered, and delivery-problem emails | Built (11b); needs the [webhook and label settings](docs/setup-shippo.md) ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)) |
-| Shop catalog: products in four categories with options (own price and stock), photos, a logged stock history, admin pages, and the public `/shop` | Built (12a); visible only to the admin until `SHOP_OPEN=true` ([ADR 0019](docs/decisions/0019-shop-catalog.md)); cart and checkout in 12b |
+| Shop catalog: products in four categories with options (own price and stock), photos, a logged stock history, admin pages, and the public `/shop` | Built (12a); visible only to the admin until `SHOP_OPEN=true` (see the [opening checklist](docs/shop-opening-checklist.md)) ([ADR 0019](docs/decisions/0019-shop-catalog.md)); cart and checkout in 12b |
 | Shop cart and checkout: a cart in the browser, checkout that holds stock under row locks (no piece sells twice), 30-minute Stripe page, orders with history, full refunds with optional restocking, order emails, shop columns in the monthly report | Built (12b); shop still admin-only ([ADR 0020](docs/decisions/0020-shop-cart-and-checkout.md)); order email wording is a placeholder |
+| Trees for shop orders: 25% of a delivered order's items plants trees through Digital Humani; refunds after delivery keep the tree money; the shop opens only with payments and shipping configured ([opening checklist](docs/shop-opening-checklist.md)) | Built (12d) ([ADR 0022](docs/decisions/0022-trees-for-shop-orders.md)); the shop stays closed until the owner works through the checklist |
 | Shop shipping: the owner's packing types, a packed weight per option, live USPS prices for the whole order in the cart (plus the packaging fee once per order), local pickup for pickup-only pieces, labels, tracking, and shipped/delivered emails for orders | Built (12c); packing types and weights are entered by the owner ([ADR 0021](docs/decisions/0021-shop-shipping.md)); pickup wording is a placeholder |
 | Messaging, slots | Later (see backlog) |
 
@@ -281,7 +282,7 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | POST | `/api/v1/webhooks/shippo?token=…` | Shippo (secret link) | Tracking updates: only the tracking number is used; the tracking is read back from Shippo. 401 for a wrong token, 404 while switched off. |
 | GET | `/api/v1/admin/commissions` | Admin | Commissions newest first, each with its `client` (`null` once deleted). `?status=`, `?page=`. |
 | GET | `/api/v1/admin/commissions/:id` | Admin | `{ commission, client, money }`: details with allowed moves, the client, and paid / refunded / tree money / still refundable ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)). |
-| GET | `/api/v1/admin/donations` | Admin | Tree donations, newest first. `?status=owed|paid|pending|reversed`, `?page=`. |
+| GET | `/api/v1/admin/donations` | Admin | Tree donations (from commissions, or from shop orders with `orderId`), newest first. `?status=owed|paid|pending|reversed`, `?page=`. |
 | POST | `/api/v1/admin/donations/mark-paid` | Admin | `{ donationIds, payoutDate, receiptReference }`: one invoice's donations, all or nothing; each must be owed (409 `DONATION_NOT_OWED`), and the date can't be in the future (422). |
 | GET | `/api/v1/admin/reports/monthly` | Admin | One row per month (New York time) up to now: sales, refunds, net, trees ordered, donations paid, owed at month end. `?year=`. `/monthly.csv` downloads it. |
 | GET | `/api/v1/giving` | Public | `{ trees }`: trees funded so far by fully paid commissions ([ADR 0013](docs/decisions/0013-giving-through-digital-humani.md)). |
@@ -304,8 +305,8 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | POST | `/api/v1/orders` | Logged in | Checkout: `{ items, shipping? }` (shipping: `address`, `serviceToken`, `expectedCents`, required unless the order is a pickup). Prices the shipping again, holds the items, and opens a 30-minute Stripe page with a shipping line; `{ orderId, url }`. 409 `OUT_OF_STOCK` with what's left; 422 `SHIPPING_REQUIRED`; 409 `SHIPPING_OPTION_STALE` or `SHIPPING_PRICE_CHANGED` with the current options. Ends the client's earlier unpaid order first. |
 | GET | `/api/v1/orders`, `/api/v1/orders/:id` | Logged in (own orders; admin any) | The client's orders / one order, with its Stripe page while unpaid, and its shipping and tracking (or that it's a pickup). |
 | GET | `/api/v1/admin/orders`, `/api/v1/admin/orders/:id` | Admin | Every order (`?status`), with the client / one order with its history and refunds. |
-| POST | `/api/v1/admin/orders/:id/refund` | Admin | `{ reason, restock }`: refunds a paid, shipped, or delivered order in full (items and shipping); items go back on sale once it succeeds if `restock`. 422 `ORDER_NOT_REFUNDABLE`. |
-| POST | `/api/v1/admin/orders/:id/status` | Admin | `{ toStatus: shipped\|delivered }`: mark shipped or delivered by hand, or a pickup as picked up (`delivered`). 409 `ORDER_INVALID_TRANSITION`. |
+| POST | `/api/v1/admin/orders/:id/refund` | Admin | `{ reason, restock }`: refunds a paid, shipped, or delivered order in full (items and shipping), less its tree money once delivered (`refundableCents` on the admin order); items go back on sale once it succeeds if `restock`. 422 `ORDER_NOT_REFUNDABLE`. |
+| POST | `/api/v1/admin/orders/:id/status` | Admin | `{ toStatus: shipped\|delivered }`: mark shipped or delivered by hand, or a pickup as picked up (`delivered`). Delivering records the order's trees. 409 `ORDER_INVALID_TRANSITION`. |
 | POST | `/api/v1/admin/orders/:id/shipping/label-options`, `.../shipping/label`, `.../shipping/label/void`, `.../shipping/tracking/refresh`; GET `.../shipping/label/file` | Admin | An order's label, as for commissions: today's postage / buy (`{ rateId }`) / void / check tracking now / print (redirects to Shippo's PDF). |
 | GET | `/api/v1/admin/artworks` | Admin | All artworks, including drafts. `?status=all\|published\|draft` plus the public filters. |
 | GET | `/api/v1/admin/artworks/:id` | Admin | One artwork with admin fields (`isPublished`, `contentManaged`, ...). |
@@ -387,6 +388,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0019: Shop catalog](docs/decisions/0019-shop-catalog.md)
 - [0020: Shop cart and checkout](docs/decisions/0020-shop-cart-and-checkout.md)
 - [0021: Shipping for shop orders](docs/decisions/0021-shop-shipping.md)
+- [0022: Trees for shop orders](docs/decisions/0022-trees-for-shop-orders.md)
 
 ## Roadmap
 
