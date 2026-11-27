@@ -15,7 +15,13 @@ const sessionUser = (req: Request) => req.user!;
 /** POST /commissions/:id/payments/:type: the Stripe Checkout URL to send the client to. */
 export async function startCheckout(req: Request, res: Response) {
   const { id, type } = req.validated.params as z.infer<typeof checkoutParams>;
-  const result = await paymentsService.startCheckout(id, sessionUser(req), type, gateway(req));
+  const result = await paymentsService.startCheckout(
+    id,
+    sessionUser(req),
+    type,
+    gateway(req),
+    (req.app.locals.adapters as AppAdapters).shipping ?? null,
+  );
   res.status(result.reused ? 200 : 201).json({ data: result });
 }
 

@@ -23,8 +23,8 @@ stateDiagram-v2
 
     revision --> in_progress: admin (uses one revision)
 
-    awaiting_final_payment --> ready_to_ship: system (physical, mixed media)
-    awaiting_final_payment --> delivered: system (digital only)
+    awaiting_final_payment --> ready_to_ship: system (physical)
+    awaiting_final_payment --> delivered: system (digital, mixed media)
     awaiting_final_payment --> refunded: admin or system (refund flow)
 
     ready_to_ship --> shipped: admin
@@ -52,8 +52,8 @@ stateDiagram-v2
 | in_progress | awaiting_final_payment | client, admin | The client approves the final design (or the admin moves it on) |
 | in_progress | refunded | admin, system | Only through the refund flow |
 | revision | in_progress | admin | `revision_count` increases by 1 |
-| awaiting_final_payment | ready_to_ship | system | Physical or mixed-media only; the Stripe webhook: the balance was paid |
-| awaiting_final_payment | delivered | system | Digital only; the Stripe webhook: the balance was paid |
+| awaiting_final_payment | ready_to_ship | system | Physical only; the Stripe webhook: the balance (with shipping, milestone 11) was paid |
+| awaiting_final_payment | delivered | system | Digital and mixed media (delivered as files, owner decision 2026-11-25); the Stripe webhook: the balance was paid |
 | awaiting_final_payment | refunded | admin, system | Only through the refund flow |
 | ready_to_ship | shipped | admin | |
 | shipped | delivered | admin | A carrier webhook will do this later |

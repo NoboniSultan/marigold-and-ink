@@ -1,0 +1,116 @@
+/**
+ * A fake shipping service (the Shippo adapter's interface) for tests: answers from
+ * in-memory settings, records what it was asked, and can be told to fail.
+ */
+import type {
+  PostalAddress,
+  ShippingProvider,
+  ShippingRate,
+  ShippingSetup,
+} from '../../src/adapters/shippo.ts';
+import { ShippingProviderError } from '../../src/adapters/shippo.ts';
+
+/** A test packaging fee (deliberately unlike any real one). */
+export const TEST_PACKAGING_FEE_CENTS = 333;
+
+export const TEST_FROM: PostalAddress = {
+  name: 'Test Studio',
+  street1: '1 Test St',
+  street2: null,
+  city: 'Testville',
+  state: 'NY',
+  zip: '10001',
+};
+
+/** The services a quote answers with, by token: [name, cents, days]. */
+const DEFAULT_SERVICES: [string, string, number, number | null][] = [
+  ['usps_priority', 'Priority Mail', 1210, 2],
+  ['usps_ground_advantage', 'Ground Advantage', 758, 4],
+  ['usps_media_mail', 'Media Mail', 400, 8],
+  ['ups_ground', 'UPS Ground', 900, null],
+];
+
+export function fakeShipping() {
+  const calls = {
+    checkAddress: [] as PostalAddress[],
+    quote: [] as Parameters<ShippingProvider['quote']>[0][],
+    getRate: [] as string[],
+  };
+  const settings = {
+    /** null = valid; otherwise the reasons it isn't. */
+    invalidAddress: null as string[] | null,
+    services: DEFAULT_SERVICES,
+    /** Changes the price getRate reports, as if postage changed since the quote. */
+    priceChange: 0,
+    /** Runs while a quote is being made, e.g. to change the address meanwhile. */
+    duringQuote: null as null | (() => Promise<void>),
+    /** Throws once from the next call of this method. */
+    failNext: null as null | { method: keyof typeof calls; status: number | null },
+  };
+  const rates = new Map<string, ShippingRate>();
+  let shipments = 0;
+
+  function maybeFail(method: keyof typeof calls) {
+    if (settings.failNext?.method !== method) return;
+    const { status } = settings.failNext;
+    settings.failNext = null;
+    throw new ShippingProviderError(`Shippo answered ${status}`, status);
+  }
+
+  const provider: ShippingProvider = {
+    async checkAddress(address) {
+      calls.checkAddress.push(address);
+      maybeFail('checkAddress');
+      if (settings.invalidAddress) {
+        return { valid: false, messages: settings.invalidAddress, address };
+      }
+      // Standardized like USPS does: capital letters, ZIP+4.
+      return {
+        valid: true,
+        messages: [],
+        address: {
+          ...address,
+          street1: address.street1.toUpperCase(),
+          city: address.city.toUpperCase(),
+          state: address.state.toUpperCase(),
+          zip: address.zip.length === 5 ? `${address.zip}-0001` : address.zip,
+        },
+      };
+    },
+    async quote(input) {
+      calls.quote.push(input);
+      maybeFail('quote');
+      await settings.duringQuote?.();
+      shipments += 1;
+      const shipmentId = `shp_${shipments}`;
+      const list = settings.services.map(([token, name, cents, days]) => {
+        const rate: ShippingRate = {
+          id: `rate_${shipments}_${token}`,
+          shipmentId,
+          carrier: token.startsWith('ups') ? 'UPS' : 'USPS',
+          serviceToken: token,
+          serviceName: name,
+          estimatedDays: days,
+          amountCents: cents,
+        };
+        rates.set(rate.id, rate);
+        return rate;
+      });
+      return { shipmentId, rates: list };
+    },
+    async getRate(rateId) {
+      calls.getRate.push(rateId);
+      maybeFail('getRate');
+      const rate = rates.get(rateId);
+      if (!rate) throw new ShippingProviderError('Shippo answered 404', 404);
+      return { ...rate, amountCents: rate.amountCents + settings.priceChange };
+    },
+  };
+
+  const setup: ShippingSetup = {
+    provider,
+    packagingFeeCents: TEST_PACKAGING_FEE_CENTS,
+    from: TEST_FROM,
+  };
+  return { setup, calls, settings };
+}

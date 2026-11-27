@@ -288,6 +288,7 @@ describe('Admin: one commission', () => {
         id: 31,
         type: 'deposit',
         amountCents: 5000,
+        shippingCents: 0,
         currency: 'usd',
         status: 'succeeded',
         refundedPaymentId: null,
@@ -298,6 +299,7 @@ describe('Admin: one commission', () => {
         id: 32,
         type: 'final',
         amountCents: 5000,
+        shippingCents: 0,
         currency: 'usd',
         status: 'succeeded',
         refundedPaymentId: null,
@@ -472,6 +474,7 @@ describe('Admin: monthly report', () => {
       {
         month: '2026-10',
         salesCents: 0,
+        shippingCents: 0,
         refundsCents: 0,
         netSalesCents: 0,
         treesOrdered: 0,
@@ -482,6 +485,7 @@ describe('Admin: monthly report', () => {
       {
         month: '2026-11',
         salesCents: 21000,
+        shippingCents: 1234,
         refundsCents: 1000,
         netSalesCents: 20000,
         treesOrdered: 53,
@@ -501,6 +505,7 @@ describe('Admin: monthly report', () => {
     expect(within(table).getByRole('rowheader', { name: 'November' })).toBeInTheDocument();
     // November's row and the year's total (only November had any).
     expect(within(table).getAllByText('53 ($53.00)')).toHaveLength(2);
+    expect(within(table).getAllByText('$12.34')).toHaveLength(2);
     expect(within(table).getByText(`${year} so far`)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Download CSV' })).toHaveAttribute(
       'href',

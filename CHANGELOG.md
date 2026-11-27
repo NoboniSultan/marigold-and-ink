@@ -5,9 +5,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-25 (Milestone 11a: shipping addresses, prices, and the final payment)
+
 ### Added
 
+- **US shipping for physical commissions** with Shippo ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md); setup in `docs/setup-shippo.md`; off until configured):
+  - **Address:** from the deposit until the final payment, the client (or the admin) enters a US address on the commission's page. Shippo checks it, and the carrier's standard form is stored; an undeliverable address is refused with the carrier's reasons.
+  - **Package:** the admin enters the packed weight and size in the commission's new Shipping section.
+  - **Choosing shipping:** while the balance is due, the client sees live USPS prices (Ground Advantage, Priority, Priority Express), cheapest first, each with the owner's packaging fee added, and chooses one. Prices always come from Shippo: a choice sends only the option's ID, and the price is checked again at checkout.
+  - **Final payment:** the balance plus "Shipping & packaging", as two lines on Stripe's page; the payment records the shipping part (`payments.shipping_cents`). Changing the option closes an open payment page before a new one opens. The tree donation stays based on the artwork price.
+  - **Monthly report:** a new "Of which shipping" column (and CSV column).
+  - **Accounts:** the data download includes each commission's shipment; account deletion removes the name and street from past shipments, keeping the city, state, and ZIP for records.
+- New settings: `SHIPPO_API_KEY` (test tokens only while payments are test-only), `PACKAGING_FEE_CENTS` (owner-set, no default), and the return address `SHIP_FROM_*` (`.env` and Render only).
+- `centsFromDecimal` in `lib/money.js`: amounts like `"7.58"` to exact cents.
+- R2 setup guide: a separate bucket for local development.
 - **Privacy policy, section 1E:** reference photos and artwork files (metadata removed, stored with Cloudflare R2 in the United States, keeping periods). The R2 setup guide now places the bucket in Eastern North America to match.
+
+### Changed
+
+- **Mixed media is delivered as files** (owner decision): after the final payment it goes straight to `delivered`, like digital work. Only physical work ships.
+
+### Notes
+
+- Physical commissions can't take their final payment until shipping is configured (503 `SHIPPING_UNAVAILABLE`), so the balance is never charged without shipping.
+- Tested with a fake Shippo; not yet against Shippo's test mode (needs the owner's token).
 
 ## [0.11.0] - 2026-11-24 (Milestone 10: files)
 

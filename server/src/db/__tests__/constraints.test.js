@@ -12,6 +12,7 @@ import {
   createPayment,
   createCharity,
   createDonation,
+  createShipment,
 } from '../../../tests/factories/index.js';
 
 beforeEach(truncateAllTables);
@@ -597,6 +598,185 @@ describe('payments', () => {
       createPayment({ checkoutUrl: 'javascript:alert(1)' }),
       CHECK_VIOLATION,
       'payments_checkout_url_check',
+    );
+  });
+});
+
+describe('payments.shipping_cents', () => {
+  it('is part of a final payment only, never negative, never more than the amount', async () => {
+    await expect(
+      createPayment({ type: 'final', amountCents: 6000, shippingCents: 1000 }),
+    ).resolves.toBeDefined();
+    for (const overrides of [
+      { type: 'deposit', amountCents: 5000, shippingCents: 100 },
+      { type: 'final', amountCents: 5000, shippingCents: -1 },
+      { type: 'final', amountCents: 5000, shippingCents: 5001 },
+    ]) {
+      await expectViolation(
+        createPayment(overrides),
+        CHECK_VIOLATION,
+        'payments_shipping_cents_check',
+      );
+    }
+  });
+});
+
+describe('shipments', () => {
+  const CHOICE = {
+    providerShipmentId: 'shp_1',
+    rateId: 'rate_1',
+    carrier: 'USPS',
+    serviceToken: 'usps_priority',
+    serviceName: 'Priority Mail',
+    postageCents: 1200,
+    packagingFeeCents: 400,
+    rateChosenAt: new Date(),
+  };
+
+  it('allows one shipment per commission', async () => {
+    const first = await createShipment();
+    await expectViolation(
+      createShipment({ commissionId: first.commission_id }),
+      UNIQUE_VIOLATION,
+      'shipments_commission_id_key',
+    );
+  });
+
+  it('ships within the US, to a real state code and ZIP', async () => {
+    await expectViolation(
+      createShipment({ country: 'CA' }),
+      CHECK_VIOLATION,
+      'shipments_country_check',
+    );
+    await expectViolation(
+      createShipment({ state: 'ny' }),
+      CHECK_VIOLATION,
+      'shipments_state_check',
+    );
+    await expectViolation(
+      createShipment({ postalCode: '1000' }),
+      CHECK_VIOLATION,
+      'shipments_postal_code_check',
+    );
+    await expect(createShipment({ postalCode: '10001-1234' })).resolves.toBeDefined();
+  });
+
+  it('keeps address text non-empty and short', async () => {
+    await expectViolation(
+      createShipment({ city: '' }),
+      CHECK_VIOLATION,
+      'shipments_address_text_check',
+    );
+    await expectViolation(
+      createShipment({ recipientName: 'n'.repeat(101) }),
+      CHECK_VIOLATION,
+      'shipments_address_text_check',
+    );
+  });
+
+  it('needs city, state, and ZIP together', async () => {
+    await expectViolation(
+      createShipment({ recipientName: null, addressLine1: null, city: null }),
+      CHECK_VIOLATION,
+      'shipments_locality_check',
+    );
+  });
+
+  it('needs a name and first line with a locality, and a first line before a second', async () => {
+    await expectViolation(
+      createShipment({ recipientName: null }),
+      CHECK_VIOLATION,
+      'shipments_address_check',
+    );
+    await expectViolation(
+      createShipment({ recipientName: null, addressLine1: null, addressLine2: 'Apt 4' }),
+      CHECK_VIOLATION,
+      'shipments_address_check',
+    );
+    await expectViolation(
+      createShipment({ city: null, state: null, postalCode: null }),
+      CHECK_VIOLATION,
+      'shipments_address_check',
+    );
+    await expect(
+      createShipment({
+        recipientName: null,
+        addressLine1: null,
+        city: null,
+        state: null,
+        postalCode: null,
+      }),
+    ).resolves.toBeDefined(); // the package before the address
+  });
+
+  it('keeps only the locality once an address is removed', async () => {
+    await expectViolation(
+      createShipment({ addressRemovedAt: new Date() }),
+      CHECK_VIOLATION,
+      'shipments_address_check',
+    );
+    await expect(
+      createShipment({
+        recipientName: null,
+        addressLine1: null,
+        addressRemovedAt: new Date(),
+        ...CHOICE,
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('needs the whole package, with positive measures', async () => {
+    await expectViolation(
+      createShipment({ heightIn: null }),
+      CHECK_VIOLATION,
+      'shipments_parcel_check',
+    );
+    await expectViolation(
+      createShipment({ weightOz: 0 }),
+      CHECK_VIOLATION,
+      'shipments_parcel_check',
+    );
+  });
+
+  it('records a whole choice, made for a quote with an address and package', async () => {
+    await expect(createShipment(CHOICE)).resolves.toBeDefined();
+    await expectViolation(
+      createShipment({ ...CHOICE, carrier: null }),
+      CHECK_VIOLATION,
+      'shipments_rate_check',
+    );
+    await expectViolation(
+      createShipment({ ...CHOICE, providerShipmentId: null }),
+      CHECK_VIOLATION,
+      'shipments_rate_check',
+    );
+    await expectViolation(
+      createShipment({ estimatedDays: 3 }),
+      CHECK_VIOLATION,
+      'shipments_rate_check',
+    );
+    await expectViolation(
+      createShipment({ ...CHOICE, weightOz: null, lengthIn: null, widthIn: null, heightIn: null }),
+      CHECK_VIOLATION,
+      'shipments_rate_check',
+    );
+  });
+
+  it('never records negative amounts or days', async () => {
+    for (const change of [{ postageCents: -1 }, { packagingFeeCents: -1 }, { estimatedDays: -1 }]) {
+      await expectViolation(
+        createShipment({ ...CHOICE, ...change }),
+        CHECK_VIOLATION,
+        'shipments_rate_amounts_check',
+      );
+    }
+  });
+
+  it("can't be deleted out from under its commission", async () => {
+    const shipment = await createShipment();
+    await expectViolation(
+      pool.query('DELETE FROM commissions WHERE id = $1', [shipment.commission_id]),
+      FOREIGN_KEY_VIOLATION,
     );
   });
 });

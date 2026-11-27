@@ -21,6 +21,11 @@ export interface CheckoutRequest {
   currency: string;
   /** Shown on Stripe's page, e.g. "Deposit for commission #12". */
   description: string;
+  /**
+   * The lines shown on Stripe's page, when there's more than one (the balance, then
+   * shipping). They add up to amountCents. Without them, one line named `description`.
+   */
+  lines?: { name: string; amountCents: number }[];
   customerEmail: string;
   successUrl: string;
   cancelUrl: string;
@@ -208,16 +213,16 @@ export function createStripeGateway({
             // so `checkout.session.completed` means paid. Delayed methods (bank debits)
             // would need the async_payment events.
             allowed_payment_method_types: ['card'],
-            line_items: [
-              {
-                quantity: 1,
-                price_data: {
-                  currency: request.currency,
-                  unit_amount: request.amountCents,
-                  product_data: { name: request.description },
-                },
+            line_items: (
+              request.lines ?? [{ name: request.description, amountCents: request.amountCents }]
+            ).map((line) => ({
+              quantity: 1,
+              price_data: {
+                currency: request.currency,
+                unit_amount: line.amountCents,
+                product_data: { name: line.name },
               },
-            ],
+            })),
             customer_email: request.customerEmail,
             client_reference_id: String(request.commissionId),
             metadata,

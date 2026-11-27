@@ -340,6 +340,25 @@ Every money movement is one row: `deposit`, `final`, or `refund`. Amounts are al
 | `payments_reason_check` | CHECK | A refund reason is 1–500 characters once trimmed. |
 | `payments_checkout_url_check` | CHECK | Checkout URLs are `https://`, so a stored link can never be a `javascript:` URL. |
 | `payments.requested_by_user_id` | FK, `ON DELETE RESTRICT` | Money history keeps who asked for each refund. |
+| `payments_shipping_cents_check` | CHECK | `shipping_cents` (milestone 11) is the part of a **final** payment that paid for shipping and packaging: 0 to `amount_cents`, and 0 on deposits and refunds. Reported separately; not counted toward the donation. |
+
+### shipments
+
+Milestone 11 ([ADR 0017](decisions/0017-us-shipping-with-shippo.md)): one row per physical commission, with the address (as the carrier standardized it), the package, the Shippo shipment its current prices belong to, and the option the client chose.
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `shipments_commission_id_key` | UNIQUE | One shipment per commission (address and package are set with `ON CONFLICT` on it). |
+| `shipments.commission_id` | FK, `ON DELETE RESTRICT` | A shipment is part of the commission's money history. |
+| `shipments_country_check` | CHECK | `US` only (the terms of service). |
+| `shipments_state_check`, `shipments_postal_code_check` | CHECK | A two-letter state code; a 5-digit ZIP or ZIP+4. |
+| `shipments_address_text_check` | CHECK | Name and street lines 1–100 characters, city 1–60. |
+| `shipments_locality_check` | CHECK | City, state, and ZIP come together. |
+| `shipments_address_check` | CHECK | A full address has a name, a first line, and a locality (a second line needs a first). Once `address_removed_at` is set (the client deleted their account), only the city, state, and ZIP remain. |
+| `shipments_parcel_check` | CHECK | Weight and the three sides all set (positive) or all empty. |
+| `shipments_rate_check` | CHECK | A chosen option is complete (rate, carrier, service, postage, packaging fee, when), and needs the quote it came from, the package, and the address (or its removal). |
+| `shipments_rate_amounts_check` | CHECK | Postage, packaging fee, and estimated days are never negative. |
+| `shipments_set_updated_at` | Trigger | `updated_at` on every change. |
 
 ### processed_webhook_events
 

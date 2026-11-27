@@ -12,6 +12,8 @@ export interface PaymentRecord {
   commissionId: number;
   type: PaymentType;
   amountCents: number;
+  /** The part of a final payment that paid for shipping and packaging (0 otherwise). */
+  shippingCents: number;
   currency: string;
   status: PaymentStatus;
   stripeCheckoutSessionId: string | null;
@@ -26,7 +28,7 @@ export interface PaymentRecord {
   updatedAt: Date;
 }
 
-const COLUMNS = `id, commission_id, type, amount_cents, currency, status,
+const COLUMNS = `id, commission_id, type, amount_cents, shipping_cents, currency, status,
   stripe_checkout_session_id, stripe_payment_intent_id, stripe_refund_id, refunded_payment_id,
   checkout_url, checkout_expires_at, reason, requested_by_user_id, created_at, updated_at`;
 
@@ -39,6 +41,7 @@ function toPayment(row: Row): PaymentRecord {
     commissionId: Number(row.commission_id),
     type: row.type as PaymentType,
     amountCents: row.amount_cents as number,
+    shippingCents: row.shipping_cents as number,
     currency: row.currency as string,
     status: row.status as PaymentStatus,
     stripeCheckoutSessionId: row.stripe_checkout_session_id as string | null,
@@ -79,14 +82,21 @@ export async function insertIncoming(
     commissionId,
     type,
     amountCents,
+    shippingCents = 0,
     currency,
-  }: { commissionId: number; type: 'deposit' | 'final'; amountCents: number; currency: string },
+  }: {
+    commissionId: number;
+    type: 'deposit' | 'final';
+    amountCents: number;
+    shippingCents?: number;
+    currency: string;
+  },
   client: Db = pool,
 ): Promise<PaymentRecord> {
   const { rows } = await client.query(
-    `INSERT INTO payments (commission_id, type, amount_cents, currency)
-     VALUES ($1, $2, $3, $4) RETURNING ${COLUMNS}`,
-    [commissionId, type, amountCents, currency],
+    `INSERT INTO payments (commission_id, type, amount_cents, shipping_cents, currency)
+     VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNS}`,
+    [commissionId, type, amountCents, shippingCents, currency],
   );
   return toPayment(rows[0]);
 }
@@ -306,6 +316,8 @@ export async function recordProcessedEvent(
 export interface MonthlyPayments {
   month: string;
   salesCents: number;
+  /** The part of sales that paid for shipping and packaging. */
+  shippingCents: number;
   refundsCents: number;
 }
 
@@ -325,13 +337,16 @@ export async function monthlyPayments(
          FROM generate_series(make_date($1, 1, 1), make_date($1, 12, 1), interval '1 month') AS m
      ),
      moved AS (
-       SELECT (created_at AT TIME ZONE $2)::date AS day, type, amount_cents
+       SELECT (created_at AT TIME ZONE $2)::date AS day, type, amount_cents, shipping_cents
          FROM payments WHERE status = 'succeeded'
      )
      SELECT to_char(months.starts, 'YYYY-MM') AS month,
        coalesce((SELECT sum(amount_cents) FROM moved
                   WHERE type <> 'refund' AND day >= months.starts AND day < months.ends), 0)::int
          AS sales_cents,
+       coalesce((SELECT sum(shipping_cents) FROM moved
+                  WHERE type <> 'refund' AND day >= months.starts AND day < months.ends), 0)::int
+         AS shipping_cents,
        coalesce((SELECT sum(amount_cents) FROM moved
                   WHERE type = 'refund' AND day >= months.starts AND day < months.ends), 0)::int
          AS refunds_cents
@@ -341,6 +356,7 @@ export async function monthlyPayments(
   return rows.map((row) => ({
     month: row.month,
     salesCents: row.sales_cents,
+    shippingCents: row.shipping_cents,
     refundsCents: row.refunds_cents,
   }));
 }

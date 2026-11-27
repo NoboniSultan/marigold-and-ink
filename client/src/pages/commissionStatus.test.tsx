@@ -38,6 +38,7 @@ const payment = (overrides: Partial<Payment>): Payment => ({
   id: 1,
   type: 'deposit',
   amountCents: 4000,
+  shippingCents: 0,
   currency: 'usd',
   status: 'succeeded',
   refundedPaymentId: null,

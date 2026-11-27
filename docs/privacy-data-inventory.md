@@ -38,6 +38,14 @@ What personal data the site collects, where it goes, and how long it stays, take
 - **Deleted automatically:** reference photos **90 days after the commission ends** (completed, cancelled, or refunded); previews and final files **a year after full payment** (or 90 days after a commission that ended unpaid). **Account deletion** removes the client's reference photos at once.
 - Only active once R2 is configured (`R2_*` settings); the privacy policy should describe it before then (docs/setup-r2.md).
 
+## 3b. Shipping (`shipments`, and Shippo; milestone 11, [ADR 0017](decisions/0017-us-shipping-with-shippo.md))
+
+- **Shipping address** for a physical commission, entered by the client (or the admin): name, street lines, city, state, ZIP. United States only. Stored as the carrier standardized it.
+- **Sent to Shippo:** that address (to check it and to price postage) and the package's weight and size. From milestone 11b, also to buy the label and track the package.
+- **The return address** (the owner's) is in the server's settings only, and printed on labels.
+- **Account deletion** removes the name and street from the client's past shipments; the city, state, and ZIP stay for records. The data download includes each commission's shipment.
+- Only active once Shippo is configured (`SHIPPO_API_KEY` and the rest); the privacy policy should describe shipping addresses and Shippo before then (docs/setup-shippo.md).
+
 ## 4. Payments (`payments`, `processed_webhook_events`)
 
 - **Card details never reach the site.** Clients pay on Stripe's hosted Checkout page.
@@ -68,7 +76,8 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Stripe | Payments | Email, amounts, card details (entered on Stripe's page) | Stripe's infrastructure |
 | Google | "Continue with Google" | That the person is signing in to this app | Google's infrastructure |
 | Resend | Sign-up emails (once configured) | Email address and the code | Resend's infrastructure |
-| Cloudflare R2 | Storing commission files (once configured) | Reference photos (metadata removed), previews, final files | Cloudflare's infrastructure (location automatic, or Eastern North America) |
+| Cloudflare R2 | Storing commission files | Reference photos (metadata removed), previews, final files | Cloudflare, Eastern North America (location hint ENAM) |
+| Shippo | Shipping physical commissions (once configured) | The shipping address, and the package's weight and size | Shippo's infrastructure (a US company) |
 | Digital Humani | Requesting trees for fully paid commissions (once configured) | **No personal data:** a reference like `commission-12` and a number of trees | Digital Humani's infrastructure (Canada) |
 
 All the site's own data is stored in the United States.
@@ -76,4 +85,4 @@ All the site's own data is stored in the United States.
 ## 8. Not built yet (update this file when they are)
 
 - **Messaging:** the `messages` table exists but is unused.
-- **Shipping addresses** (proposal section 7).
+- **Shipping labels and tracking** (milestone 11b).

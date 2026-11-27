@@ -10,6 +10,8 @@ export interface Payment {
   type: PaymentType;
   /** Always positive; `type` says which way the money went. */
   amountCents: number;
+  /** The part of a final payment that paid for shipping and packaging (0 otherwise). */
+  shippingCents: number;
   /** Lowercase ISO code, e.g. 'usd'. */
   currency: string;
   status: PaymentStatus;

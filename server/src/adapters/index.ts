@@ -9,6 +9,7 @@ import { createGoogleAuth, type GoogleAuth } from './googleOidc.ts';
 import { createStripeGateway, type PaymentGateway } from './stripe/stripeGateway.ts';
 import { createTreePlanter, type TreePlanter } from './digitalHumani.ts';
 import { createR2Storage, type FileStorage } from './r2Storage.ts';
+import { createShippo, type ShippingSetup } from './shippo.ts';
 
 export interface AppAdapters {
   email: EmailSender | null;
@@ -18,6 +19,8 @@ export interface AppAdapters {
   trees?: TreePlanter | null;
   /** Optional, so tests that don't involve files can leave it out (= uploads are off). */
   storage?: FileStorage | null;
+  /** Optional, so tests that don't involve shipping can leave it out (= shipping is off). */
+  shipping?: ShippingSetup | null;
 }
 
 export function createDefaultAdapters(): AppAdapters {
@@ -51,6 +54,21 @@ export function createDefaultAdapters(): AppAdapters {
           secretAccessKey: config.files.secretAccessKey!,
           bucket: config.files.bucket,
         })
+      : null,
+    // The config check guarantees the fee and the return address whenever the key is set.
+    shipping: config.shipping
+      ? {
+          provider: createShippo({ apiKey: config.shipping.apiKey }),
+          packagingFeeCents: config.shipping.packagingFeeCents!,
+          from: {
+            name: config.shipping.from.name!,
+            street1: config.shipping.from.street1!,
+            street2: config.shipping.from.street2,
+            city: config.shipping.from.city!,
+            state: config.shipping.from.state!,
+            zip: config.shipping.from.zip!,
+          },
+        }
       : null,
   };
 }

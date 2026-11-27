@@ -29,7 +29,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Giving: 25% of every fully paid commission plants trees through Digital Humani; Giving page with a growing tree; refunds never give back tree money | Built (sandbox); needs [setup](docs/setup-digital-humani.md) |
 | Admin screens: commissions (quote, status, refunds), giving (mark tree invoices paid in batches), monthly report with CSV | Built ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)) |
 | Files: reference photos (metadata stripped), watermarked previews, final-file downloads; private R2 storage with signed links and automatic deletion | Built; needs [setup](docs/setup-r2.md) ([ADR 0016](docs/decisions/0016-commission-files-on-r2.md)) |
-| Messaging, shipping, shop, slots | Later (see backlog) |
+| Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)); labels and tracking in 11b |
+| Messaging, shop, slots | Later (see backlog) |
 
 ## Tech stack
 
@@ -249,7 +250,7 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | POST | `/api/v1/commissions/:id/quote/send` | Admin | Send the draft: stores total, deposit, and balance on the commission and moves it to `quoted`, all in one transaction. |
 | GET | `/api/v1/commissions/:id/quote` | Owner or admin | The current quote. Clients only see it once it has been sent. |
 | POST | `/api/v1/commissions/:id/payments/deposit` | The commission's client | While `quoted`: returns `{ url, expiresAt, reused }`, a Stripe Checkout page for the deposit on the quote. An open page is reused (200); a new one is 201. |
-| POST | `/api/v1/commissions/:id/payments/final` | The commission's client | The same for the balance, while `awaiting_final_payment`. |
+| POST | `/api/v1/commissions/:id/payments/final` | The commission's client | The same for the balance, while `awaiting_final_payment`. Physical work adds the chosen shipping as a second line (409 `SHIPPING_NOT_CHOSEN` / `SHIPPING_PRICE_CHANGED`; 503 while shipping is off). |
 | GET | `/api/v1/commissions/:id/payments` | Owner or admin | Deposits, final payments, and refunds, plus `meta: { paymentsEnabled, currency }`. Refund notes are admin-only. |
 | POST | `/api/v1/admin/commissions/:id/refunds` | Admin | Refund a payment: `{ paymentId, amountCents?, reason }`. Without an amount, refunds everything not yet refunded. **Never refunds the tree money** of a fully paid commission (`details.withheldForTreesCents`). |
 | POST | `/api/v1/webhooks/stripe` | Stripe (signed) | Stripe's events: payment completed or expired, refund created or changed. Raw body, signature checked, each event handled once. |
@@ -263,6 +264,11 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | DELETE | `/api/v1/commissions/:id/files/:fileId` | Owner or admin | The client removes their reference photos until work starts; the admin removes any file. 204. |
 | POST | `/api/v1/admin/commissions/:id/files/previews` | Admin | A work-in-progress image (≤ 25 MB), watermarked before it's stored. |
 | POST | `/api/v1/admin/commissions/:id/files/finals` | Admin | A final file as uploaded: JPEG, PNG, PDF, or TIFF, ≤ 100 MB. |
+| GET | `/api/v1/commissions/:id/shipping` | Owner or admin | `{ data, meta }`: the shipment (address, package, chosen option) or null; `meta.shippingEnabled`, `ships` (physical only), `addressOpen`, `choosingOpen`. |
+| PUT | `/api/v1/commissions/:id/shipping/address` | Owner or admin | A US address, from the deposit until the final payment. Checked by Shippo and stored standardized (422 `ADDRESS_NOT_DELIVERABLE` with the carrier's reasons). Forgets earlier prices. |
+| PUT | `/api/v1/admin/commissions/:id/shipping/package` | Admin | The packed weight (oz) and size (in). Forgets earlier prices. |
+| POST | `/api/v1/commissions/:id/shipping/options` | Owner or admin | While the final payment is due: live USPS options, cheapest first, each with postage, packaging fee, and total. |
+| PUT | `/api/v1/commissions/:id/shipping/choice` | Owner or admin | `{ rateId }` from the latest options; the price is read from Shippo (409 `SHIPPING_OPTION_STALE` for an old one). |
 | GET | `/api/v1/admin/commissions` | Admin | Commissions newest first, each with its `client` (`null` once deleted). `?status=`, `?page=`. |
 | GET | `/api/v1/admin/commissions/:id` | Admin | `{ commission, client, money }`: details with allowed moves, the client, and paid / refunded / tree money / still refundable ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)). |
 | GET | `/api/v1/admin/donations` | Admin | Tree donations, newest first. `?status=owed|paid|pending|reversed`, `?page=`. |
@@ -344,6 +350,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0014: Password reset and email change by emailed code](docs/decisions/0014-password-reset-and-email-change.md)
 - [0015: Admin screens and the monthly report](docs/decisions/0015-admin-screens-and-monthly-report.md)
 - [0016: Commission files on Cloudflare R2](docs/decisions/0016-commission-files-on-r2.md)
+- [0017: US shipping with Shippo](docs/decisions/0017-us-shipping-with-shippo.md)
 
 ## Roadmap
 

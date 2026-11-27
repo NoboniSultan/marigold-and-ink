@@ -20,6 +20,7 @@ export async function monthlyReport(year: number, now = new Date()): Promise<Mon
       return {
         month: p.month,
         salesCents: p.salesCents,
+        shippingCents: p.shippingCents,
         refundsCents: p.refundsCents,
         netSalesCents: p.salesCents - p.refundsCents,
         treesOrdered: g.treesOrdered,
@@ -46,6 +47,7 @@ export function toCsv(rows: MonthlyReportRow[]): string {
   const header = [
     'Month',
     'Sales (USD)',
+    'Of which shipping (USD)',
     'Refunds (USD)',
     'Net sales (USD)',
     'Trees ordered',
@@ -57,6 +59,7 @@ export function toCsv(rows: MonthlyReportRow[]): string {
     [
       label,
       dollars(row.salesCents),
+      dollars(row.shippingCents),
       dollars(row.refundsCents),
       dollars(row.netSalesCents),
       String(row.treesOrdered),
@@ -69,6 +72,7 @@ export function toCsv(rows: MonthlyReportRow[]): string {
   const total: MonthlyReportRow = {
     month: 'Total',
     salesCents: sum((r) => r.salesCents),
+    shippingCents: sum((r) => r.shippingCents),
     refundsCents: sum((r) => r.refundsCents),
     netSalesCents: sum((r) => r.netSalesCents),
     treesOrdered: sum((r) => r.treesOrdered),

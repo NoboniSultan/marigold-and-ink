@@ -196,6 +196,41 @@ describe('createStripeGateway: requests sent to Stripe', () => {
     });
   });
 
+  it('shows each line when there are several (the balance, then shipping)', async () => {
+    const { fetch, requests } = recordingFetch([
+      { body: { id: 'cs_2', url: 'https://checkout.stripe.com/c/pay/cs_2', expires_at: 1 } },
+    ]);
+
+    await gatewayWith(fetch).createCheckoutSession(
+      {
+        paymentId: 8,
+        commissionId: 3,
+        type: 'final',
+        amountCents: 6158,
+        currency: 'usd',
+        description: 'Balance for commission #3',
+        lines: [
+          { name: 'Balance for commission #3', amountCents: 5000 },
+          { name: 'Shipping & packaging (USPS Ground Advantage)', amountCents: 1158 },
+        ],
+        customerEmail: 'client@example.com',
+        successUrl: 'https://x',
+        cancelUrl: 'https://x',
+        expiresAt,
+      },
+      { idempotencyKey: 'checkout-payment-8' },
+    );
+
+    expect(Object.fromEntries(requests[0]!.form)).toMatchObject({
+      'line_items[0][price_data][unit_amount]': '5000',
+      'line_items[0][price_data][product_data][name]': 'Balance for commission #3',
+      'line_items[1][quantity]': '1',
+      'line_items[1][price_data][unit_amount]': '1158',
+      'line_items[1][price_data][product_data][name]':
+        'Shipping & packaging (USPS Ground Advantage)',
+    });
+  });
+
   it('refuses a session without a URL', async () => {
     const { fetch } = recordingFetch([{ body: { id: 'cs_1', url: null, expires_at: 1 } }]);
 

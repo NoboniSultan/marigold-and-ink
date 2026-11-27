@@ -115,10 +115,44 @@ const envSchema = z.object({
     .string()
     .regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, 'must be an R2 bucket name')
     .optional(),
+
+  // Shipping (milestone 11, ADR 0017): Shippo checks addresses and prices postage for
+  // physical commissions. The key, the packaging fee, and the return address switch it on
+  // together (checked below). Secrets and the address: .env / Render only, never the repo.
+  // See docs/setup-shippo.md.
+  SHIPPO_API_KEY: z
+    .string()
+    .regex(/^shippo_(test|live)_\w+$/, 'must be a Shippo API token (shippo_test_...)')
+    .optional(),
+  // Added to the postage on every shipment. An owner-set business value: no default.
+  PACKAGING_FEE_CENTS: z.coerce.number().int().min(0).max(100_000).optional(),
+  // The return address printed on labels.
+  SHIP_FROM_NAME: z.string().min(1).max(100).optional(),
+  SHIP_FROM_STREET1: z.string().min(1).max(100).optional(),
+  SHIP_FROM_STREET2: z.string().min(1).max(100).optional(),
+  SHIP_FROM_CITY: z.string().min(1).max(60).optional(),
+  SHIP_FROM_STATE: z
+    .string()
+    .regex(/^[A-Z]{2}$/, 'must be a two-letter state code, e.g. NY')
+    .optional(),
+  SHIP_FROM_ZIP: z
+    .string()
+    .regex(/^[0-9]{5}(-[0-9]{4})?$/, 'must be a ZIP code, e.g. 10001')
+    .optional(),
 });
 
 const STRIPE_KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'PAYMENT_CURRENCY'];
 const FILES_KEYS = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET'];
+// SHIP_FROM_STREET2 is the only optional one.
+const SHIPPING_KEYS = [
+  'SHIPPO_API_KEY',
+  'PACKAGING_FEE_CENTS',
+  'SHIP_FROM_NAME',
+  'SHIP_FROM_STREET1',
+  'SHIP_FROM_CITY',
+  'SHIP_FROM_STATE',
+  'SHIP_FROM_ZIP',
+];
 const GIVING_KEYS = [
   'DIGITALHUMANI_API_KEY',
   'DIGITALHUMANI_ENTERPRISE_ID',
@@ -187,6 +221,23 @@ function groupProblems(env) {
     if (filesOn && !env[key]) {
       problems.push(`✖ is required for file uploads (with the other R2 settings)\n  → at ${key}`);
     }
+  }
+  const shippingOn = [...SHIPPING_KEYS, 'SHIP_FROM_STREET2'].some((key) => env[key] !== undefined);
+  for (const key of SHIPPING_KEYS) {
+    if (shippingOn && env[key] === undefined) {
+      problems.push(`✖ is required for shipping (with the other shipping settings)\n  → at ${key}`);
+    }
+  }
+  if (shippingOn && !paymentsOn) {
+    problems.push(
+      '✖ shipping needs payments switched on (postage is charged with the final payment)\n  → at STRIPE_SECRET_KEY',
+    );
+  }
+  // Like trees: a live token buys real postage, paid by the owner, while payments are test-only.
+  if (env.SHIPPO_API_KEY?.startsWith('shippo_live_')) {
+    problems.push(
+      "✖ a live token buys real postage while payments are test-only; use a 'shippo_test_' token\n  → at SHIPPO_API_KEY",
+    );
   }
   // Stripe only ever takes test money (live keys are refused), so real trees would be paid
   // for by the owner with no real income behind them.
@@ -307,6 +358,21 @@ export function loadConfig(rawEnv) {
           projectId: e.DIGITALHUMANI_PROJECT_ID,
           environment: e.DIGITALHUMANI_ENVIRONMENT,
           donationPercent: e.DONATION_PERCENT,
+        })
+      : null,
+    // null = shipping is off: physical commissions can't take their final payment yet.
+    shipping: e.SHIPPO_API_KEY
+      ? Object.freeze({
+          apiKey: e.SHIPPO_API_KEY,
+          packagingFeeCents: e.PACKAGING_FEE_CENTS,
+          from: Object.freeze({
+            name: e.SHIP_FROM_NAME,
+            street1: e.SHIP_FROM_STREET1,
+            street2: e.SHIP_FROM_STREET2 ?? null,
+            city: e.SHIP_FROM_CITY,
+            state: e.SHIP_FROM_STATE,
+            zip: e.SHIP_FROM_ZIP,
+          }),
         })
       : null,
     // null = file uploads are off: the file endpoints answer 503 FILES_UNAVAILABLE.

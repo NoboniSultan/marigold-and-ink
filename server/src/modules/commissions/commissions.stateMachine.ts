@@ -99,17 +99,19 @@ const revisionAvailable: Guard = (commission) => {
   };
 };
 
+// Only physical work ships. Digital and mixed-media work (a sketch finished digitally) is
+// delivered as files (owner decision, 2026-11-25).
 const shipsPhysically: Guard = (commission) => {
-  if (commission.fulfillmentType !== 'digital') return null;
-  return { kind: 'invalid', message: 'Digital-only commissions are delivered, not shipped' };
-};
-
-const digitalOnly: Guard = (commission) => {
-  if (commission.fulfillmentType === 'digital') return null;
+  if (commission.fulfillmentType === 'physical') return null;
   return {
     kind: 'invalid',
-    message: 'Physical and mixed-media commissions must be shipped before delivery',
+    message: 'Digital and mixed-media commissions are delivered as files, not shipped',
   };
+};
+
+const deliveredAsFiles: Guard = (commission) => {
+  if (commission.fulfillmentType !== 'physical') return null;
+  return { kind: 'invalid', message: 'Physical commissions must be shipped before delivery' };
 };
 
 /**
@@ -147,7 +149,12 @@ const TRANSITION_TABLE = [
     actors: ['system'],
     guard: shipsPhysically,
   },
-  { from: 'awaiting_final_payment', to: 'delivered', actors: ['system'], guard: digitalOnly },
+  {
+    from: 'awaiting_final_payment',
+    to: 'delivered',
+    actors: ['system'],
+    guard: deliveredAsFiles,
+  },
   { from: 'awaiting_final_payment', to: 'refunded', actors: ['admin', 'system'], via: 'refund' },
   { from: 'ready_to_ship', to: 'shipped', actors: ['admin'] },
   { from: 'shipped', to: 'delivered', actors: ['admin'] },

@@ -25,6 +25,7 @@ const EXPECTED_TABLES = [
   'processed_webhook_events',
   'quotes',
   'sessions',
+  'shipments',
   'tags',
   'users',
 ];

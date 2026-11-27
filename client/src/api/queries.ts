@@ -14,6 +14,7 @@ import {
   authApi,
   commissionsApi,
   paymentsApi,
+  shippingApi,
   type ArtworkFilters,
 } from './endpoints.ts';
 
@@ -32,6 +33,7 @@ export const queryKeys = {
   commissionOptions: ['commission-options'] as const,
   providers: ['auth-providers'] as const,
   files: (commissionId: number) => ['files', commissionId] as const,
+  shipping: (commissionId: number) => ['shipping', commissionId] as const,
   // The admin screens. Everything under 'admin' is refreshed together after a change.
   admin: ['admin'] as const,
   adminCommissions: (filters: { page: number; status?: string }) =>
@@ -204,5 +206,17 @@ export function useCommissionFiles(commissionId: number) {
     staleTime: 0,
     refetchInterval: 5 * 60_000,
     refetchOnWindowFocus: true,
+  });
+}
+
+/**
+ * A commission's shipment and what can be done with it now (milestone 11). Only physical
+ * work ships, so pages ask only for those (`enabled`).
+ */
+export function useShipping(commissionId: number, { enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: queryKeys.shipping(commissionId),
+    queryFn: ({ signal }) => shippingApi.get(commissionId, signal),
+    enabled,
   });
 }

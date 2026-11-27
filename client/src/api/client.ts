@@ -49,7 +49,7 @@ export function formMessage(error: unknown): string {
 type Query = Record<string, string | number | boolean | undefined>;
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   query?: Query;
   body?: unknown;
   signal?: AbortSignal;

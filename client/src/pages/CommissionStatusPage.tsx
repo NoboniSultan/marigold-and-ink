@@ -11,6 +11,7 @@ import { STATUS_TEXT } from '../features/commissions/statusText.ts';
 import styles from './SimplePage.module.css';
 import { formatMoney } from '../features/commissions/money.ts';
 import { ClientFiles } from '../features/files/CommissionFiles.tsx';
+import { ClientShipping, useShippingCharge } from '../features/shipping/Shipping.tsx';
 
 /** Leaving the site for Stripe's page. An object so tests can replace it. */
 export const externalNavigation = {
@@ -124,6 +125,7 @@ function Details({
               <li key={p.id}>
                 {PAYMENT_LABEL[p.type]}: {money(p.amountCents)} on{' '}
                 {new Date(p.createdAt).toLocaleDateString('en-US', { dateStyle: 'medium' })}
+                {p.shippingCents > 0 ? ` (includes ${money(p.shippingCents)} shipping)` : ''}
                 {p.status === 'pending' ? ' (processing)' : ''}
               </li>
             ))}
@@ -150,6 +152,7 @@ function CommissionStatus({ id }: { id: number }) {
   const poll = stillWaiting && !gaveUp ? POLL_MS : false;
   const commission = useCommission(id, { pollMs: poll });
   const payments = usePayments(id, { pollMs: poll });
+  const shipping = useShippingCharge(id, commission.data?.fulfillmentType === 'physical');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -178,8 +181,18 @@ function CommissionStatus({ id }: { id: number }) {
   }
 
   const { data: list, meta } = payments.data;
-  const amountDue =
+  const stageDue =
     due === 'deposit' ? commission.data.depositCents : due ? commission.data.balanceCents : null;
+  // Physical work: the balance is paid with the shipping the client chose (milestone 11).
+  const addsShipping = due === 'final' && shipping.ships;
+  const amountDue =
+    stageDue && addsShipping
+      ? shipping.chosenCents === null
+        ? null
+        : stageDue + shipping.chosenCents
+      : stageDue;
+  const payLabel =
+    due === 'deposit' ? 'deposit' : addsShipping ? 'balance and shipping' : 'balance';
 
   async function pay(type: 'deposit' | 'final') {
     setStarting(true);
@@ -216,7 +229,7 @@ function CommissionStatus({ id }: { id: number }) {
             >
               {starting
                 ? 'Opening the secure payment page…'
-                : `Pay ${due === 'deposit' ? 'deposit' : 'balance'} (${formatMoney(amountDue, meta.currency)})`}
+                : `Pay ${payLabel} (${formatMoney(amountDue, meta.currency)})`}
             </button>
             <p className={styles.hint}>
               You&apos;ll pay on Stripe&apos;s secure page, then come back here.
@@ -226,7 +239,11 @@ function CommissionStatus({ id }: { id: number }) {
           <p className={styles.notice}>Online payment opens soon.</p>
         )
       ) : null}
+      {addsShipping && stageDue && amountDue === null && shipping.enabled ? (
+        <p className={styles.hint}>Choose a shipping option below to pay the balance.</p>
+      ) : null}
 
+      {commission.data.fulfillmentType === 'physical' && <ClientShipping commissionId={id} />}
       <ClientFiles commissionId={id} />
 
       <Details

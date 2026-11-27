@@ -109,4 +109,21 @@ services:
         sync: false
       - key: R2_BUCKET
         sync: false
+      # Shipping (Shippo). Off until all are set (docs/setup-shippo.md); STREET2 optional.
+      - key: SHIPPO_API_KEY
+        sync: false
+      - key: PACKAGING_FEE_CENTS
+        sync: false
+      - key: SHIP_FROM_NAME
+        sync: false
+      - key: SHIP_FROM_STREET1
+        sync: false
+      - key: SHIP_FROM_STREET2
+        sync: false
+      - key: SHIP_FROM_CITY
+        sync: false
+      - key: SHIP_FROM_STATE
+        sync: false
+      - key: SHIP_FROM_ZIP
+        sync: false
 # No `databases:` section: the database lives on Neon, not Render (ADR 0006).

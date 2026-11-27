@@ -8,7 +8,8 @@
  * (and key) or, for the webhook, the same key and therefore the same Stripe result.
  *
  * Amounts always come from the stored quote (commission.depositCents / balanceCents),
- * never from the request.
+ * never from the request. A physical commission's final payment also adds the shipping the
+ * client chose (milestone 11, priced by the shipping service; see shipping.service.ts).
  */
 import { config } from '../../config/env.js';
 import { withTransaction } from '../../db/transaction.ts';
@@ -30,6 +31,9 @@ import {
 import * as commissionsService from '../commissions/commissions.service.js';
 import { refundableCents } from '../giving/giving.calculator.ts';
 import * as givingService from '../giving/giving.service.ts';
+import * as shippingService from '../shipping/shipping.service.ts';
+import type { ShippingSetup } from '../../adapters/shippo.ts';
+import { sumCents } from '../../lib/money.js';
 import { canTransition, type Actor } from '../commissions/commissions.stateMachine.ts';
 import * as paymentsRepository from './payments.repository.ts';
 import type { PaymentRecord } from './payments.repository.ts';
@@ -86,6 +90,7 @@ export async function startCheckout(
   user: SessionUser,
   type: IncomingPaymentType,
   gatewayOrNull: PaymentGateway | null,
+  shipping: ShippingSetup | null = null,
 ): Promise<{ url: string; expiresAt: Date; reused: boolean }> {
   const { gateway, currency } = requireGateway(gatewayOrNull);
   const stage = STAGES[type];
@@ -104,25 +109,40 @@ export async function startCheckout(
         { code: 'PAYMENT_NOT_ALLOWED', details: { status: commission.status, type } },
       );
     }
-    const amountCents: number | null = commission[stage.amount];
-    if (!amountCents || amountCents <= 0) {
+    const stageCents: number | null = commission[stage.amount];
+    if (!stageCents || stageCents <= 0) {
       throw new BusinessRuleError(`There is no ${stage.label.toLowerCase()} to pay`, {
         code: 'NOTHING_TO_PAY',
       });
     }
+    const description = `${stage.label} for commission #${commissionId}`;
+    const shippingCharge =
+      type === 'final'
+        ? await shippingService.chargeForFinalPayment(commission, { shipping, client: tx })
+        : null;
+    const shippingCents = shippingCharge?.shippingCents ?? 0;
+    const amountCents = sumCents([stageCents, shippingCents]);
 
+    // A page that's still open is reused if it asks for the same amount. One for another
+    // amount (the client changed the shipping option since) is closed first, so it can't
+    // be paid as well.
     const open = await paymentsRepository.findOpenCheckout(
       commissionId,
       type,
       new Date(Date.now() + REUSE_MARGIN_MS),
       tx,
     );
-    if (open?.checkoutUrl && open.checkoutExpiresAt) {
+    if (open?.checkoutUrl && open.checkoutExpiresAt && open.amountCents === amountCents) {
       return { url: open.checkoutUrl, expiresAt: open.checkoutExpiresAt, reused: true };
+    }
+    // (An open page left from an earlier stage is closed too: it can't be paid any more.)
+    for (const stale of await paymentsRepository.listOpenCheckouts(commissionId, tx)) {
+      await viaGateway(() => gateway.expireCheckoutSession(stale.stripeCheckoutSessionId!));
+      await paymentsRepository.markExpired(stale.id, tx);
     }
 
     const payment = await paymentsRepository.insertIncoming(
-      { commissionId, type, amountCents, currency },
+      { commissionId, type, amountCents, shippingCents, currency },
       tx,
     );
     const returnTo = `${config.publicUrl}/commissions/${commissionId}`;
@@ -134,7 +154,15 @@ export async function startCheckout(
           type,
           amountCents,
           currency,
-          description: `${stage.label} for commission #${commissionId}`,
+          description,
+          ...(shippingCharge
+            ? {
+                lines: [
+                  { name: description, amountCents: stageCents },
+                  { name: shippingCharge.label, amountCents: shippingCents },
+                ],
+              }
+            : {}),
           customerEmail: user.email,
           successUrl: `${returnTo}?payment=success`,
           cancelUrl: `${returnTo}?payment=cancelled`,
@@ -164,6 +192,7 @@ export function toPublicPayment(payment: PaymentRecord, forAdmin: boolean) {
     id: payment.id,
     type: payment.type,
     amountCents: payment.amountCents,
+    shippingCents: payment.shippingCents,
     currency: payment.currency,
     status: payment.status,
     refundedPaymentId: payment.refundedPaymentId,
