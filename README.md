@@ -30,7 +30,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Admin screens: commissions (quote, status, refunds), giving (mark tree invoices paid in batches), monthly report with CSV | Built ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)) |
 | Files: reference photos (metadata stripped), watermarked previews, final-file downloads; private R2 storage with signed links and automatic deletion | Built; needs [setup](docs/setup-r2.md) ([ADR 0016](docs/decisions/0016-commission-files-on-r2.md)) |
 | Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)) |
-| Labels and tracking: buy, print, and void USPS labels from the admin page; tracking by webhook and a daily check moves the commission to shipped and delivered; shipped, delivered, and delivery-problem emails | Built (11b); needs the [webhook and label settings](docs/setup-shippo.md) ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)); email wording is a placeholder |
+| Labels and tracking: buy, print, and void USPS labels from the admin page; tracking by webhook and a daily check moves the commission to shipped and delivered; shipped, delivered, and delivery-problem emails | Built (11b); needs the [webhook and label settings](docs/setup-shippo.md) ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)) |
 | Messaging, shop, slots | Later (see backlog) |
 
 ## Tech stack

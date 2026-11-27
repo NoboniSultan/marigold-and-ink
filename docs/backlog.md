@@ -14,7 +14,6 @@ Work that is out of scope for the current build session (milestones 0 to 11b). E
   - Let the owner correct the package after the final payment (today the label can be bought from Shippo's dashboard instead).
   - A 4×6 label option for a label printer (`LABEL_FILE_TYPE` in `adapters/shippo.ts`).
   - Ask Shippo's sales team to sign webhooks (HMAC), then check the signature too.
-  - Email wording for the shipped and delivered emails (`server/src/modules/shipping/shipping.emails.ts`); they aren't sent in production until it's written.
 - **Shop** (6.10): products, variants, cart, inventory with row-level locking for one-of-a-kind pieces, expiring reservations, and an inventory movement log.
 - **Admin dashboard UI and analytics** (6.8): revenue by month, turnaround time, popular styles, best sellers.
 

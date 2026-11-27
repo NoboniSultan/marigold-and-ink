@@ -52,10 +52,19 @@ describe('shipping emails', () => {
     expect(hasPlaceholder(failed)).toBe(false);
   });
 
-  it('are held back while the client wording is still a placeholder', () => {
-    // Until the owner writes it, these are never sent in production.
-    expect(hasPlaceholder(shippedEmail('a@b.c', FACTS, 'u'))).toBe(true);
-    expect(hasPlaceholder(deliveredEmail('a@b.c', FACTS, 'u'))).toBe(true);
+  it("use the owner's wording, with no placeholder left", () => {
+    const shipped = shippedEmail('a@b.c', FACTS, 'u');
+    expect(shipped.subject).toBe('Your Marigold & Ink order is on its way!');
+    expect(shipped.text).toMatch(/^Your order has been packed with care/);
+    const delivered = deliveredEmail('a@b.c', FACTS, 'u');
+    expect(delivered.subject).toBe('Your Marigold & Ink order has arrived!');
+    expect(delivered.text).toMatch(/^Your package has been marked as delivered!/);
+    expect(hasPlaceholder(shipped)).toBe(false);
+    expect(hasPlaceholder(delivered)).toBe(false);
+  });
+
+  it('spot a placeholder anywhere in the subject or text', () => {
     expect(hasPlaceholder({ to: 'a', subject: 'Hi', text: 'PLACEHOLDER: x', html: '' })).toBe(true);
+    expect(hasPlaceholder({ to: 'a', subject: 'PLACEHOLDER: s', text: 'x', html: '' })).toBe(true);
   });
 });

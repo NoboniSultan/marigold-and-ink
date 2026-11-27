@@ -1,6 +1,6 @@
 /**
- * The shipping emails (milestone 11b). The wording to clients is the owner's: until it's
- * written, it reads PLACEHOLDER, and an email that still has a placeholder is never sent in
+ * The shipping emails (milestone 11b). The wording to clients is the owner's (2026-11-26);
+ * edit it here. If it's ever replaced by a PLACEHOLDER again, that email isn't sent in
  * production (see shipping.tracking.service.ts). The facts below the wording (tracking
  * number and links) are filled in by the code.
  */
@@ -8,12 +8,16 @@ import type { EmailMessage } from '../../adapters/email.ts';
 
 export const SHIPPING_EMAIL_COPY = {
   shipped: {
-    subject: 'PLACEHOLDER: subject of the "your commission has shipped" email',
-    lines: ['PLACEHOLDER: the opening of the "your commission has shipped" email.'],
+    subject: 'Your Marigold & Ink order is on its way!',
+    lines: [
+      'Your order has been packed with care and is officially on its way to you! You can follow its journey using the tracking link below.',
+    ],
   },
   delivered: {
-    subject: 'PLACEHOLDER: subject of the "your commission was delivered" email',
-    lines: ['PLACEHOLDER: the opening of the "your commission was delivered" email.'],
+    subject: 'Your Marigold & Ink order has arrived!',
+    lines: [
+      'Your package has been marked as delivered! I hope it finds a special place in your home and brings you a little joy.',
+    ],
   },
 } as const;
 
