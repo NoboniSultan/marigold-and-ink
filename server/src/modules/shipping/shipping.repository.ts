@@ -309,7 +309,8 @@ export async function lastOrderAddress(
 
 /**
  * Account deletion: removes the name and street from every shipment to this client's
- * commissions, keeping the city, state, and ZIP for records. Returns how many changed.
+ * commissions and shop orders, keeping the city, state, and ZIP for records. Returns how many
+ * changed.
  */
 export async function removeStreetForClient(clientId: number, client: Db = pool) {
   const { rowCount } = await client.query(

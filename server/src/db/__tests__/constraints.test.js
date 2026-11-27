@@ -1134,6 +1134,9 @@ describe('orders', () => {
       'orders_stripe_payment_intent_id_key',
     );
     await expectViolation(createOrder({ status: 'paid' }), CHECK_VIOLATION, 'orders_paid_check');
+    for (const status of ['shipped', 'delivered']) {
+      await expectViolation(createOrder({ status }), CHECK_VIOLATION, 'orders_paid_check');
+    }
     await expectViolation(
       createOrder({ paidAt: new Date() }),
       CHECK_VIOLATION,
