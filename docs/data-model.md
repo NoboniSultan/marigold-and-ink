@@ -37,6 +37,10 @@ erDiagram
     commissions ||--o| shipments : "ships as"
     shipments ||--o{ shipping_labels : "labelled by (one in use)"
     shipping_labels ||--o{ tracking_events : "scanned"
+    products ||--o{ product_variants : "sold as"
+    products ||--o{ product_photos : "shown in"
+    product_variants ||--o{ inventory_movements : "stock log"
+    users |o--o{ inventory_movements : "changes stock"
 
     payments ||--o{ payments : "refunded by"
     payments ||--o| donations : "funds (one each)"
@@ -391,6 +395,29 @@ The carrier's scans for a label, from Shippo. Written once, never changed (no `u
 | `tracking_events_label_event_key` | UNIQUE | Shippo's ID for each scan, per label: a repeated webhook (Shippo's aren't idempotent) adds nothing. |
 | `tracking_events_text_check` | CHECK | Scan ID 1–100 characters; details at most 500, city 100, state 50. |
 
+### products, product_variants, product_photos, inventory_movements
+
+Milestone 12a ([ADR 0019](decisions/0019-shop-catalog.md)): the shop catalog, managed from the admin pages. Prices and stock are per variant (what a customer chooses). The service also keeps two rules the database can't see across rows: a published product has a variant, a photo, and alt text on every photo; a one-of-a-kind product has one variant with a stock of 0 or 1.
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `product_category` | Domain (`product_category_check`) | `jewelry`, `cards`, `stickers`, `upcycled`: the proposal's four categories. |
+| `products_slug_key`, `products_slug_format_check` | UNIQUE, CHECK | One web address per product, lowercase words joined by hyphens. |
+| `products_text_check` | CHECK | Name 1–120 characters; slug at most 120; description at most 5,000; materials 1–500 and size 1–200 when set. |
+| `products_set_updated_at` (and on variants and photos) | Trigger | `updated_at` on every change. |
+| `product_variants.product_id`, `product_photos.product_id` | FK, `ON DELETE CASCADE` | Catalog rows go with their product. From 12b, order lines reference variants with `RESTRICT`, so a product that was ever sold can't be deleted, only hidden. |
+| `product_variants_product_name_key` | UNIQUE | Each option name once per product. |
+| `product_variants_name_check`, `_price_cents_check`, `_stock_check`, `_position_check` | CHECK | Name 1–80 characters; price above 0 cents; stock and position never negative. |
+| `product_variants_product_id_idx`, `product_photos_product_id_idx` | Index | A product's variants and photos are read together. |
+| `product_photos_small_key_key`, `product_photos_large_key_key` | UNIQUE | Each stored file belongs to one photo. |
+| `product_photos_key_check` | CHECK | Keys are `shop/products/<id>/<16 hex>-small\|large.webp`, the only shape the public photo route serves. |
+| `product_photos_size_check`, `_alt_text_check`, `_position_check` | CHECK | A real width and height; alt text 1–300 characters when set (null until the owner writes it); no negative position. |
+| `inventory_reason` | Domain (`inventory_reason_check`) | `restock`, `adjustment` (the owner, 12a), and `reservation`, `release`, `sale` (checkout, 12b). |
+| `inventory_movements.variant_id` | FK, `ON DELETE CASCADE` | The log goes with a deleted (never-sold) variant. Written only with the stock change itself, never edited. |
+| `inventory_movements.actor_user_id` | FK, `ON DELETE RESTRICT` | Who changed the stock (the owner); null for the system. |
+| `inventory_movements_change_check`, `_stock_after_check`, `_note_check` | CHECK | A change is never 0; the count after is never negative; a note is 1–300 characters when set. |
+| `inventory_movements_variant_id_idx` | Index | A variant's log, newest first. |
+
 ### processed_webhook_events
 
 | Name | Type | Why |
@@ -450,4 +477,4 @@ Server-side login sessions (milestone 3, [ADR 0004](decisions/0004-server-sessio
 ## Deliberately deferred
 
 - **Donation adjustment history** for partial refunds is designed in milestone 8, where the audit rules are decided.
-- **Shop tables** (`products`, `orders`, ...) come in a later phase. `donations.payment_id` and `commission_id` will be revisited then.
+- **Shop orders** (`orders`, order lines, reservations) come in milestone 12b. `donations.payment_id` and `commission_id` will be revisited then.

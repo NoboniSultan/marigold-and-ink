@@ -31,7 +31,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Files: reference photos (metadata stripped), watermarked previews, final-file downloads; private R2 storage with signed links and automatic deletion | Built; needs [setup](docs/setup-r2.md) ([ADR 0016](docs/decisions/0016-commission-files-on-r2.md)) |
 | Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)) |
 | Labels and tracking: buy, print, and void USPS labels from the admin page; tracking by webhook and a daily check moves the commission to shipped and delivered; shipped, delivered, and delivery-problem emails | Built (11b); needs the [webhook and label settings](docs/setup-shippo.md) ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)) |
-| Messaging, shop, slots | Later (see backlog) |
+| Shop catalog: products in four categories with options (own price and stock), photos, a logged stock history, admin pages, and the public `/shop` | Built (12a); visible only to the admin until `SHOP_OPEN=true` ([ADR 0019](docs/decisions/0019-shop-catalog.md)); cart and checkout in 12b |
+| Messaging, slots | Later (see backlog) |
 
 ## Tech stack
 
@@ -282,6 +283,17 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | POST | `/api/v1/admin/donations/mark-paid` | Admin | `{ donationIds, payoutDate, receiptReference }`: one invoice's donations, all or nothing; each must be owed (409 `DONATION_NOT_OWED`), and the date can't be in the future (422). |
 | GET | `/api/v1/admin/reports/monthly` | Admin | One row per month (New York time) up to now: sales, refunds, net, trees ordered, donations paid, owed at month end. `?year=`. `/monthly.csv` downloads it. |
 | GET | `/api/v1/giving` | Public | `{ trees }`: trees funded so far by fully paid commissions ([ADR 0013](docs/decisions/0013-giving-through-digital-humani.md)). |
+| GET | `/api/v1/shop` | Public | `{ open }`: whether the shop is open (`SHOP_OPEN`). |
+| GET | `/api/v1/shop/products` | Public once open; admin before | Published products, newest first: name, category, price range, availability, cover photo. `?category=jewelry\|cards\|stickers\|upcycled`, `?page`. 404 `SHOP_CLOSED` while closed. |
+| GET | `/api/v1/shop/products/:slug` | Public once open; admin before | A product with its options (price, available; never the stock count) and photos. The admin may preview unpublished ones. |
+| GET | `/media/shop/products/:id/:file` | Public | A product photo (WebP), cached forever. |
+| GET / POST | `/api/v1/admin/shop/products` | Admin | All products with stock and what each still needs to be published / create a draft (`name`, `category`, optional `slug`, `description`, `materials`, `dimensions`, `oneOfAKind`). |
+| GET / PATCH / DELETE | `/api/v1/admin/shop/products/:id` | Admin | One product / edit (also `published`: 422 `PRODUCT_INCOMPLETE` until it has an option, a photo, and alt text) / delete with its options, photos, and stored files. |
+| POST | `/api/v1/admin/shop/products/:id/variants` | Admin | Add an option: `name`, `priceCents`, starting `stock` (logged as a restock). 422 `ONE_OF_A_KIND` for a second option or a stock above 1 on a one-of-a-kind piece. |
+| PATCH / DELETE | `/api/v1/admin/shop/variants/:variantId` | Admin | Rename or reprice / delete an option. |
+| PUT | `/api/v1/admin/shop/variants/:variantId/stock` | Admin | `{ stock, reason: restock\|adjustment, note? }`: the new count, logged. `GET .../movements` lists the log. |
+| POST | `/api/v1/admin/shop/products/:id/photos` | Admin | Upload a photo (the body is the file; JPEG, PNG, or WebP up to 20 MB; at most 10). Stored as two WebP sizes with no metadata. |
+| PATCH / DELETE | `/api/v1/admin/shop/photos/:photoId` | Admin | Set `altText` / delete a photo and its files. `PUT .../products/:id/photo-order` `{ photoIds }` reorders (the first is the cover). |
 | GET | `/api/v1/admin/artworks` | Admin | All artworks, including drafts. `?status=all\|published\|draft` plus the public filters. |
 | GET | `/api/v1/admin/artworks/:id` | Admin | One artwork with admin fields (`isPublished`, `contentManaged`, ...). |
 | POST | `/api/v1/admin/artworks` | Admin | Create from a processed image: `imageKey`, `slug`, `title`, `category`, optional fields, `tags` (names). |
@@ -359,6 +371,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0016: Commission files on Cloudflare R2](docs/decisions/0016-commission-files-on-r2.md)
 - [0017: US shipping with Shippo](docs/decisions/0017-us-shipping-with-shippo.md)
 - [0018: Shipping labels and tracking](docs/decisions/0018-shipping-labels-and-tracking.md)
+- [0019: Shop catalog](docs/decisions/0019-shop-catalog.md)
 
 ## Roadmap
 
