@@ -80,10 +80,10 @@ describe('labels', () => {
 });
 
 describe('trackingMoves', () => {
-  // Every commission status against every tracking status: only these move anything.
+  // Every stage against every tracking status: only these move anything.
   const EXPECTED: Record<string, string[]> = {
-    'ready_to_ship>transit': ['shipped'],
-    'ready_to_ship>delivered': ['shipped', 'delivered'],
+    'ready>transit': ['shipped'],
+    'ready>delivered': ['shipped', 'delivered'],
     'shipped>delivered': ['delivered'],
   };
   const TRACKING = [
@@ -94,11 +94,12 @@ describe('trackingMoves', () => {
     'returned',
     'failure',
   ] as const;
+  const STAGES = ['ready', 'shipped', 'delivered', 'other'] as const;
 
-  it.each(STATUSES.flatMap((status) => TRACKING.map((tracking) => [status, tracking] as const)))(
+  it.each(STAGES.flatMap((stage) => TRACKING.map((tracking) => [stage, tracking] as const)))(
     '%s + %s',
-    (status, tracking) => {
-      expect(trackingMoves(status, tracking)).toEqual(EXPECTED[`${status}>${tracking}`] ?? []);
+    (stage, tracking) => {
+      expect(trackingMoves(stage, tracking)).toEqual(EXPECTED[`${stage}>${tracking}`] ?? []);
     },
   );
 

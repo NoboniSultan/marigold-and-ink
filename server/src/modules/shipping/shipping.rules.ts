@@ -129,24 +129,27 @@ export function voidable(trackingStatus: TrackingStatus): boolean {
   return trackingStatus === 'unknown' || trackingStatus === 'pre_transit';
 }
 
-/** Commissions whose label is still worth checking for tracking news. */
-export const TRACKED_STATUSES = ['ready_to_ship', 'shipped'] as const;
+/** Commissions and orders whose label is still worth checking for tracking news. */
+export const TRACKED_STATUSES = {
+  commission: ['ready_to_ship', 'shipped'],
+  order: ['paid', 'shipped'],
+} as const;
 
 /**
- * The commission status changes a package's tracking calls for, in order (owner decision
- * 2026-11-26: shipped at the carrier's first scan). Delivered as the first news moves
- * through shipped. Anything else, including a problem, changes nothing.
+ * The moves a package's tracking calls for, in order (owner decision 2026-11-26: shipped at
+ * the carrier's first scan), from where its commission or order stands. Delivered as the
+ * first news moves through shipped. Anything else, including a problem, changes nothing.
  */
 export function trackingMoves(
-  commissionStatus: string,
+  stage: 'ready' | 'shipped' | 'delivered' | 'other',
   trackingStatus: TrackingStatus,
 ): ('shipped' | 'delivered')[] {
   if (trackingStatus === 'transit') {
-    return commissionStatus === 'ready_to_ship' ? ['shipped'] : [];
+    return stage === 'ready' ? ['shipped'] : [];
   }
   if (trackingStatus === 'delivered') {
-    if (commissionStatus === 'ready_to_ship') return ['shipped', 'delivered'];
-    if (commissionStatus === 'shipped') return ['delivered'];
+    if (stage === 'ready') return ['shipped', 'delivered'];
+    if (stage === 'shipped') return ['delivered'];
   }
   return [];
 }

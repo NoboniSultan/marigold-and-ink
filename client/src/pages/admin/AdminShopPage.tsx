@@ -10,6 +10,7 @@ import { ErrorMessage, Loading } from '../../components/Loading.tsx';
 import buttonStyles from '../../components/Button.module.css';
 import { COPY } from '../../content/copy.ts';
 import { CATEGORIES, isCategory, priceText, productState } from '../../features/shop/shopFormat.ts';
+import { PackingTypes } from '../../features/shop/PackingTypes.tsx';
 import styles from './Admin.module.css';
 
 function NewProductForm() {
@@ -206,6 +207,7 @@ export function AdminShopPage() {
       <section className={styles.section} aria-label="Add a product">
         <NewProductForm />
       </section>
+      <PackingTypes />
     </>
   );
 }

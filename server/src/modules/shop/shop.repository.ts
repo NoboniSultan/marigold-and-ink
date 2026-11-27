@@ -20,8 +20,19 @@ export interface ProductRecord {
   dimensions: string | null;
   oneOfAKind: boolean;
   published: boolean;
+  packingTypeId: number | null;
+  pickupOnly: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface PackingTypeRecord {
+  id: number;
+  name: string;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  weightOz: number;
 }
 
 export interface VariantRecord {
@@ -31,6 +42,7 @@ export interface VariantRecord {
   priceCents: number;
   stock: number;
   position: number;
+  weightOz: number | null;
 }
 
 export interface PhotoRecord {
@@ -54,8 +66,9 @@ export interface MovementRecord {
 }
 
 const PRODUCT_COLUMNS = `id, slug, name, category, description, materials, dimensions,
-  one_of_a_kind, published, created_at, updated_at`;
-const VARIANT_COLUMNS = 'id, product_id, name, price_cents, stock, position';
+  one_of_a_kind, published, packing_type_id, pickup_only, created_at, updated_at`;
+const VARIANT_COLUMNS = 'id, product_id, name, price_cents, stock, position, weight_oz';
+const PACKING_COLUMNS = 'id, name, length_in, width_in, height_in, weight_oz';
 const PHOTO_COLUMNS = 'id, product_id, small_key, large_key, width, height, alt_text, position';
 
 function toProduct(row: Row): ProductRecord {
@@ -69,6 +82,8 @@ function toProduct(row: Row): ProductRecord {
     dimensions: row.dimensions as string | null,
     oneOfAKind: row.one_of_a_kind as boolean,
     published: row.published as boolean,
+    packingTypeId: row.packing_type_id === null ? null : Number(row.packing_type_id),
+    pickupOnly: row.pickup_only as boolean,
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
   };
@@ -82,6 +97,19 @@ function toVariant(row: Row): VariantRecord {
     priceCents: Number(row.price_cents),
     stock: Number(row.stock),
     position: Number(row.position),
+    // numeric columns arrive as text
+    weightOz: row.weight_oz === null ? null : Number(row.weight_oz),
+  };
+}
+
+function toPacking(row: Row): PackingTypeRecord {
+  return {
+    id: Number(row.id),
+    name: row.name as string,
+    lengthIn: Number(row.length_in),
+    widthIn: Number(row.width_in),
+    heightIn: Number(row.height_in),
+    weightOz: Number(row.weight_oz),
   };
 }
 
@@ -159,12 +187,15 @@ export interface ProductFields {
   materials: string | null;
   dimensions: string | null;
   oneOfAKind: boolean;
+  packingTypeId?: number | null;
+  pickupOnly?: boolean;
 }
 
 export async function insertProduct(fields: ProductFields, client: Db = pool) {
   const { rows } = await client.query(
-    `INSERT INTO products (slug, name, category, description, materials, dimensions, one_of_a_kind)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO products (slug, name, category, description, materials, dimensions, one_of_a_kind,
+                           packing_type_id, pickup_only)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING ${PRODUCT_COLUMNS}`,
     [
       fields.slug,
@@ -174,6 +205,8 @@ export async function insertProduct(fields: ProductFields, client: Db = pool) {
       fields.materials,
       fields.dimensions,
       fields.oneOfAKind,
+      fields.packingTypeId ?? null,
+      fields.pickupOnly ?? false,
     ],
   );
   return toProduct(rows[0]);
@@ -188,6 +221,8 @@ const PRODUCT_UPDATABLE = {
   dimensions: 'dimensions',
   oneOfAKind: 'one_of_a_kind',
   published: 'published',
+  packingTypeId: 'packing_type_id',
+  pickupOnly: 'pickup_only',
 } as const;
 
 export async function updateProduct(
@@ -252,30 +287,41 @@ export async function findVariant(
 /** A new variant, last in order, with no stock (stock is set through setStock). */
 export async function insertVariant(
   productId: number,
-  { name, priceCents }: { name: string; priceCents: number },
+  {
+    name,
+    priceCents,
+    weightOz = null,
+  }: { name: string; priceCents: number; weightOz?: number | null },
   client: Db = pool,
 ): Promise<VariantRecord> {
   const { rows } = await client.query(
-    `INSERT INTO product_variants (product_id, name, price_cents, position)
-     VALUES ($1, $2, $3,
+    `INSERT INTO product_variants (product_id, name, price_cents, weight_oz, position)
+     VALUES ($1, $2, $3, $4,
        (SELECT COALESCE(max(position) + 1, 0) FROM product_variants WHERE product_id = $1))
      RETURNING ${VARIANT_COLUMNS}`,
-    [productId, name, priceCents],
+    [productId, name, priceCents, weightOz],
   );
   return toVariant(rows[0]);
 }
 
 export async function updateVariant(
   id: number,
-  changes: { name?: string; priceCents?: number },
+  changes: { name?: string; priceCents?: number; weightOz?: number | null },
   client: Db = pool,
 ): Promise<VariantRecord> {
   const { rows } = await client.query(
     `UPDATE product_variants
-        SET name = COALESCE($2, name), price_cents = COALESCE($3, price_cents)
+        SET name = COALESCE($2, name), price_cents = COALESCE($3, price_cents),
+            weight_oz = CASE WHEN $4::boolean THEN $5::numeric ELSE weight_oz END
       WHERE id = $1
       RETURNING ${VARIANT_COLUMNS}`,
-    [id, changes.name ?? null, changes.priceCents ?? null],
+    [
+      id,
+      changes.name ?? null,
+      changes.priceCents ?? null,
+      changes.weightOz !== undefined,
+      changes.weightOz ?? null,
+    ],
   );
   return toVariant(rows[0]);
 }
@@ -396,4 +442,54 @@ export async function reorderPhotos(photoIds: number[], client: Db = pool): Prom
 
 export async function deletePhoto(id: number, client: Db = pool): Promise<void> {
   await client.query('DELETE FROM product_photos WHERE id = $1', [id]);
+}
+
+// --- Packing types (milestone 12c) ---
+
+export async function listPackingTypes(client: Db = pool): Promise<PackingTypeRecord[]> {
+  const { rows } = await client.query(`SELECT ${PACKING_COLUMNS} FROM packing_types ORDER BY name`);
+  return rows.map(toPacking);
+}
+
+export async function findPackingTypes(
+  ids: number[],
+  client: Db = pool,
+): Promise<PackingTypeRecord[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT ${PACKING_COLUMNS} FROM packing_types WHERE id = ANY($1::bigint[])`,
+    [ids],
+  );
+  return rows.map(toPacking);
+}
+
+export async function insertPackingType(
+  t: Omit<PackingTypeRecord, 'id'>,
+  client: Db = pool,
+): Promise<PackingTypeRecord> {
+  const { rows } = await client.query(
+    `INSERT INTO packing_types (name, length_in, width_in, height_in, weight_oz)
+     VALUES ($1, $2, $3, $4, $5) RETURNING ${PACKING_COLUMNS}`,
+    [t.name, t.lengthIn, t.widthIn, t.heightIn, t.weightOz],
+  );
+  return toPacking(rows[0]);
+}
+
+export async function updatePackingType(
+  id: number,
+  t: Omit<PackingTypeRecord, 'id'>,
+  client: Db = pool,
+): Promise<PackingTypeRecord | null> {
+  const { rows } = await client.query(
+    `UPDATE packing_types SET name = $2, length_in = $3, width_in = $4, height_in = $5,
+            weight_oz = $6
+      WHERE id = $1 RETURNING ${PACKING_COLUMNS}`,
+    [id, t.name, t.lengthIn, t.widthIn, t.heightIn, t.weightOz],
+  );
+  return rows[0] ? toPacking(rows[0]) : null;
+}
+
+export async function deletePackingType(id: number, client: Db = pool): Promise<boolean> {
+  const { rowCount } = await client.query('DELETE FROM packing_types WHERE id = $1', [id]);
+  return rowCount === 1;
 }

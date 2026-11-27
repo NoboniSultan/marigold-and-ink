@@ -3,6 +3,7 @@ import type { AboutContent } from '@shared/types/about.ts';
 import type {
   LabelOption,
   Shipment,
+  ShippingAddress,
   ShippingAddressInput,
   ShippingOption,
   ShippingPackage,
@@ -56,6 +57,8 @@ import type {
   AdminOrder,
   CartLine,
   CartPreview,
+  CartShippingQuote,
+  CheckoutInput,
   CheckoutStarted,
   Order,
   OrderStatus,
@@ -64,6 +67,8 @@ import type {
 import type {
   AdminProduct,
   InventoryMovement,
+  PackingType,
+  PackingTypeInput,
   Product,
   ProductCategory,
   ProductInput,
@@ -359,7 +364,10 @@ export const adminShopApi = {
         body,
       }),
     ),
-  updateVariant: (variantId: number, body: { name?: string; priceCents?: number }) =>
+  updateVariant: (
+    variantId: number,
+    body: { name?: string; priceCents?: number; weightOz?: number | null },
+  ) =>
     data(
       request<ApiResponse<AdminProduct>>(`/admin/shop/variants/${variantId}`, {
         method: 'PATCH',
@@ -409,18 +417,43 @@ export const adminShopApi = {
     ),
   removePhoto: (photoId: number) =>
     data(request<ApiResponse<AdminProduct>>(`/admin/shop/photos/${photoId}`, { method: 'DELETE' })),
+  /** The owner's mailers and boxes (milestone 12c). */
+  packingTypes: (signal?: AbortSignal) =>
+    data(request<ApiResponse<PackingType[]>>('/admin/shop/packing-types', { signal })),
+  createPackingType: (body: PackingTypeInput) =>
+    data(request<ApiResponse<PackingType>>('/admin/shop/packing-types', { method: 'POST', body })),
+  updatePackingType: (id: number, body: PackingTypeInput) =>
+    data(
+      request<ApiResponse<PackingType>>(`/admin/shop/packing-types/${id}`, {
+        method: 'PUT',
+        body,
+      }),
+    ),
+  removePackingType: (id: number) =>
+    request<void>(`/admin/shop/packing-types/${id}`, { method: 'DELETE' }),
 };
 
 /** The cart and orders (milestone 12b). Prices always come from the server. */
 export const cartApi = {
   preview: (items: CartLine[]) =>
     data(request<ApiResponse<CartPreview>>('/cart/preview', { method: 'POST', body: { items } })),
+  /** Live shipping options for the cart to an address (logged in; milestone 12c). */
+  shippingOptions: (items: CartLine[], address: ShippingAddressInput) =>
+    data(
+      request<ApiResponse<CartShippingQuote>>('/cart/shipping-options', {
+        method: 'POST',
+        body: { items, address },
+      }),
+    ),
 };
 
 export const ordersApi = {
   /** Holds the items and opens a Stripe page; answers with its URL. */
-  checkout: (items: CartLine[]) =>
-    data(request<ApiResponse<CheckoutStarted>>('/orders', { method: 'POST', body: { items } })),
+  checkout: (body: CheckoutInput) =>
+    data(request<ApiResponse<CheckoutStarted>>('/orders', { method: 'POST', body })),
+  /** The address of the client's last shipped order, or null. */
+  lastAddress: (signal?: AbortSignal) =>
+    data(request<ApiResponse<ShippingAddress | null>>('/orders/address', { signal })),
   mine: (page: number, signal?: AbortSignal) =>
     request<PaginatedResponse<Order>>('/orders', { query: { page }, signal }),
   get: (id: number, signal?: AbortSignal) =>
@@ -436,4 +469,41 @@ export const adminOrdersApi = {
     data(request<ApiResponse<AdminOrder>>(`/admin/orders/${id}`, { signal })),
   refund: (id: number, body: RefundOrderInput) =>
     data(request<ApiResponse<AdminOrder>>(`/admin/orders/${id}/refund`, { method: 'POST', body })),
+  /** Marks it shipped or delivered (a pickup: collected) by hand. */
+  mark: (id: number, toStatus: 'shipped' | 'delivered') =>
+    data(
+      request<ApiResponse<AdminOrder>>(`/admin/orders/${id}/status`, {
+        method: 'POST',
+        body: { toStatus },
+      }),
+    ),
+  labelOptions: (id: number) =>
+    data(
+      request<ApiResponse<LabelOption[]>>(`/admin/orders/${id}/shipping/label-options`, {
+        method: 'POST',
+      }),
+    ),
+  buyLabel: (id: number, rateId: string) =>
+    data(
+      request<ApiResponse<AdminOrder>>(`/admin/orders/${id}/shipping/label`, {
+        method: 'POST',
+        body: { rateId },
+      }),
+    ),
+  voidLabel: (id: number) =>
+    data(
+      request<ApiResponse<AdminOrder>>(`/admin/orders/${id}/shipping/label/void`, {
+        method: 'POST',
+      }),
+    ),
+  refreshTracking: (id: number) =>
+    data(
+      request<ApiResponse<AdminOrder>>(`/admin/orders/${id}/shipping/tracking/refresh`, {
+        method: 'POST',
+      }),
+    ),
 };
+
+/** Admin: opens an order's label PDF (a fresh, expiring link). */
+export const orderLabelFileUrl = (orderId: number) =>
+  `${API_BASE}/admin/orders/${orderId}/shipping/label/file`;

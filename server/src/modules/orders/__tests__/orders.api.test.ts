@@ -39,7 +39,10 @@ beforeEach(async () => {
   app = build();
 });
 
-/** A published product with one option (`stock` in stock) and a photo. */
+/**
+ * A published product with one option (`stock` in stock) and a photo. Pickup only unless
+ * `ships`: these tests are about stock and payment; shipped orders have their own below.
+ */
 async function forSale({
   name = 'Marigold Stickers',
   option = 'Single',
@@ -47,7 +50,7 @@ async function forSale({
   stock = 5,
   published = true,
 } = {}) {
-  const product = await createProduct({ name, published });
+  const product = await createProduct({ name, published, pickupOnly: true });
   const variant = await createVariant({ productId: product.id, name: option, priceCents, stock });
   await createProductPhoto({ productId: product.id });
   return { product, variant, id: Number(variant.id) };

@@ -211,6 +211,19 @@ export function createProduct(overrides = {}) {
   });
 }
 
+/** One of the owner's mailers or boxes (milestone 12c). */
+export function createPackingType(overrides = {}) {
+  const n = next();
+  return insert('packing_types', {
+    name: `Test Box ${n}`,
+    lengthIn: 12,
+    widthIn: 9,
+    heightIn: 2,
+    weightOz: 3,
+    ...overrides,
+  });
+}
+
 /** A variant of a new product unless one is given. Stock is set directly (no log row). */
 export async function createVariant(overrides = {}) {
   const productId = overrides.productId ?? (await createProduct()).id;

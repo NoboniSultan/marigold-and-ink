@@ -142,6 +142,12 @@ export function ProductPage() {
             </p>
           )}
 
+          {product.pickupOnly && (
+            <p className={styles.added}>
+              <strong>Local pickup only.</strong> {COPY.shop.pickupNote}
+            </p>
+          )}
+
           {paragraphs.map((text, i) => (
             <p key={i}>{text}</p>
           ))}

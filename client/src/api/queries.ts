@@ -61,7 +61,25 @@ export const queryKeys = {
   adminOrders: (filters: { status?: OrderStatus; page: number }) =>
     ['admin', 'orders', filters] as const,
   adminOrder: (id: number) => ['admin', 'order', id] as const,
+  lastAddress: ['orders', 'address'] as const,
+  packingTypes: ['admin', 'packing-types'] as const,
 };
+
+/** The client's last shipped address, to fill in checkout (logged-in users only). */
+export function useLastAddress({ enabled }: { enabled: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.lastAddress,
+    queryFn: ({ signal }) => ordersApi.lastAddress(signal),
+    enabled,
+  });
+}
+
+export function usePackingTypes() {
+  return useQuery({
+    queryKey: queryKeys.packingTypes,
+    queryFn: ({ signal }) => adminShopApi.packingTypes(signal),
+  });
+}
 
 /** The cart priced by the server; nothing to ask for an empty cart. */
 export function useCartPreview(lines: CartLine[]) {

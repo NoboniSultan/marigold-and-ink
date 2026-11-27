@@ -50,7 +50,7 @@ describe('shipping emails', () => {
 
   it('tell the owner what went wrong', () => {
     const failed = deliveryProblemEmail('owner@example.com', {
-      commissionId: 7,
+      what: 'commission #7',
       trackingNumber: '9400111',
       status: 'failure',
       details: null,

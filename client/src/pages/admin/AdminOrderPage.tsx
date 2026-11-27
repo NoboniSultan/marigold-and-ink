@@ -3,7 +3,15 @@ import { Link, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AdminOrder } from '@shared/types/order.ts';
 import { ApiError, formMessage } from '../../api/client.ts';
-import { adminOrdersApi } from '../../api/endpoints.ts';
+import { adminOrdersApi, orderLabelFileUrl } from '../../api/endpoints.ts';
+import {
+  AddressLines,
+  Breakdown,
+  BuyLabel,
+  LabelPart,
+  describeOption,
+  type LabelActions,
+} from '../../features/shipping/Shipping.tsx';
 import { queryKeys, useAdminOrder } from '../../api/queries.ts';
 import { ErrorMessage, Loading } from '../../components/Loading.tsx';
 import buttonStyles from '../../components/Button.module.css';
@@ -14,17 +22,105 @@ import { usd } from '../../features/shop/shopFormat.ts';
 import { NotFoundPage } from '../NotFoundPage.tsx';
 import styles from './Admin.module.css';
 
+const MOVE_TEXT = { shipped: 'Mark shipped', delivered: 'Mark delivered' } as const;
+
+/** The order's shipping: where and how, its label and tracking, and moves by hand. */
+function OrderShipping({ order }: { order: AdminOrder }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const put = async (next: AdminOrder) => {
+    queryClient.setQueryData(queryKeys.adminOrder(order.id), next);
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] });
+  };
+  const actions: LabelActions = {
+    key: `order-${order.id}`,
+    labelOptions: () => adminOrdersApi.labelOptions(order.id),
+    buy: async (rateId) => put(await adminOrdersApi.buyLabel(order.id, rateId)),
+    voidLabel: async () => put(await adminOrdersApi.voidLabel(order.id)),
+    refresh: async () => put(await adminOrdersApi.refreshTracking(order.id)),
+    fileUrl: orderLabelFileUrl(order.id),
+  };
+
+  async function mark(to: 'shipped' | 'delivered') {
+    setBusy(true);
+    setError(null);
+    try {
+      await put(await adminOrdersApi.mark(order.id, to));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const moves = order.manualMoves.length > 0 && (
+    <div className={styles.actions}>
+      {order.manualMoves.map((to) => (
+        <button
+          key={to}
+          type="button"
+          className={`${buttonStyles.button} ${buttonStyles.secondary}`}
+          onClick={() => mark(to)}
+          disabled={busy}
+        >
+          {order.pickup && to === 'delivered' ? 'Mark picked up' : MOVE_TEXT[to]}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <section className={styles.section} aria-labelledby="order-shipping-heading">
+      <h2 id="order-shipping-heading">{order.pickup ? 'Local pickup' : 'Shipping'}</h2>
+      {error ? (
+        <p className={styles.error} role="alert">
+          {formMessage(error)}
+        </p>
+      ) : null}
+      {order.pickup ? (
+        <p className={styles.muted}>
+          Collected locally: arrange it with {order.client?.displayName ?? 'the client'}.
+        </p>
+      ) : order.shipment ? (
+        <>
+          {order.shipment.address ? (
+            <AddressLines address={order.shipment.address} />
+          ) : (
+            <p className={styles.muted}>The address was removed with the client&apos;s account.</p>
+          )}
+          {order.shipment.package && (
+            <p>
+              Package: {order.shipment.package.weightOz} oz, {order.shipment.package.lengthIn} ×{' '}
+              {order.shipment.package.widthIn} × {order.shipment.package.heightIn} in
+            </p>
+          )}
+          {order.shipment.chosen && (
+            <p>
+              {describeOption(order.shipment.chosen)}. <Breakdown option={order.shipment.chosen} />
+            </p>
+          )}
+          <LabelPart actions={actions} shipment={order.shipment} />
+          {order.labelOpen && <BuyLabel actions={actions} />}
+        </>
+      ) : null}
+      {moves}
+    </section>
+  );
+}
+
 function RefundForm({ order }: { order: AdminOrder }) {
   const queryClient = useQueryClient();
   const reasonId = useId();
   const [reason, setReason] = useState('');
-  const [restock, setRestock] = useState(true);
+  // Items that never left can go straight back on sale; shipped ones only once returned.
+  const [restock, setRestock] = useState(order.status === 'paid');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!window.confirm(`Refund ${usd(order.subtotalCents)} for order #${order.id}?`)) return;
+    if (!window.confirm(`Refund ${usd(order.totalCents)} for order #${order.id}?`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -66,7 +162,7 @@ function RefundForm({ order }: { order: AdminOrder }) {
         className={`${buttonStyles.button} ${buttonStyles.primary}`}
         disabled={busy || !reason.trim()}
       >
-        {busy ? 'Refunding…' : `Refund ${usd(order.subtotalCents)}`}
+        {busy ? 'Refunding…' : `Refund ${usd(order.totalCents)}`}
       </button>
     </form>
   );
@@ -131,14 +227,22 @@ export function AdminOrderPage() {
               ))}
             </tbody>
             <tfoot>
+              {!order.pickup && (
+                <tr>
+                  <td colSpan={3}>Shipping &amp; packaging</td>
+                  <td className={styles.number}>{usd(order.shippingCents)}</td>
+                </tr>
+              )}
               <tr>
                 <td colSpan={3}>Total</td>
-                <td className={styles.number}>{usd(order.subtotalCents)}</td>
+                <td className={styles.number}>{usd(order.totalCents)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
       </section>
+
+      <OrderShipping order={order} />
 
       <section className={styles.section} aria-labelledby="history-heading">
         <h2 id="history-heading">History</h2>

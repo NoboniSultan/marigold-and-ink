@@ -8,6 +8,8 @@ import { ErrorMessage, Loading } from '../components/Loading.tsx';
 import buttonStyles from '../components/Button.module.css';
 import { useCart } from '../features/cart/CartContext.tsx';
 import { goTo } from '../features/cart/goTo.ts';
+import { CartShipping, type ShippingChoice } from '../features/cart/CartShipping.tsx';
+import { COPY } from '../content/copy.ts';
 import { usd } from '../features/shop/shopFormat.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 import styles from './CartPage.module.css';
@@ -47,18 +49,47 @@ export function CartPage() {
     if (unavailableKey) remove(unavailableKey.split(',').map(Number));
   }, [unavailableKey, remove]);
 
+  // Shipping (milestone 12c): the address and service chosen in the shipping step.
+  const [shippingChoice, setShippingChoice] = useState<ShippingChoice | null>(null);
+  const [shippingReset, setShippingReset] = useState(0);
+  const cartKey = cart.lines.map((l) => `${l.variantId}x${l.quantity}`).join(',');
+  // A changed cart is packed and priced again: the earlier choice no longer applies.
+  const [choiceForCart, setChoiceForCart] = useState(cartKey);
+  if (choiceForCart !== cartKey) {
+    setChoiceForCart(cartKey);
+    setShippingChoice(null);
+  }
+
   if (preview.error instanceof ApiError && preview.error.status === 404) return <NotFoundPage />;
 
   async function checkout() {
     setStarting(true);
     setError(null);
     try {
-      const { url } = await ordersApi.checkout(cart.lines);
+      const { url } = await ordersApi.checkout({
+        items: cart.lines,
+        ...(shippingChoice
+          ? {
+              shipping: {
+                address: shippingChoice.address,
+                serviceToken: shippingChoice.option.serviceToken,
+                expectedCents: shippingChoice.option.totalCents,
+              },
+            }
+          : {}),
+      });
       goTo(url);
     } catch (err) {
       setError(err);
       setStarting(false);
       if (err instanceof ApiError && err.code === 'OUT_OF_STOCK') void preview.refetch();
+      if (
+        err instanceof ApiError &&
+        ['SHIPPING_PRICE_CHANGED', 'SHIPPING_OPTION_STALE'].includes(err.code)
+      ) {
+        setShippingChoice(null);
+        setShippingReset((n) => n + 1);
+      }
     }
   }
 
@@ -142,6 +173,38 @@ export function CartPage() {
             <span>Subtotal</span>
             <span className={styles.amount}>{usd(data.subtotalCents)}</span>
           </p>
+          {data.delivery === 'pickup' && (
+            <p className={styles.notice}>
+              <strong>Local pickup.</strong> {COPY.shop.pickupNote}
+            </p>
+          )}
+          {data.delivery === 'unavailable' && (
+            <p className={styles.problem} role="alert">
+              Some items can&apos;t be shipped yet. Please contact us about this order.
+            </p>
+          )}
+          {user && data.delivery === 'ship' && (
+            <CartShipping
+              key={cartKey}
+              lines={cart.lines}
+              onChoose={setShippingChoice}
+              resetKey={shippingReset}
+            />
+          )}
+          {shippingChoice && (
+            <>
+              <p className={styles.line2}>
+                <span>Shipping &amp; packaging</span>
+                <span className={styles.amount}>{usd(shippingChoice.option.totalCents)}</span>
+              </p>
+              <p className={styles.total}>
+                <span>Total</span>
+                <span className={styles.amount}>
+                  {usd(data.subtotalCents + shippingChoice.option.totalCents)}
+                </span>
+              </p>
+            </>
+          )}
           {error ? (
             <p className={styles.problem} role="alert">
               {formMessage(error)}
@@ -153,7 +216,12 @@ export function CartPage() {
                 type="button"
                 className={`${buttonStyles.button} ${buttonStyles.primary}`}
                 onClick={checkout}
-                disabled={!data.ready || starting}
+                disabled={
+                  !data.ready ||
+                  starting ||
+                  data.delivery === 'unavailable' ||
+                  (data.delivery === 'ship' && !shippingChoice)
+                }
               >
                 {starting ? 'Opening the payment page…' : 'Check out'}
               </button>

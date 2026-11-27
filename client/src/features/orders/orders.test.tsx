@@ -36,6 +36,7 @@ const PRODUCT: Product = {
   available: true,
   oneOfAKind: false,
   photo,
+  pickupOnly: false,
   description: '',
   materials: null,
   dimensions: null,
@@ -60,12 +61,17 @@ const line = (overrides: Partial<PricedLine> = {}): PricedLine => ({
   ...overrides,
 });
 
-const previewOf = (lines: PricedLine[], unavailable: number[] = []): CartPreview => ({
+const previewOf = (
+  lines: PricedLine[],
+  unavailable: number[] = [],
+  delivery: CartPreview['delivery'] = 'pickup',
+): CartPreview => ({
   lines,
   unavailable,
   subtotalCents: lines.reduce((sum, l) => sum + l.lineCents, 0),
   currency: 'usd',
   ready: lines.length > 0 && unavailable.length === 0 && lines.every((l) => l.ok),
+  delivery,
 });
 
 const ORDER: Order = {
@@ -82,6 +88,10 @@ const ORDER: Order = {
     },
   ],
   subtotalCents: 800,
+  shippingCents: 0,
+  totalCents: 800,
+  pickup: true,
+  shipment: null,
   currency: 'usd',
   refundedCents: 0,
   checkoutUrl: null,
@@ -228,7 +238,7 @@ describe('the cart page', () => {
     await waitFor(() =>
       expect(goTo).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_1'),
     );
-    expect(calls.find((c) => c.path === '/orders')?.body).toEqual({
+    expect(calls.find((c) => c.path === '/orders' && c.method === 'POST')?.body).toEqual({
       items: [{ variantId: 11, quantity: 2 }],
     });
   });
@@ -379,6 +389,8 @@ describe('the admin order pages', () => {
     ],
     refunds: [],
     refundable: true,
+    labelOpen: false,
+    manualMoves: ['delivered'],
     ...overrides,
   });
 

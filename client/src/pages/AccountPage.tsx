@@ -309,7 +309,7 @@ function OrdersSection() {
       <ul className={styles.list}>
         {orders.data.data.map((o) => (
           <li key={o.id}>
-            <Link to={`/orders/${o.id}`}>Order #{o.id}</Link>: {usd(o.subtotalCents)}.{' '}
+            <Link to={`/orders/${o.id}`}>Order #{o.id}</Link>: {usd(o.totalCents)}.{' '}
             {ORDER_STATUS_TEXT[o.status]}
           </li>
         ))}

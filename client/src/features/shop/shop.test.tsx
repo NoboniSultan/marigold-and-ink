@@ -41,6 +41,7 @@ const VASE: ProductSummary = {
 
 const STICKERS_PAGE: Product = {
   ...STICKERS,
+  pickupOnly: false,
   description: 'Glossy vinyl.\n\nWeatherproof.',
   materials: 'Vinyl',
   dimensions: '3 in',
@@ -195,6 +196,8 @@ const draft = (overrides: Partial<AdminProduct> = {}): AdminProduct => ({
   published: false,
   stock: 0,
   missing: ['variant', 'photo'],
+  packingTypeId: null,
+  pickupOnly: false,
   createdAt: '2026-11-27T00:00:00.000Z',
   updatedAt: '2026-11-27T00:00:00.000Z',
   ...overrides,
@@ -253,7 +256,9 @@ describe('the admin shop pages', () => {
   it('adds an option with its price in cents, and can only publish once complete', async () => {
     const user = userEvent.setup();
     const withOption = draft({
-      variants: [{ id: 9, name: 'Pair', priceCents: 2450, available: true, stock: 3 }],
+      variants: [
+        { id: 9, name: 'Pair', priceCents: 2450, available: true, stock: 3, weightOz: null },
+      ],
       stock: 3,
       missing: ['photo'],
     });
@@ -276,6 +281,7 @@ describe('the admin shop pages', () => {
         name: 'Pair',
         priceCents: 2450,
         stock: 3,
+        weightOz: null,
       }),
     );
     expect(await screen.findByRole('listitem', { name: 'Option Pair' })).toBeInTheDocument();
@@ -299,7 +305,9 @@ describe('the admin shop pages', () => {
   it('sets stock with a reason, and uploads a photo', async () => {
     const user = userEvent.setup();
     const product = draft({
-      variants: [{ id: 9, name: 'Pair', priceCents: 2450, available: true, stock: 3 }],
+      variants: [
+        { id: 9, name: 'Pair', priceCents: 2450, available: true, stock: 3, weightOz: null },
+      ],
       stock: 3,
       missing: ['photo'],
     });

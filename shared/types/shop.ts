@@ -40,6 +40,8 @@ export interface ProductSummary {
 
 /** A product's page. */
 export interface Product extends ProductSummary {
+  /** Collected locally instead of shipped (large furniture). */
+  pickupOnly: boolean;
   description: string;
   materials: string | null;
   dimensions: string | null;
@@ -56,7 +58,21 @@ export interface ShopStatus {
 
 export interface AdminVariant extends ProductVariant {
   stock: number;
+  /** Packed weight in ounces; null until entered (needed to ship it). */
+  weightOz: number | null;
 }
+
+/** One of the owner's mailers or boxes (milestone 12c): inside size and empty weight. */
+export interface PackingType {
+  id: number;
+  name: string;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  weightOz: number;
+}
+
+export type PackingTypeInput = Omit<PackingType, 'id'>;
 
 export interface AdminProduct extends Omit<Product, 'variants'> {
   id: number;
@@ -64,8 +80,12 @@ export interface AdminProduct extends Omit<Product, 'variants'> {
   variants: AdminVariant[];
   /** Total stock across the variants. */
   stock: number;
-  /** What still stops it from being published (empty when it can be). */
-  missing: ('variant' | 'photo' | 'alt_text')[];
+  /**
+   * What still stops it from being published (empty when it can be). `shipping`: a packing
+   * type and every option's weight, unless it's pickup only.
+   */
+  missing: ('variant' | 'photo' | 'alt_text' | 'shipping')[];
+  packingTypeId: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +99,8 @@ export interface ProductInput {
   materials: string | null;
   dimensions: string | null;
   oneOfAKind: boolean;
+  packingTypeId?: number | null;
+  pickupOnly?: boolean;
 }
 
 export type ProductUpdate = Partial<ProductInput> & { published?: boolean };
@@ -88,6 +110,7 @@ export interface VariantInput {
   priceCents: number;
   /** The starting stock. */
   stock: number;
+  weightOz?: number | null;
 }
 
 export interface StockChange {

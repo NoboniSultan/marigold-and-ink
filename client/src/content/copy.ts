@@ -74,6 +74,8 @@ export const COPY = {
     intro: 'PLACEHOLDER: one or two lines introducing the shop.',
     /** Shown when a category (or the whole shop) has nothing in it yet. */
     empty: 'PLACEHOLDER: what to say while there is nothing in the shop.',
+    /** Shown in the cart and on the order for a local pickup (large furniture, milestone 12c). */
+    pickupNote: 'PLACEHOLDER: how local pickup works (where, and how it is arranged).',
     /** The four categories, named as in the proposal (section 4). */
     categories: {
       jewelry: 'Handmade beaded jewelry',

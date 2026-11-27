@@ -40,12 +40,12 @@ What personal data the site collects, where it goes, and how long it stays, take
 
 ## 3b. Shipping (`shipments`, and Shippo; milestone 11, [ADR 0017](decisions/0017-us-shipping-with-shippo.md))
 
-- **Shipping address** for a physical commission, entered by the client (or the admin): name, street lines, city, state, ZIP. United States only. Stored as the carrier standardized it.
+- **Shipping address** for a physical commission, entered by the client (or the admin), or for a shop order, entered by the client in the cart (milestone 12c, [ADR 0021](decisions/0021-shop-shipping.md)): name, street lines, city, state, ZIP. United States only. Stored as the carrier standardized it. The cart fills in the address from the client's last shipped order (read from the server, never kept in the browser).
 - **Sent to Shippo:** that address (to check it and to price postage) and the package's weight and size. From milestone 11b, also to buy the label, and the tracking number to track the package.
 - **The return address** (the owner's) is in the server's settings only, and printed on labels. The owner's return **email and phone** (milestone 11b) are also only in the settings; they go to Shippo and USPS with each label, as USPS requires, and aren't printed on it.
-- **Labels and tracking** (`shipping_labels`, `tracking_events`; milestone 11b, [ADR 0018](decisions/0018-shipping-labels-and-tracking.md)): the tracking number and link, what the postage cost, and the carrier's scans (status, time, and the carrier facility's town, never the delivery address). The label PDF (which shows both addresses) isn't stored: the admin gets a fresh link from Shippo each time. Kept with the commission's history, and in the client's data download (without the postage cost). Not removed on account deletion: they hold no name or street.
+- **Labels and tracking** (`shipping_labels`, `tracking_events`; milestone 11b, [ADR 0018](decisions/0018-shipping-labels-and-tracking.md)): the tracking number and link, what the postage cost, and the carrier's scans (status, time, and the carrier facility's town, never the delivery address). The label PDF (which shows both addresses) isn't stored: the admin gets a fresh link from Shippo each time. Kept with the commission's or order's history, and in the client's data download (without the postage cost). Not removed on account deletion: they hold no name or street.
 - **Shipping emails** (milestone 11b): the client gets an email through Resend when the package ships and when it's delivered (the tracking number and links); the owner gets one if it's returned or can't be delivered.
-- **Account deletion** removes the name and street from the client's past shipments; the city, state, and ZIP stay for records. The data download includes each commission's shipment.
+- **Account deletion** removes the name and street from the client's past shipments (commissions and shop orders); the city, state, and ZIP stay for records. The data download includes each commission's and each order's shipment.
 - Only active once Shippo is configured (`SHIPPO_API_KEY` and the rest); the privacy policy should describe shipping addresses and Shippo before then (docs/setup-shippo.md).
 
 ## 3c. Shop catalog (`products`, `product_variants`, `product_photos`, `inventory_movements`; milestone 12a, [ADR 0019](decisions/0019-shop-catalog.md))
@@ -93,8 +93,8 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Google | "Continue with Google" | That the person is signing in to this app | Google's infrastructure |
 | Resend | Account, shipping, and order emails (once configured) | Email address and the code; for shipping, the tracking number and links; for orders, the items and total | Resend's infrastructure |
 | Cloudflare R2 | Storing commission files and shop photos | Reference photos (metadata removed), previews, final files, product photos (metadata removed) | Cloudflare, Eastern North America (location hint ENAM) |
-| Shippo | Shipping physical commissions (once configured) | The shipping address, the package's weight and size, the label, and its tracking | Shippo's infrastructure (a US company) |
-| USPS | Delivering physical commissions (labels bought through Shippo) | The shipping address, and the sender's name, address, email, and phone | United States |
+| Shippo | Shipping physical commissions and shop orders (once configured) | The shipping address, the package's weight and size, the label, and its tracking | Shippo's infrastructure (a US company) |
+| USPS | Delivering physical commissions and shop orders (labels bought through Shippo) | The shipping address, and the sender's name, address, email, and phone | United States |
 | Digital Humani | Requesting trees for fully paid commissions (once configured) | **No personal data:** a reference like `commission-12` and a number of trees | Digital Humani's infrastructure (Canada) |
 
 All the site's own data is stored in the United States.

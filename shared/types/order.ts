@@ -1,7 +1,15 @@
 /** Shop orders (milestone 12b, ADR 0020). Money is integer cents. */
 import type { ProductPhoto } from './shop.ts';
+import type { Shipment, ShippingAddress, ShippingAddressInput } from './shipping.ts';
 
-export type OrderStatus = 'pending_payment' | 'paid' | 'expired' | 'canceled' | 'refunded';
+export type OrderStatus =
+  | 'pending_payment'
+  | 'paid'
+  | 'shipped'
+  | 'delivered'
+  | 'expired'
+  | 'canceled'
+  | 'refunded';
 
 /** One line of a cart, as the browser keeps it: only what was chosen. */
 export interface CartLine {
@@ -32,6 +40,40 @@ export interface CartPreview {
   currency: string;
   /** True when every line can be bought as it is. */
   ready: boolean;
+  /**
+   * How it reaches the customer (milestone 12c): shipped, collected locally (any pickup-only
+   * item makes the order a pickup), or not yet (an item has no packing details yet).
+   */
+  delivery: 'ship' | 'pickup' | 'unavailable';
+}
+
+/** A shipping option for a cart, priced live for its package and address. */
+export interface CartShippingOption {
+  serviceToken: string;
+  carrier: string;
+  serviceName: string;
+  estimatedDays: number | null;
+  postageCents: number;
+  packagingFeeCents: number;
+  /** What checkout adds: postage plus packaging. */
+  totalCents: number;
+}
+
+export interface CartShippingQuote {
+  /** The address as the carrier standardized it (send this one to checkout). */
+  address: ShippingAddress;
+  options: CartShippingOption[];
+}
+
+/** Checkout: the cart, and for a shipped order where and how. */
+export interface CheckoutInput {
+  items: CartLine[];
+  shipping?: {
+    address: ShippingAddressInput;
+    serviceToken: string;
+    /** What the customer saw; checkout refuses (409) if the price has changed since. */
+    expectedCents: number;
+  };
 }
 
 export interface OrderItem {
@@ -48,6 +90,13 @@ export interface Order {
   status: OrderStatus;
   items: OrderItem[];
   subtotalCents: number;
+  /** Postage and packaging (0 for a pickup). */
+  shippingCents: number;
+  totalCents: number;
+  /** Collected locally instead of shipped. */
+  pickup: boolean;
+  /** Where it's going, how, and its tracking; null for a pickup. */
+  shipment: Shipment | null;
   currency: string;
   /** Total refunded so far (succeeded). */
   refundedCents: number;
@@ -83,6 +132,10 @@ export interface AdminOrder extends Order {
   refunds: OrderRefund[];
   /** Can it be refunded now (paid, nothing refunded or pending)? */
   refundable: boolean;
+  /** Can a label be bought now (paid, shipped, no label in use)? */
+  labelOpen: boolean;
+  /** Status changes the admin can make by hand now (shipped, delivered). */
+  manualMoves: ('shipped' | 'delivered')[];
 }
 
 export interface CheckoutStarted {

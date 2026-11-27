@@ -62,7 +62,11 @@ describe('Forgot password', () => {
     await user.type(screen.getByLabelText('New password'), 'a brand new long password');
     await user.click(screen.getByRole('button', { name: 'Set new password' }));
 
-    expect(await screen.findByRole('heading', { name: 'Your account' })).toBeInTheDocument();
+    // The account page loads several things first; under a full parallel run that can take
+    // longer than the default second (this was a flaky failure), so allow up to five.
+    expect(
+      await screen.findByRole('heading', { name: 'Your account' }, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/account');
     expect(calls.find((c) => c.path === '/auth/password-reset/complete')?.body).toEqual({
       email: 'client@example.com',

@@ -13,6 +13,8 @@
 import type { PoolClient } from 'pg';
 import type {
   AdminProduct,
+  PackingType,
+  PackingTypeInput,
   InventoryMovement,
   Product,
   ProductCategory,
@@ -40,7 +42,13 @@ import { detectType } from '../files/files.processing.ts';
 import * as shopRepository from './shop.repository.ts';
 import type { PhotoRecord, ProductRecord, VariantRecord } from './shop.repository.ts';
 import { NotAPhotoError, photoKeys, processProductPhoto, PUBLIC_PHOTO_KEY } from './shop.photos.ts';
-import { inStock, oneOfAKindProblem, priceRange, publishMissing } from './shop.rules.ts';
+import {
+  inStock,
+  oneOfAKindProblem,
+  priceRange,
+  publishMissing,
+  shippingMissing,
+} from './shop.rules.ts';
 
 interface SessionUser {
   id: number;
@@ -111,6 +119,7 @@ function toProduct(
 ): Product {
   return {
     ...toSummary(product, variants, photos),
+    pickupOnly: product.pickupOnly,
     description: product.description,
     materials: product.materials,
     dimensions: product.dimensions,
@@ -140,9 +149,14 @@ function toAdminProduct(
       priceCents: v.priceCents,
       available: v.stock > 0,
       stock: v.stock,
+      weightOz: v.weightOz,
     })),
     stock: variants.reduce((sum, v) => sum + v.stock, 0),
-    missing: publishMissing({ variants, photos }),
+    missing: [
+      ...publishMissing({ variants, photos }),
+      ...(shippingMissing({ ...product, variants }) ? (['shipping'] as const) : []),
+    ],
+    packingTypeId: product.packingTypeId,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   };
@@ -256,11 +270,16 @@ function slugFor(input: { slug?: string; name: string }): string {
   return slug.slice(0, 120).replace(/-+$/, '');
 }
 
-/** Translates a unique violation on the slug into a 409. */
+/** Translates a unique violation on the slug into a 409, and an unknown packing type into a 422. */
 async function savingSlug<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (err) {
+    if (isForeignKeyViolation(err, 'products_packing_type_id_fkey')) {
+      throw new BusinessRuleError('That packing type no longer exists', {
+        code: 'PACKING_TYPE_NOT_FOUND',
+      });
+    }
     if (isUniqueViolation(err, 'products_slug_key')) {
       throw new ConflictError('Another product already uses that web address (slug)', {
         code: 'PRODUCT_SLUG_TAKEN',
@@ -298,12 +317,19 @@ async function changeProduct(
     const parts = await partsFor([productId], tx);
     const variants = parts.variants.get(productId)!;
     const photos = parts.photos.get(productId)!;
-    const missing = publishMissing({ variants, photos });
+    // Shipping details are needed to publish (milestone 12c); a product published before
+    // that isn't held to them on every other edit.
+    const missing = [
+      ...publishMissing({ variants, photos }),
+      ...(!product.published && shippingMissing({ ...after, variants })
+        ? (['shipping'] as const)
+        : []),
+    ];
     if (after.published && missing.length > 0) {
       throw new BusinessRuleError(
         product.published
           ? 'A published product needs an option, a photo, and alt text on every photo. Hide it first to remove these.'
-          : 'Add an option, a photo, and alt text on every photo before publishing',
+          : 'Add an option, a photo, alt text on every photo, and shipping details (a packing type and each option’s weight, or pickup only) before publishing',
         { code: 'PRODUCT_INCOMPLETE', details: { missing } },
       );
     }
@@ -383,7 +409,7 @@ async function variantOrNotFound(variantId: number, tx?: PoolClient, forUpdate =
 
 export async function updateVariant(
   variantId: number,
-  changes: { name?: string; priceCents?: number },
+  changes: { name?: string; priceCents?: number; weightOz?: number | null },
 ): Promise<AdminProduct> {
   const { productId } = await variantOrNotFound(variantId);
   return savingVariantName(() =>
@@ -577,6 +603,10 @@ export interface CartVariant {
   /** Published (and so for sale). */
   forSale: boolean;
   photo: ProductPhoto | null;
+  /** How it ships (milestone 12c). */
+  pickupOnly: boolean;
+  weightOz: number | null;
+  packing: PackingType | null;
 }
 
 /** The current price, stock, and names of these variants (unknown IDs are left out). */
@@ -588,6 +618,13 @@ export async function cartVariants(variantIds: number[]): Promise<CartVariant[]>
     shopRepository.photosFor(productIds),
   ]);
   const productById = new Map(products.map((p) => [p.id, p]));
+  const packings = new Map(
+    (
+      await shopRepository.findPackingTypes([
+        ...new Set(products.flatMap((p) => (p.packingTypeId === null ? [] : [p.packingTypeId]))),
+      ])
+    ).map((t) => [t.id, t]),
+  );
   return variants.map((v) => {
     const product = productById.get(v.productId)!;
     const cover = photos.find((p) => p.productId === v.productId);
@@ -601,6 +638,10 @@ export async function cartVariants(variantIds: number[]): Promise<CartVariant[]>
       stock: v.stock,
       forSale: product.published,
       photo: cover ? toPhoto(cover) : null,
+      pickupOnly: product.pickupOnly,
+      weightOz: v.weightOz,
+      packing:
+        product.packingTypeId === null ? null : (packings.get(product.packingTypeId) ?? null),
     };
   });
 }
@@ -690,4 +731,46 @@ export async function putBackStock(
       tx,
     );
   }
+}
+
+// --- Packing types (milestone 12c): the owner's mailers and boxes ---
+
+export function listPackingTypes(): Promise<PackingType[]> {
+  return shopRepository.listPackingTypes();
+}
+
+async function savingPackingType<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    if (isUniqueViolation(err, 'packing_types_name_key')) {
+      throw new ConflictError('A packing type with that name already exists', {
+        code: 'PACKING_TYPE_NAME_TAKEN',
+      });
+    }
+    if (isForeignKeyViolation(err, 'products_packing_type_id_fkey')) {
+      throw new ConflictError('Products use this packing type; move them to another first', {
+        code: 'PACKING_TYPE_IN_USE',
+      });
+    }
+    throw err;
+  }
+}
+
+const packingNotFound = () =>
+  new NotFoundError('Packing type not found', { code: 'PACKING_TYPE_NOT_FOUND' });
+
+export function createPackingType(input: PackingTypeInput): Promise<PackingType> {
+  return savingPackingType(() => shopRepository.insertPackingType(input));
+}
+
+export async function updatePackingType(id: number, input: PackingTypeInput): Promise<PackingType> {
+  const updated = await savingPackingType(() => shopRepository.updatePackingType(id, input));
+  if (!updated) throw packingNotFound();
+  return updated;
+}
+
+export async function deletePackingType(id: number): Promise<void> {
+  const deleted = await savingPackingType(() => shopRepository.deletePackingType(id));
+  if (!deleted) throw packingNotFound();
 }
