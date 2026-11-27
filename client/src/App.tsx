@@ -29,6 +29,15 @@ export const routes: RouteObject[] = [
       { path: 'gallery/:slug', element: <ArtworkPage /> },
       { path: 'about', element: <AboutPage /> },
       {
+        // The shop (milestone 12a), loaded on demand.
+        path: 'shop',
+        lazy: async () => ({ Component: (await import('./pages/ShopPage.tsx')).ShopPage }),
+      },
+      {
+        path: 'shop/:slug',
+        lazy: async () => ({ Component: (await import('./pages/ProductPage.tsx')).ProductPage }),
+      },
+      {
         path: 'privacy',
         // Loaded on demand: the policy's text shouldn't weigh on every other page.
         lazy: async () => ({ Component: (await import('./pages/PrivacyPage.tsx')).PrivacyPage }),
@@ -93,6 +102,18 @@ export const routes: RouteObject[] = [
             path: 'giving',
             lazy: async () => ({
               Component: (await import('./pages/admin/AdminGivingPage.tsx')).AdminGivingPage,
+            }),
+          },
+          {
+            path: 'shop',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminShopPage.tsx')).AdminShopPage,
+            }),
+          },
+          {
+            path: 'shop/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminProductPage.tsx')).AdminProductPage,
             }),
           },
           {

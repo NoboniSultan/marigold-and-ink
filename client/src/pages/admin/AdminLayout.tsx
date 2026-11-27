@@ -4,7 +4,7 @@ import styles from './Admin.module.css';
 
 /**
  * The admin area (milestone 9): commissions (quotes, status, refunds), giving (tree
- * invoices), and the monthly report. Loaded on demand, so visitors never download it.
+ * invoices), the monthly report, and the shop's products (milestone 12a). Loaded on demand, so visitors never download it.
  */
 export function AdminLayout() {
   return (
@@ -15,6 +15,7 @@ export function AdminLayout() {
           <NavLink to="/admin/commissions">Commissions</NavLink>
           <NavLink to="/admin/giving">Giving</NavLink>
           <NavLink to="/admin/report">Monthly report</NavLink>
+          <NavLink to="/admin/shop">Shop</NavLink>
         </nav>
         <Outlet />
       </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthContext.tsx';
+import { useShopStatus } from '../api/queries.ts';
 import { COPY } from '../content/copy.ts';
 import styles from './Header.module.css';
 import buttonStyles from './Button.module.css';
@@ -13,6 +14,9 @@ export function Header() {
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutFailed, setLogoutFailed] = useState(false);
+  const shop = useShopStatus();
+  // Everyone sees the shop once it's open; until then only the admin (a preview).
+  const showShop = Boolean(shop.data?.open) || user?.role === 'admin';
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -49,6 +53,11 @@ export function Header() {
           <NavLink to="/gallery" className={navClass}>
             Gallery
           </NavLink>
+          {showShop && (
+            <NavLink to="/shop" className={navClass}>
+              Shop
+            </NavLink>
+          )}
           <NavLink to="/about" className={navClass}>
             About
           </NavLink>

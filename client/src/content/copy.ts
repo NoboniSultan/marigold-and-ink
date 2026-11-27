@@ -66,4 +66,18 @@ export const COPY = {
     closing: "Let's make something beautiful, and let something beautiful grow.",
   },
   // The Privacy page's text is in content/privacy.md (the owner's policy, in Markdown).
+  /** The shop (milestone 12a). Products themselves are written by the owner in the admin. */
+  shop: {
+    title: 'Shop',
+    intro: 'PLACEHOLDER: one or two lines introducing the shop.',
+    /** Shown when a category (or the whole shop) has nothing in it yet. */
+    empty: 'PLACEHOLDER: what to say while there is nothing in the shop.',
+    /** The four categories, named as in the proposal (section 4). */
+    categories: {
+      jewelry: 'Handmade beaded jewelry',
+      cards: 'Greeting cards',
+      stickers: 'Stickers',
+      upcycled: 'Upcycled thrifted pieces',
+    },
+  },
 } as const;

@@ -52,6 +52,18 @@ import type {
 } from '@shared/types/user.ts';
 import { API_BASE, request, upload } from './client.ts';
 import type { CommissionFile, FilesResponse } from '@shared/types/files.ts';
+import type {
+  AdminProduct,
+  InventoryMovement,
+  Product,
+  ProductCategory,
+  ProductInput,
+  ProductSummary,
+  ProductUpdate,
+  ShopStatus,
+  StockChange,
+  VariantInput,
+} from '@shared/types/shop.ts';
 
 export interface ArtworkFilters {
   page?: number;
@@ -296,4 +308,96 @@ export const filesApi = {
         file.name,
       ),
     ),
+};
+
+export interface ShopFilters {
+  category?: ProductCategory;
+  page?: number;
+}
+
+/** The shop (milestone 12a). Until it opens, only the admin gets answers (others: 404). */
+export const shopApi = {
+  status: (signal?: AbortSignal) => data(request<ApiResponse<ShopStatus>>('/shop', { signal })),
+  products: (filters: ShopFilters = {}, signal?: AbortSignal) =>
+    request<PaginatedResponse<ProductSummary>>('/shop/products', {
+      query: { ...filters },
+      signal,
+    }),
+  product: (slug: string, signal?: AbortSignal) =>
+    data(request<ApiResponse<Product>>(`/shop/products/${encodeURIComponent(slug)}`, { signal })),
+};
+
+/** The admin's shop pages. Each change answers with the whole product as it now is. */
+export const adminShopApi = {
+  products: (filters: ShopFilters = {}, signal?: AbortSignal) =>
+    request<PaginatedResponse<AdminProduct>>('/admin/shop/products', {
+      query: { ...filters },
+      signal,
+    }),
+  product: (id: number, signal?: AbortSignal) =>
+    data(request<ApiResponse<AdminProduct>>(`/admin/shop/products/${id}`, { signal })),
+  create: (body: ProductInput) =>
+    data(request<ApiResponse<AdminProduct>>('/admin/shop/products', { method: 'POST', body })),
+  update: (id: number, body: ProductUpdate) =>
+    data(
+      request<ApiResponse<AdminProduct>>(`/admin/shop/products/${id}`, { method: 'PATCH', body }),
+    ),
+  remove: (id: number) => request<void>(`/admin/shop/products/${id}`, { method: 'DELETE' }),
+  addVariant: (productId: number, body: VariantInput) =>
+    data(
+      request<ApiResponse<AdminProduct>>(`/admin/shop/products/${productId}/variants`, {
+        method: 'POST',
+        body,
+      }),
+    ),
+  updateVariant: (variantId: number, body: { name?: string; priceCents?: number }) =>
+    data(
+      request<ApiResponse<AdminProduct>>(`/admin/shop/variants/${variantId}`, {
+        method: 'PATCH',
+        body,
+      }),
+    ),
+  setStock: (variantId: number, body: StockChange) =>
+    data(
+      request<ApiResponse<AdminProduct>>(`/admin/shop/variants/${variantId}/stock`, {
+        method: 'PUT',
+        body,
+      }),
+    ),
+  movements: (variantId: number, signal?: AbortSignal) =>
+    data(
+      request<ApiResponse<InventoryMovement[]>>(`/admin/shop/variants/${variantId}/movements`, {
+        signal,
+      }),
+    ),
+  removeVariant: (variantId: number) =>
+    data(
+      request<ApiResponse<AdminProduct>>(`/admin/shop/variants/${variantId}`, {
+        method: 'DELETE',
+      }),
+    ),
+  uploadPhoto: (productId: number, file: File) =>
+    data(
+      upload<ApiResponse<AdminProduct>>(
+        `/admin/shop/products/${productId}/photos`,
+        file,
+        file.name,
+      ),
+    ),
+  setAltText: (photoId: number, altText: string | null) =>
+    data(
+      request<ApiResponse<AdminProduct>>(`/admin/shop/photos/${photoId}`, {
+        method: 'PATCH',
+        body: { altText },
+      }),
+    ),
+  reorderPhotos: (productId: number, photoIds: number[]) =>
+    data(
+      request<ApiResponse<AdminProduct>>(`/admin/shop/products/${productId}/photo-order`, {
+        method: 'PUT',
+        body: { photoIds },
+      }),
+    ),
+  removePhoto: (photoId: number) =>
+    data(request<ApiResponse<AdminProduct>>(`/admin/shop/photos/${photoId}`, { method: 'DELETE' })),
 };
