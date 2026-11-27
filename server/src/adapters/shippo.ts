@@ -29,6 +29,9 @@ export interface PostalAddress {
   /** Two-letter state code. */
   state: string;
   zip: string;
+  /** The sender's contact details: USPS won't make a label without them (the return address only). */
+  email?: string | null;
+  phone?: string | null;
 }
 
 export interface AddressCheck {
@@ -257,6 +260,8 @@ function toShippo(address: PostalAddress) {
     name: address.name,
     street1: address.street1,
     ...(address.street2 ? { street2: address.street2 } : {}),
+    ...(address.email ? { email: address.email } : {}),
+    ...(address.phone ? { phone: address.phone } : {}),
     city: address.city,
     state: address.state,
     zip: address.zip,

@@ -325,11 +325,29 @@ describe('loadConfig: shipping (Shippo)', () => {
         city: 'Testville',
         state: 'NY',
         zip: '10001',
+        email: null,
+        phone: null,
       },
       webhookToken: null,
     });
     expect(loadConfig({ ...shippingEnv, SHIP_FROM_STREET2: 'Unit 2' }).shipping?.from.street2).toBe(
       'Unit 2',
+    );
+  });
+
+  it("reads the sender's optional email and phone (needed for labels)", () => {
+    const from = loadConfig({
+      ...shippingEnv,
+      SHIP_FROM_EMAIL: 'studio@example.com',
+      SHIP_FROM_PHONE: '(212) 555-0100',
+    }).shipping?.from;
+    expect(from).toMatchObject({ email: 'studio@example.com', phone: '(212) 555-0100' });
+    expect(() => loadConfig({ ...shippingEnv, SHIP_FROM_EMAIL: 'not-an-email' })).toThrow(
+      /SHIP_FROM_EMAIL/,
+    );
+    expect(() => loadConfig({ ...shippingEnv, SHIP_FROM_PHONE: '555' })).toThrow(/SHIP_FROM_PHONE/);
+    expect(() => loadConfig({ ...paymentsEnv, SHIP_FROM_PHONE: '212-555-0100' })).toThrow(
+      /SHIPPO_API_KEY/,
     );
   });
 

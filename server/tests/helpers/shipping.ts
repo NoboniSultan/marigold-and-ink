@@ -25,6 +25,8 @@ export const TEST_FROM: PostalAddress = {
   city: 'Testville',
   state: 'NY',
   zip: '10001',
+  email: 'studio@example.com',
+  phone: '212-555-0100',
 };
 
 /** The services a quote answers with, by token: [name, cents, days]. */

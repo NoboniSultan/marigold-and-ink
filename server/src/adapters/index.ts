@@ -67,6 +67,8 @@ export function createDefaultAdapters(): AppAdapters {
             city: config.shipping.from.city!,
             state: config.shipping.from.state!,
             zip: config.shipping.from.zip!,
+            email: config.shipping.from.email,
+            phone: config.shipping.from.phone,
           },
           webhookToken: config.shipping.webhookToken,
         }

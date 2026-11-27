@@ -24,7 +24,13 @@ const TO: PostalAddress = {
   state: 'ca',
   zip: '94117',
 };
-const FROM: PostalAddress = { ...TO, name: 'Studio', street2: 'Unit 2' };
+const FROM: PostalAddress = {
+  ...TO,
+  name: 'Studio',
+  street2: 'Unit 2',
+  email: 'studio@example.com',
+  phone: '212-555-0100',
+};
 
 const rate = (overrides: Record<string, unknown> = {}) => ({
   object_id: 'rate_1',
@@ -176,7 +182,13 @@ describe('createShippo: quote', () => {
       },
     ]);
     expect(body.address_from.street2).toBe('Unit 2');
+    // USPS needs the sender's contact details to make the label later.
+    expect(body.address_from).toMatchObject({
+      email: 'studio@example.com',
+      phone: '212-555-0100',
+    });
     expect(body.address_to.country).toBe('US');
+    expect(body.address_to).not.toHaveProperty('email');
     expect(body.async).toBe(false);
   });
 

@@ -7,9 +7,18 @@
  * 3. can void it (its postage is refunded) until the carrier scans it, then buy another.
  */
 import type { LabelOption, ShippingLabel, VoidedLabel } from '@shared/types/shipping.ts';
-import { ShippingProviderError, type ShippingRate } from '../../adapters/shippo.ts';
+import {
+  ShippingProviderError,
+  type ShippingRate,
+  type ShippingSetup,
+} from '../../adapters/shippo.ts';
 import { withTransaction } from '../../db/transaction.ts';
-import { BusinessRuleError, ConflictError, NotFoundError } from '../../errors/index.js';
+import {
+  BusinessRuleError,
+  ConflictError,
+  NotFoundError,
+  ServiceUnavailableError,
+} from '../../errors/index.js';
 import { logger } from '../../lib/logger.js';
 import * as commissionsService from '../commissions/commissions.service.js';
 import * as shippingRepository from './shipping.repository.ts';
@@ -99,6 +108,16 @@ function assertNoLabel(labels: LabelRecord[]) {
   }
 }
 
+/** USPS won't make a label without the sender's email and phone (set in the server settings). */
+function assertLabelSetup(setup: ShippingSetup) {
+  if (!setup.from.email || !setup.from.phone) {
+    throw new ServiceUnavailableError(
+      'Labels need the return email and phone (SHIP_FROM_EMAIL and SHIP_FROM_PHONE) in the server settings',
+      { code: 'LABEL_SETUP_INCOMPLETE' },
+    );
+  }
+}
+
 const staleOption = () =>
   new ConflictError('Those label prices have expired. Please get the prices again.', {
     code: 'LABEL_OPTION_STALE',
@@ -113,6 +132,7 @@ export async function labelOptions(
   { shipping }: { shipping?: Setup },
 ): Promise<LabelOption[]> {
   const setup = requireShipping(shipping);
+  assertLabelSetup(setup);
   const commission = await commissionsService.getCommissionForUser(commissionId, user);
   assertShips(commission);
   assertLabelOpen(commission);
@@ -178,6 +198,7 @@ export async function buyLabel(
   { shipping }: { shipping?: Setup },
 ): Promise<void> {
   const setup = requireShipping(shipping);
+  assertLabelSetup(setup);
   let rate: ShippingRate;
   try {
     rate = await setup.provider.getRate(rateId);

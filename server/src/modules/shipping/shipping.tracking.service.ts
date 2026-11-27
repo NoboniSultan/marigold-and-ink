@@ -10,7 +10,7 @@
  */
 import { timingSafeEqual, createHash } from 'node:crypto';
 import type { EmailMessage, EmailSender } from '../../adapters/email.ts';
-import type { ShippingSetup } from '../../adapters/shippo.ts';
+import { ShippingProviderError, type ShippingSetup } from '../../adapters/shippo.ts';
 import { config } from '../../config/env.js';
 import { withTransaction } from '../../db/transaction.ts';
 import { NotFoundError, UnauthorizedError } from '../../errors/index.js';
@@ -124,7 +124,18 @@ export async function refreshLabel(
 ): Promise<void> {
   const label = await labelsRepository.findById(labelId);
   if (!label || label.voidedAt) return;
-  const info = await shipping.provider.track(trackingCarrier(label.carrier), label.trackingNumber);
+  let info;
+  try {
+    info = await shipping.provider.track(trackingCarrier(label.carrier), label.trackingNumber);
+  } catch (err) {
+    // Shippo answers 400 for a number it can't track (yet), such as a test-mode label: no
+    // news, not an outage.
+    if (err instanceof ShippingProviderError && err.status === 400) {
+      logger.warn({ labelId }, 'the shipping service cannot track this label yet');
+      return;
+    }
+    throw err;
+  }
 
   const outcome = await withTransaction(async (tx) => {
     const commission = await commissionsService.lockCommission(label.commissionId, tx);

@@ -214,6 +214,24 @@ describe('POST /admin/commissions/:id/shipping/label-options', () => {
     expect((await labelOptions(agent, s.id)).status).toBe(503);
   });
 
+  it("needs the sender's email and phone, which USPS requires on labels", async () => {
+    const s = await setup();
+    const noContact = createApp({
+      adapters: {
+        email: null,
+        google: null,
+        payments: null,
+        shipping: { ...shipping.setup, from: { ...shipping.setup.from, phone: null } },
+      },
+    });
+    const { agent } = await loggedInAgent(noContact, { role: 'admin' });
+    for (const res of [await labelOptions(agent, s.id), await buy(agent, s.id, 'rate_1')]) {
+      expect(res.status).toBe(503);
+      expect(res.body.error.code).toBe('LABEL_SETUP_INCOMPLETE');
+    }
+    expect(shipping.calls.quote).toEqual([]);
+  });
+
   it('says when no service is offered', async () => {
     const s = await setup();
     shipping.settings.services = [['usps_media_mail', 'Media Mail', 400, 8]];
@@ -480,6 +498,16 @@ describe('tracking', () => {
     await bought(s);
     shipping.settings.failNext = { method: 'track', status: 500 };
     expect((await refresh(s.admin, s.id)).status).toBe(502);
+  });
+
+  it("treats a label Shippo can't track yet (a 400, as for test labels) as no news", async () => {
+    const s = await setup();
+    await bought(s);
+    shipping.settings.failNext = { method: 'track', status: 400 };
+    const res = await refresh(s.admin, s.id);
+    expect(res.status).toBe(200);
+    expect(res.body.data.label.trackingStatus).toBe('unknown');
+    expect(await commissionStatus(s.id)).toBe('ready_to_ship');
   });
 });
 
