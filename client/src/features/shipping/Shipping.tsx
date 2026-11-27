@@ -2,17 +2,22 @@
  * Shipping a physical commission (milestone 11, ADR 0017): the client's address and choice of
  * shipping on their commission page, and the admin's Shipping section with the package.
  * Every price shown comes from the server (live postage plus the owner's packaging fee).
+ * Milestone 11b adds the label (admin) and the package's tracking (both).
  */
 import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type {
+  LabelOption,
   Shipment,
   ShippingAddress,
+  ShippingLabel,
   ShippingMeta,
   ShippingOption,
+  ShippingResponse,
+  TrackingStatus,
 } from '@shared/types/shipping.ts';
 import { ApiError, fieldErrors, formMessage } from '../../api/client.ts';
-import { shippingApi } from '../../api/endpoints.ts';
+import { labelFileUrl, shippingApi } from '../../api/endpoints.ts';
 import { queryKeys, useShipping } from '../../api/queries.ts';
 import { FormField } from '../../components/FormField.tsx';
 import { ErrorMessage, Loading } from '../../components/Loading.tsx';
@@ -357,6 +362,57 @@ function ChoosePart({ commissionId, shipment }: { commissionId: number; shipment
   );
 }
 
+const TRACKING_STATUS: Record<TrackingStatus, string> = {
+  unknown: 'Label created, waiting for the carrier',
+  pre_transit: 'Label created, waiting for the carrier',
+  transit: 'On its way',
+  delivered: 'Delivered',
+  returned: 'Being returned',
+  failure: 'Delivery problem',
+};
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+/** The package's tracking number (linked to the carrier), where it is, and its scans. */
+function TrackingPart({ label }: { label: ShippingLabel }) {
+  return (
+    <div>
+      <h3>Tracking</h3>
+      <p>
+        {label.carrier} {label.serviceName}, tracking number{' '}
+        {label.trackingUrl ? (
+          <a href={label.trackingUrl} target="_blank" rel="noopener noreferrer">
+            {label.trackingNumber}
+          </a>
+        ) : (
+          label.trackingNumber
+        )}
+      </p>
+      <p role="status">
+        <strong>{TRACKING_STATUS[label.trackingStatus]}</strong>
+        {label.trackingDetails ? `: ${label.trackingDetails}` : ''}
+      </p>
+      {label.eta && label.trackingStatus === 'transit' ? (
+        <p className={pageStyles.hint}>
+          Expected by {new Date(label.eta).toLocaleDateString('en-US', { dateStyle: 'medium' })}
+        </p>
+      ) : null}
+      {label.events.length > 0 ? (
+        <ol className={pageStyles.list} aria-label="Tracking history">
+          {label.events.map((event, i) => (
+            <li key={`${event.occurredAt}-${i}`}>
+              {event.occurredAt ? `${when(event.occurredAt)}: ` : ''}
+              {event.details ?? TRACKING_STATUS[event.status]}
+              {event.city ? ` (${event.city}${event.state ? `, ${event.state}` : ''})` : ''}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
+}
+
 /** The client's commission page: nothing for work delivered as files. */
 export function ClientShipping({ commissionId }: { commissionId: number }) {
   const shipping = useShipping(commissionId);
@@ -389,6 +445,7 @@ export function ClientShipping({ commissionId }: { commissionId: number }) {
               Shipping: {describeOption(shipment.chosen)}. <Breakdown option={shipment.chosen} />
             </p>
           ) : null}
+          {shipment?.label ? <TrackingPart label={shipment.label} /> : null}
         </>
       )}
     </section>
@@ -494,6 +551,214 @@ function PackageForm({
   );
 }
 
+/** Puts a fresh answer from a label action straight into the cache. */
+function useSetShipping(commissionId: number) {
+  const queryClient = useQueryClient();
+  return (response: ShippingResponse) =>
+    queryClient.setQueryData(queryKeys.shipping(commissionId), response);
+}
+
+function difference(option: LabelOption): string {
+  if (option.paidPostageCents === null) return '';
+  const diff = option.postageCents - option.paidPostageCents;
+  if (diff === 0) return ' (what the client paid)';
+  return diff > 0
+    ? ` (client paid ${usd(option.paidPostageCents)}; you cover ${usd(diff)})`
+    : ` (client paid ${usd(option.paidPostageCents)}; ${usd(-diff)} less)`;
+}
+
+/** Admin, once paid: today's prices, then buying the label. */
+function BuyLabel({ commissionId }: { commissionId: number }) {
+  const setShipping = useSetShipping(commissionId);
+  const [options, setOptions] = useState<LabelOption[] | null>(null);
+  const [selected, setSelected] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const problems =
+    error instanceof ApiError && error.code === 'LABEL_FAILED'
+      ? ((error.details as { messages?: string[] } | undefined)?.messages ?? [])
+      : [];
+
+  async function load() {
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await shippingApi.labelOptions(commissionId);
+      setOptions(list);
+      setSelected((list.find((o) => o.matchesChoice) ?? list[0])?.rateId ?? '');
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function buy(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      setShipping(await shippingApi.buyLabel(commissionId, selected));
+    } catch (err) {
+      setError(err);
+      if (err instanceof ApiError && err.code === 'LABEL_OPTION_STALE') setOptions(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={adminStyles.form}>
+      {error ? (
+        <div className={adminStyles.error} role="alert">
+          <p>{formMessage(error)}</p>
+          {problems.length > 0 && (
+            <ul>
+              {problems.map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+      {options ? (
+        <form onSubmit={buy} aria-label="Buy label">
+          <fieldset className={pageStyles.fieldset}>
+            <legend className={pageStyles.legend}>Postage today</legend>
+            {options.map((option) => (
+              <label key={option.rateId} className={pageStyles.choice}>
+                <input
+                  type="radio"
+                  name={`label-${commissionId}`}
+                  value={option.rateId}
+                  checked={selected === option.rateId}
+                  onChange={() => setSelected(option.rateId)}
+                />
+                <span>
+                  {option.carrier} {option.serviceName}
+                  {option.matchesChoice ? ' (the client’s choice)' : ''}:{' '}
+                  <strong>{usd(option.postageCents)}</strong>
+                  {difference(option)}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <button
+            type="submit"
+            className={`${buttonStyles.button} ${buttonStyles.primary}`}
+            disabled={busy || !selected}
+          >
+            {busy ? 'Buying…' : 'Buy label'}
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          className={`${buttonStyles.button} ${buttonStyles.primary}`}
+          onClick={load}
+          disabled={busy}
+        >
+          {busy ? 'Getting prices…' : 'Get label prices'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Admin: the label in use (print, void, check tracking), and the voided ones. */
+function LabelPart({ commissionId, shipment }: { commissionId: number; shipment: Shipment }) {
+  const setShipping = useSetShipping(commissionId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const label = shipment.label;
+
+  async function run(action: () => Promise<ShippingResponse>) {
+    setBusy(true);
+    setError(null);
+    try {
+      setShipping(await action());
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function voidIt() {
+    if (!window.confirm('Void this label? Its postage is refunded within about two weeks.')) {
+      return;
+    }
+    void run(() => shippingApi.voidLabel(commissionId));
+  }
+
+  return (
+    <>
+      {error ? (
+        <p className={adminStyles.error} role="alert">
+          {formMessage(error)}
+        </p>
+      ) : null}
+      {label ? (
+        <>
+          <p>
+            Label bought {when(label.createdAt)}
+            {label.postageCents !== null ? ` for ${usd(label.postageCents)} postage` : ''}.
+          </p>
+          <div className={pageStyles.row}>
+            <a
+              className={`${buttonStyles.button} ${buttonStyles.primary}`}
+              href={labelFileUrl(commissionId)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Print label (PDF)
+            </a>
+            <button
+              type="button"
+              className={`${buttonStyles.button} ${buttonStyles.secondary}`}
+              onClick={() => run(() => shippingApi.refreshTracking(commissionId))}
+              disabled={busy}
+            >
+              Check tracking now
+            </button>
+            {label.voidable ? (
+              <button
+                type="button"
+                className={`${buttonStyles.button} ${buttonStyles.secondary}`}
+                onClick={voidIt}
+                disabled={busy}
+              >
+                Void label
+              </button>
+            ) : null}
+          </div>
+          <TrackingPart label={label} />
+        </>
+      ) : null}
+      {shipment.voidedLabels.length > 0 ? (
+        <>
+          <h3>Voided labels</h3>
+          <ul className={pageStyles.list}>
+            {shipment.voidedLabels.map((voided) => (
+              <li key={voided.trackingNumber}>
+                {voided.trackingNumber}: {usd(voided.postageCents)}, voided {when(voided.voidedAt)},
+                refund {REFUND_STATUS[voided.refundStatus]}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+const REFUND_STATUS = {
+  queued: 'requested',
+  pending: 'pending (up to two weeks)',
+  success: 'accepted',
+  error: 'refused (the label was used)',
+} as const;
+
 /** The admin commission page's Shipping section (physical work only). */
 export function AdminShipping({ commissionId }: { commissionId: number }) {
   const shipping = useShipping(commissionId);
@@ -548,6 +813,11 @@ export function AdminShipping({ commissionId }: { commissionId: number }) {
                 : 'The client chooses once the balance is due.'}
             </p>
           )}
+          {meta.labelOpen || shipment?.label || shipment?.voidedLabels.length ? (
+            <h3>Label</h3>
+          ) : null}
+          {shipment ? <LabelPart commissionId={commissionId} shipment={shipment} /> : null}
+          {meta.labelOpen ? <BuyLabel commissionId={commissionId} /> : null}
         </>
       )}
     </section>

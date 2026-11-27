@@ -1,8 +1,14 @@
 /** Shipping a physical commission (milestone 11): the client's page and the admin's section. */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Shipment, ShippingMeta, ShippingOption } from '@shared/types/shipping.ts';
+import type {
+  LabelOption,
+  Shipment,
+  ShippingLabel,
+  ShippingMeta,
+  ShippingOption,
+} from '@shared/types/shipping.ts';
 import type { Call, MockResponse } from '../../test/utils.tsx';
 import { USER, mockApi, renderRoute } from '../../test/utils.tsx';
 
@@ -31,6 +37,7 @@ const META: ShippingMeta = {
   ships: true,
   addressOpen: true,
   choosingOpen: true,
+  labelOpen: false,
 };
 
 const ADDRESS = {
@@ -106,8 +113,40 @@ const shipmentWith = (overrides: Partial<Shipment> = {}): Shipment => ({
   addressRemovedAt: null,
   package: PACKAGE,
   chosen: null,
+  label: null,
+  voidedLabels: [],
   ...overrides,
 });
+
+const LABEL: ShippingLabel = {
+  carrier: 'USPS',
+  serviceName: 'Ground Advantage',
+  trackingNumber: '9400111',
+  trackingUrl: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=9400111',
+  trackingStatus: 'transit',
+  trackingDetails: 'Arrived at USPS Regional Facility',
+  trackingUpdatedAt: '2026-12-02T09:00:00.000Z',
+  eta: '2026-12-04T12:00:00.000Z',
+  createdAt: '2026-12-01T09:00:00.000Z',
+  events: [
+    {
+      status: 'transit',
+      details: 'Arrived at USPS Regional Facility',
+      occurredAt: '2026-12-02T09:00:00.000Z',
+      city: 'Kearny',
+      state: 'NJ',
+    },
+    {
+      status: 'pre_transit',
+      details: null,
+      occurredAt: '2026-12-01T09:00:00.000Z',
+      city: null,
+      state: null,
+    },
+  ],
+  postageCents: null,
+  voidable: false,
+};
 
 describe("the client's commission page", () => {
   it('asks for the address after the deposit, and saves it', async () => {
@@ -234,6 +273,27 @@ describe("the client's commission page", () => {
     expect(screen.queryByText(/Choose a shipping option below/)).not.toBeInTheDocument();
   });
 
+  it('shows the tracking number, where the package is, and its scans', async () => {
+    const { rateId: _r, ...chosen } = OPTIONS[0]!;
+    api({
+      commission: { ...COMMISSION, status: 'shipped' },
+      shipment: shipmentWith({ chosen, label: LABEL }),
+      meta: { ...META, addressOpen: false, choosingOpen: false },
+    });
+    renderRoute('/commissions/7');
+
+    const link = await screen.findByRole('link', { name: '9400111' });
+    expect(link).toHaveAttribute('href', LABEL.trackingUrl);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.getByText('On its way')).toBeInTheDocument();
+    expect(screen.getByText(/Expected by Dec 4, 2026/)).toBeInTheDocument();
+    const history = screen.getByRole('list', { name: 'Tracking history' });
+    const items = within(history).getAllByRole('listitem');
+    expect(items[0]).toHaveTextContent('Arrived at USPS Regional Facility (Kearny, NJ)');
+    expect(items[1]).toHaveTextContent('Label created, waiting for the carrier');
+    expect(screen.queryByRole('button', { name: 'Void label' })).not.toBeInTheDocument();
+  });
+
   it('never asks about shipping for work delivered as files', async () => {
     const calls = api({ commission: { ...COMMISSION, fulfillmentType: 'mixed_media' } });
     renderRoute('/commissions/7');
@@ -329,6 +389,172 @@ describe('the admin commission page', () => {
       within(section).getByText(/USPS Ground Advantage, about 4 business days\./),
     ).toBeInTheDocument();
     expect(within(section).queryByRole('form', { name: 'Package' })).not.toBeInTheDocument();
+  });
+
+  const LABEL_OPTIONS: LabelOption[] = [
+    {
+      rateId: 'rate_ground_now',
+      carrier: 'USPS',
+      serviceName: 'Ground Advantage',
+      estimatedDays: 4,
+      postageCents: 790,
+      paidPostageCents: 758,
+      matchesChoice: true,
+    },
+    {
+      rateId: 'rate_priority_now',
+      carrier: 'USPS',
+      serviceName: 'Priority Mail',
+      estimatedDays: 2,
+      postageCents: 1210,
+      paidPostageCents: null,
+      matchesChoice: false,
+    },
+  ];
+
+  function readyToShip(extra: (call: Call) => MockResponse | undefined, shipment: Shipment) {
+    return api({
+      user: ADMIN,
+      commission: { ...COMMISSION, status: 'ready_to_ship' },
+      shipment,
+      meta: { ...META, addressOpen: false, choosingOpen: false, labelOpen: !shipment.label },
+      extra: (call) => {
+        if (call.path === '/admin/commissions/7') return adminDetails('ready_to_ship');
+        if (call.path === '/commissions/7/quote') {
+          return { status: 404, body: { error: { code: 'QUOTE_NOT_FOUND', message: 'No quote' } } };
+        }
+        return extra(call);
+      },
+    });
+  }
+
+  it("buys the label for the client's service, showing what the owner covers", async () => {
+    const user = userEvent.setup();
+    const { rateId: _r, ...chosen } = OPTIONS[0]!;
+    const bought = shipmentWith({
+      chosen,
+      label: { ...LABEL, trackingStatus: 'unknown', events: [], postageCents: 790, voidable: true },
+    });
+    const calls = readyToShip((call) => {
+      if (call.path === '/admin/commissions/7/shipping/label-options') {
+        return { body: { data: LABEL_OPTIONS } };
+      }
+      if (call.path === '/admin/commissions/7/shipping/label') {
+        return {
+          body: { data: bought, meta: { ...META, addressOpen: false, choosingOpen: false } },
+        };
+      }
+      return undefined;
+    }, shipmentWith({ chosen }));
+    renderRoute('/admin/commissions/7');
+
+    const section = await screen.findByRole('region', { name: 'Shipping' });
+    await user.click(within(section).getByRole('button', { name: 'Get label prices' }));
+    const options = await within(section).findByRole('group', { name: 'Postage today' });
+    const ground = within(options).getByRole('radio', { name: /Ground Advantage/ });
+    expect(ground).toBeChecked(); // the client's choice is preselected
+    expect(within(options).getByText(/client paid \$7\.58; you cover \$0\.32/)).toBeInTheDocument();
+    await user.click(within(section).getByRole('button', { name: 'Buy label' }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/admin/commissions/7/shipping/label')?.body).toEqual({
+        rateId: 'rate_ground_now',
+      }),
+    );
+    const print = await within(section).findByRole('link', { name: 'Print label (PDF)' });
+    expect(print).toHaveAttribute('href', '/api/v1/admin/commissions/7/shipping/label/file');
+    expect(within(section).getByText(/for \$7\.90 postage/)).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Void label' })).toBeInTheDocument();
+  });
+
+  it("shows the carrier's reasons when a label can't be made", async () => {
+    const user = userEvent.setup();
+    readyToShip((call) => {
+      if (call.path === '/admin/commissions/7/shipping/label-options') {
+        return { body: { data: LABEL_OPTIONS } };
+      }
+      if (call.path === '/admin/commissions/7/shipping/label') {
+        return {
+          status: 422,
+          body: {
+            error: {
+              code: 'LABEL_FAILED',
+              message: "The carrier couldn't make this label",
+              details: { messages: ['Address not found'] },
+            },
+          },
+        };
+      }
+      return undefined;
+    }, shipmentWith());
+    renderRoute('/admin/commissions/7');
+
+    const section = await screen.findByRole('region', { name: 'Shipping' });
+    await user.click(within(section).getByRole('button', { name: 'Get label prices' }));
+    await user.click(await within(section).findByRole('button', { name: 'Buy label' }));
+    expect(await within(section).findByRole('alert')).toHaveTextContent('Address not found');
+  });
+
+  it('voids a label after confirming, and lists it with its refund', async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const voided = shipmentWith({
+      voidedLabels: [
+        {
+          trackingNumber: '9400111',
+          postageCents: 790,
+          voidedAt: '2026-12-01T10:00:00.000Z',
+          refundStatus: 'queued',
+        },
+      ],
+    });
+    const calls = readyToShip(
+      (call) =>
+        call.path === '/admin/commissions/7/shipping/label/void'
+          ? { body: { data: voided, meta: { ...META, labelOpen: true } } }
+          : undefined,
+      shipmentWith({
+        label: { ...LABEL, trackingStatus: 'unknown', postageCents: 790, voidable: true },
+      }),
+    );
+    renderRoute('/admin/commissions/7');
+
+    const section = await screen.findByRole('region', { name: 'Shipping' });
+    await user.click(await within(section).findByRole('button', { name: 'Void label' }));
+
+    expect(confirm).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(calls.some((c) => c.path === '/admin/commissions/7/shipping/label/void')).toBe(true),
+    );
+    expect(await within(section).findByText(/9400111: \$7\.90, voided/)).toHaveTextContent(
+      'refund requested',
+    );
+    expect(within(section).getByRole('button', { name: 'Get label prices' })).toBeInTheDocument();
+    confirm.mockRestore();
+  });
+
+  it('checks tracking on request', async () => {
+    const user = userEvent.setup();
+    const calls = readyToShip(
+      (call) =>
+        call.path === '/admin/commissions/7/shipping/tracking/refresh'
+          ? {
+              body: {
+                data: shipmentWith({ label: { ...LABEL, trackingStatus: 'delivered' } }),
+                meta: { ...META, addressOpen: false, choosingOpen: false },
+              },
+            }
+          : undefined,
+      shipmentWith({ label: { ...LABEL, postageCents: 790 } }),
+    );
+    renderRoute('/admin/commissions/7');
+
+    const section = await screen.findByRole('region', { name: 'Shipping' });
+    await user.click(await within(section).findByRole('button', { name: 'Check tracking now' }));
+    expect(await within(section).findByText('Delivered')).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'POST' && c.path.endsWith('/tracking/refresh'))).toBe(
+      true,
+    );
   });
 });
 
