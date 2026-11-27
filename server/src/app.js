@@ -21,6 +21,7 @@ import { requestPendingTrees } from './modules/giving/giving.service.ts';
 import { purgeExpiredFiles } from './modules/files/files.service.ts';
 import { shippoWebhookRouter } from './modules/shipping/shipping.routes.ts';
 import { shopPhotosRouter } from './modules/shop/shop.routes.ts';
+import { releaseExpiredOrders } from './modules/orders/orders.service.ts';
 import {
   notifyStatusChange,
   refreshAllTracking,
@@ -71,6 +72,10 @@ export function createApp({
   // server.js runs it at startup and daily, as a backup to Shippo's tracking webhook.
   app.locals.refreshTracking = () =>
     refreshAllTracking({ shipping: adapters.shipping, email: adapters.email });
+  // Settles shop orders whose Stripe page closed without a webhook reaching us (asks Stripe);
+  // server.js runs it at startup and every few minutes. Never throws.
+  app.locals.releaseExpiredOrders = () =>
+    releaseExpiredOrders({ gateway: adapters.payments, email: adapters.email });
   app.locals.onCommissionStatusChange = async (commission) => {
     if (commission.status === 'canceled') {
       await expireOpenCheckouts(commission.id, adapters.payments);

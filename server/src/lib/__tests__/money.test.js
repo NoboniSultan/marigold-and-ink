@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  multiplyCents,
   assertCents,
   percentOfCents,
   splitDeposit,
@@ -107,5 +108,19 @@ describe('formatCents', () => {
   it('formats for display', () => {
     expect(formatCents(123456)).toBe('$1,234.56');
     expect(formatCents(5)).toBe('$0.05');
+  });
+});
+
+describe('multiplyCents', () => {
+  it('multiplies a unit price by a whole quantity', () => {
+    expect(multiplyCents(450, 3)).toBe(1350);
+    expect(multiplyCents(450, 0)).toBe(0);
+  });
+
+  it('refuses fractions, negatives, and overflow', () => {
+    expect(() => multiplyCents(4.5, 2)).toThrow(TypeError);
+    expect(() => multiplyCents(450, 1.5)).toThrow(/quantity/);
+    expect(() => multiplyCents(450, -1)).toThrow(/quantity/);
+    expect(() => multiplyCents(Number.MAX_SAFE_INTEGER, 2)).toThrow(/total/);
   });
 });

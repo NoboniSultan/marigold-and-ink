@@ -4,7 +4,7 @@
  * production (see shipping.tracking.service.ts). The facts below the wording (tracking
  * number and links) are filled in by the code.
  */
-import type { EmailMessage } from '../../adapters/email.ts';
+import { buildEmail, hasPlaceholder } from '../../lib/emailText.ts';
 
 export const SHIPPING_EMAIL_COPY = {
   shipped: {
@@ -21,25 +21,9 @@ export const SHIPPING_EMAIL_COPY = {
   },
 } as const;
 
-const PLACEHOLDER = 'PLACEHOLDER:';
+export { hasPlaceholder };
 
-/** True while the owner's wording hasn't been written yet. */
-export function hasPlaceholder(message: EmailMessage): boolean {
-  return message.subject.includes(PLACEHOLDER) || message.text.includes(PLACEHOLDER);
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-}
-
-function build(to: string, subject: string, lines: string[]): EmailMessage {
-  return {
-    to,
-    subject,
-    text: lines.join('\n\n'),
-    html: lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('\n'),
-  };
-}
+const build = buildEmail;
 
 export interface PackageFacts {
   carrier: string;

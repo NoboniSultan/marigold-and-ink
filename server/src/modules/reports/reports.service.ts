@@ -5,24 +5,29 @@
 import type { MonthlyReportRow } from '@shared/types/admin.ts';
 import * as givingService from '../giving/giving.service.ts';
 import * as paymentsService from '../payments/payments.service.ts';
+import * as ordersService from '../orders/orders.service.ts';
 import { BUSINESS_TIME_ZONE, monthInBusinessZone } from '../../lib/businessTime.ts';
 
 /** Every month of `year` up to the current one (none ahead). */
 export async function monthlyReport(year: number, now = new Date()): Promise<MonthlyReportRow[]> {
-  const [payments, giving] = await Promise.all([
+  const [payments, giving, shop] = await Promise.all([
     paymentsService.monthlyPayments(year, BUSINESS_TIME_ZONE),
     givingService.monthlyGiving(year, BUSINESS_TIME_ZONE),
+    ordersService.monthlyShop(year, BUSINESS_TIME_ZONE),
   ]);
   const current = monthInBusinessZone(now).month;
   return payments
     .map((p, i) => {
       const g = giving[i]!;
+      const s = shop[i]!;
       return {
         month: p.month,
         salesCents: p.salesCents,
         shippingCents: p.shippingCents,
         refundsCents: p.refundsCents,
-        netSalesCents: p.salesCents - p.refundsCents,
+        shopSalesCents: s.salesCents,
+        shopRefundsCents: s.refundsCents,
+        netSalesCents: p.salesCents - p.refundsCents + s.salesCents - s.refundsCents,
         treesOrdered: g.treesOrdered,
         treesOrderedCents: g.treesOrderedCents,
         donationsPaidCents: g.donationsPaidCents,
@@ -46,9 +51,11 @@ export function dollars(cents: number): string {
 export function toCsv(rows: MonthlyReportRow[]): string {
   const header = [
     'Month',
-    'Sales (USD)',
+    'Commission sales (USD)',
     'Of which shipping (USD)',
-    'Refunds (USD)',
+    'Commission refunds (USD)',
+    'Shop sales (USD)',
+    'Shop refunds (USD)',
     'Net sales (USD)',
     'Trees ordered',
     'Trees ordered (USD)',
@@ -61,6 +68,8 @@ export function toCsv(rows: MonthlyReportRow[]): string {
       dollars(row.salesCents),
       dollars(row.shippingCents),
       dollars(row.refundsCents),
+      dollars(row.shopSalesCents),
+      dollars(row.shopRefundsCents),
       dollars(row.netSalesCents),
       String(row.treesOrdered),
       dollars(row.treesOrderedCents),
@@ -74,6 +83,8 @@ export function toCsv(rows: MonthlyReportRow[]): string {
     salesCents: sum((r) => r.salesCents),
     shippingCents: sum((r) => r.shippingCents),
     refundsCents: sum((r) => r.refundsCents),
+    shopSalesCents: sum((r) => r.shopSalesCents),
+    shopRefundsCents: sum((r) => r.shopRefundsCents),
     netSalesCents: sum((r) => r.netSalesCents),
     treesOrdered: sum((r) => r.treesOrdered),
     treesOrderedCents: sum((r) => r.treesOrderedCents),

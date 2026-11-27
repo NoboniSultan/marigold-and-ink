@@ -47,7 +47,8 @@ export interface PhotoRecord {
 export interface MovementRecord {
   change: number;
   stockAfter: number;
-  reason: 'restock' | 'adjustment' | 'reservation' | 'release' | 'sale';
+  reason: 'restock' | 'adjustment' | 'reservation' | 'release' | 'return';
+  orderId: number | null;
   note: string | null;
   createdAt: Date;
 }
@@ -127,6 +128,15 @@ export async function findBySlug(slug: string, client: Db = pool): Promise<Produ
     slug,
   ]);
   return rows[0] ? toProduct(rows[0]) : null;
+}
+
+export async function findProducts(ids: number[], client: Db = pool): Promise<ProductRecord[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT ${PRODUCT_COLUMNS} FROM products WHERE id = ANY($1::bigint[])`,
+    [ids],
+  );
+  return rows.map(toProduct);
 }
 
 export async function findById(
@@ -218,6 +228,15 @@ export async function variantsFor(
   return rows.map(toVariant);
 }
 
+export async function findVariants(ids: number[], client: Db = pool): Promise<VariantRecord[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT ${VARIANT_COLUMNS} FROM product_variants WHERE id = ANY($1::bigint[]) ORDER BY id`,
+    [ids],
+  );
+  return rows.map(toVariant);
+}
+
 export async function findVariant(
   id: number,
   client: Db = pool,
@@ -267,7 +286,8 @@ export async function deleteVariant(id: number, client: Db = pool): Promise<void
 
 /**
  * Sets a variant's stock and logs the change, in the caller's transaction (the variant row
- * is locked by the caller). Does nothing when the count doesn't change.
+ * is locked by the caller). Does nothing when the count doesn't change. Holds, releases, and
+ * returns name their order; the owner's restocks and adjustments name who made them.
  */
 export async function setStock(
   variant: VariantRecord,
@@ -276,23 +296,42 @@ export async function setStock(
     reason,
     note,
     actorUserId,
-  }: { stock: number; reason: MovementRecord['reason']; note: string | null; actorUserId: number },
+    orderId = null,
+  }: {
+    stock: number;
+    reason: MovementRecord['reason'];
+    note: string | null;
+    actorUserId: number | null;
+    orderId?: number | null;
+  },
   client: Db,
 ): Promise<void> {
   const change = stock - variant.stock;
   if (change === 0) return;
   await client.query('UPDATE product_variants SET stock = $2 WHERE id = $1', [variant.id, stock]);
   await client.query(
-    `INSERT INTO inventory_movements (variant_id, change, stock_after, reason, note, actor_user_id)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [variant.id, change, stock, reason, note, actorUserId],
+    `INSERT INTO inventory_movements (variant_id, change, stock_after, reason, note, actor_user_id,
+                                      order_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [variant.id, change, stock, reason, note, actorUserId, orderId],
   );
+}
+
+/** Locks these variants (in ID order, so two checkouts can't deadlock) and returns them. */
+export async function lockVariants(ids: number[], client: Db): Promise<VariantRecord[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT ${VARIANT_COLUMNS} FROM product_variants
+      WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE`,
+    [ids],
+  );
+  return rows.map(toVariant);
 }
 
 /** A variant's stock changes, newest first. */
 export async function listMovements(variantId: number, client: Db = pool) {
   const { rows } = await client.query(
-    `SELECT change, stock_after, reason, note, created_at FROM inventory_movements
+    `SELECT change, stock_after, reason, order_id, note, created_at FROM inventory_movements
       WHERE variant_id = $1 ORDER BY id DESC LIMIT 100`,
     [variantId],
   );
@@ -300,6 +339,7 @@ export async function listMovements(variantId: number, client: Db = pool) {
     change: Number(row.change),
     stockAfter: Number(row.stock_after),
     reason: row.reason as MovementRecord['reason'],
+    orderId: row.order_id === null ? null : Number(row.order_id),
     note: row.note as string | null,
     createdAt: row.created_at as Date,
   }));

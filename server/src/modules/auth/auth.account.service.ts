@@ -22,6 +22,7 @@ import * as commissionsService from '../commissions/commissions.service.js';
 import * as quotesService from '../quotes/quotes.service.js';
 import * as paymentsService from '../payments/payments.service.ts';
 import * as filesService from '../files/files.service.ts';
+import * as ordersService from '../orders/orders.service.ts';
 import * as shippingService from '../shipping/shipping.service.ts';
 import * as authRepository from './auth.repository.ts';
 import {
@@ -171,7 +172,8 @@ export async function exportData(user: UserRecord) {
     }
     if (page * 100 >= meta.total) break;
   }
-  return { exportedAt: new Date().toISOString(), account, commissions };
+  const orders = await ordersService.ordersForExport(user.id);
+  return { exportedAt: new Date().toISOString(), account, commissions, orders };
 }
 
 /**
@@ -212,7 +214,11 @@ export async function changePassword(
 export async function deleteAccount(
   userId: number,
   { password, confirmEmail }: { password?: string; confirmEmail?: string },
-): Promise<{ canceled: Commission[]; removedFileKeys: string[] }> {
+): Promise<{
+  canceled: Commission[];
+  removedFileKeys: string[];
+  canceledOrderSessions: string[];
+}> {
   return withTransaction(async (client) => {
     const record = await usersService.findForAuthById(userId, { client, forUpdate: true });
     // requireAuth already checked the account exists; a concurrent deletion can't get here.
@@ -238,6 +244,11 @@ export async function deleteAccount(
     }
 
     const canceled = await commissionsService.closeForDeletedClient(userId, { client });
+    // Unpaid shop orders end and their items go back on sale; their Stripe pages are
+    // closed once this commits (the controller does that).
+    const canceledOrderSessions = await ordersService.cancelPendingForDeletedClient(userId, {
+      client,
+    });
     await authRepository.deleteIdentitiesForUser(userId, client);
     await authRepository.deleteVerificationsForUser(userId, record.email, client);
     const removedFileKeys = await filesService.takeReferencesForDeletedClient(userId, { client });
@@ -245,6 +256,6 @@ export async function deleteAccount(
     await shippingService.removeAddressesForDeletedClient(userId, { client });
     await authRepository.deleteSessionsForUser(userId, client);
     await usersService.anonymize(userId, { client });
-    return { canceled, removedFileKeys };
+    return { canceled, removedFileKeys, canceledOrderSessions };
   });
 }

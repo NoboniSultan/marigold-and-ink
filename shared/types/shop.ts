@@ -100,7 +100,9 @@ export interface StockChange {
 export interface InventoryMovement {
   change: number;
   stockAfter: number;
-  reason: 'restock' | 'adjustment' | 'reservation' | 'release' | 'sale';
+  reason: 'restock' | 'adjustment' | 'reservation' | 'release' | 'return';
+  /** The order a hold, release, or return belongs to. */
+  orderId: number | null;
   note: string | null;
   createdAt: string;
 }

@@ -239,6 +239,27 @@ export async function createProductPhoto(overrides = {}) {
   });
 }
 
+/** A shop order (milestone 12b), pending payment, for a new client unless one is given. */
+export async function createOrder(overrides = {}) {
+  const clientId = overrides.clientId ?? (await createUser()).id;
+  return insert('orders', { subtotalCents: 800, currency: 'usd', ...overrides, clientId });
+}
+
+/** A line of a new order (and a new variant) unless they're given. */
+export async function createOrderItem(overrides = {}) {
+  const orderId = overrides.orderId ?? (await createOrder()).id;
+  const variantId = overrides.variantId ?? (await createVariant()).id;
+  return insert('order_items', {
+    productName: 'Test Product',
+    variantName: 'Single',
+    unitPriceCents: 400,
+    quantity: 2,
+    ...overrides,
+    orderId,
+    variantId,
+  });
+}
+
 export function createCharity(overrides = {}) {
   const n = next();
   return insert('charities', { name: `Test Charity ${n}`, ...overrides });

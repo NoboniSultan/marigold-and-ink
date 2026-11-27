@@ -8,6 +8,8 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 const FILE_SWEEP_MS = 24 * 60 * 60 * 1000;
 /** How often packages on their way are checked with Shippo; also once at startup. */
 const TRACKING_CHECK_MS = 24 * 60 * 60 * 1000;
+/** How often unpaid shop orders past their payment page are settled (stock released). */
+const ORDER_SWEEP_MS = 5 * 60 * 1000;
 
 const app = createApp();
 const server = app.listen(config.port, () => {
@@ -22,6 +24,10 @@ const server = app.listen(config.port, () => {
   // from Shippo was missed (milestone 11b). Never throws.
   app.locals.refreshTracking();
   setInterval(() => app.locals.refreshTracking(), TRACKING_CHECK_MS).unref();
+  // Shop stock held by abandoned checkouts goes back on sale even if Stripe's webhook was
+  // missed (milestone 12b). Never throws.
+  app.locals.releaseExpiredOrders();
+  setInterval(() => app.locals.releaseExpiredOrders(), ORDER_SWEEP_MS).unref();
 });
 
 /**

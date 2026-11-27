@@ -25,7 +25,7 @@ import type {
 } from '@shared/types/shop.ts';
 import type { FileStorage } from '../../adapters/r2Storage.ts';
 import { withTransaction } from '../../db/transaction.ts';
-import { isUniqueViolation } from '../../db/errors.js';
+import { isForeignKeyViolation, isUniqueViolation } from '../../db/errors.js';
 import {
   BusinessRuleError,
   ConflictError,
@@ -52,6 +52,23 @@ export const PHOTO_MAX_BYTES = 20 * 1024 * 1024;
 /** Photos per product. */
 export const PHOTO_LIMIT = 10;
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** Products (and options) that were ever ordered stay in the order history: hide them instead. */
+async function notOrdered<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    if (isForeignKeyViolation(err, 'order_items_variant_id_fkey')) {
+      throw new ConflictError(
+        'This has been ordered, so it stays in the order history. Hide it instead.',
+        {
+          code: 'PRODUCT_HAS_ORDERS',
+        },
+      );
+    }
+    throw err;
+  }
+}
 
 const productNotFound = () => new NotFoundError('Product not found', { code: 'PRODUCT_NOT_FOUND' });
 
@@ -316,13 +333,15 @@ export async function deleteProduct(
   id: number,
   { storage }: { storage?: FileStorage | null },
 ): Promise<void> {
-  const photos = await withTransaction(async (tx) => {
-    const product = await shopRepository.findById(id, tx, { forUpdate: true });
-    if (!product) throw productNotFound();
-    const list = await shopRepository.photosFor([id], tx);
-    await shopRepository.deleteProduct(id, tx);
-    return list;
-  });
+  const photos = await notOrdered(() =>
+    withTransaction(async (tx) => {
+      const product = await shopRepository.findById(id, tx, { forUpdate: true });
+      if (!product) throw productNotFound();
+      const list = await shopRepository.photosFor([id], tx);
+      await shopRepository.deleteProduct(id, tx);
+      return list;
+    }),
+  );
   await removeStored(storage, photos);
 }
 
@@ -398,9 +417,11 @@ export async function setVariantStock(
 
 export async function deleteVariant(variantId: number): Promise<AdminProduct> {
   const { productId } = await variantOrNotFound(variantId);
-  return changeProduct(productId, async (_product, tx) => {
-    await shopRepository.deleteVariant(variantId, tx);
-  });
+  return notOrdered(() =>
+    changeProduct(productId, async (_product, tx) => {
+      await shopRepository.deleteVariant(variantId, tx);
+    }),
+  );
 }
 
 export async function listMovements(variantId: number): Promise<InventoryMovement[]> {
@@ -541,4 +562,132 @@ export async function deletePhoto(
   });
   await removeStored(storage, [photo]);
   return product;
+}
+
+// --- For orders (milestone 12b): pricing a cart, and holding and releasing stock ---
+
+export interface CartVariant {
+  variantId: number;
+  productId: number;
+  productSlug: string;
+  productName: string;
+  variantName: string;
+  priceCents: number;
+  stock: number;
+  /** Published (and so for sale). */
+  forSale: boolean;
+  photo: ProductPhoto | null;
+}
+
+/** The current price, stock, and names of these variants (unknown IDs are left out). */
+export async function cartVariants(variantIds: number[]): Promise<CartVariant[]> {
+  const variants = await shopRepository.findVariants(variantIds);
+  const productIds = [...new Set(variants.map((v) => v.productId))];
+  const [products, photos] = await Promise.all([
+    shopRepository.findProducts(productIds),
+    shopRepository.photosFor(productIds),
+  ]);
+  const productById = new Map(products.map((p) => [p.id, p]));
+  return variants.map((v) => {
+    const product = productById.get(v.productId)!;
+    const cover = photos.find((p) => p.productId === v.productId);
+    return {
+      variantId: v.id,
+      productId: v.productId,
+      productSlug: product.slug,
+      productName: product.name,
+      variantName: v.name,
+      priceCents: v.priceCents,
+      stock: v.stock,
+      forSale: product.published,
+      photo: cover ? toPhoto(cover) : null,
+    };
+  });
+}
+
+/**
+ * Holds stock for an order inside the caller's transaction: locks the variants (in ID
+ * order), checks each is for sale with enough stock, and takes the quantity off with a
+ * `reservation` log row. Returns the names and prices as they are now, for the order's
+ * lines. Two checkouts for the last piece queue on the lock; the second finds none left.
+ */
+export async function holdStock(
+  lines: { variantId: number; quantity: number }[],
+  orderId: number,
+  tx: PoolClient,
+): Promise<{ variantId: number; productName: string; variantName: string; priceCents: number }[]> {
+  const locked = await shopRepository.lockVariants(
+    lines.map((l) => l.variantId),
+    tx,
+  );
+  const byId = new Map(locked.map((v) => [v.id, v]));
+  const products = new Map(
+    (await shopRepository.findProducts([...new Set(locked.map((v) => v.productId))], tx)).map(
+      (p) => [p.id, p],
+    ),
+  );
+  const short: { variantId: number; available: number }[] = [];
+  for (const line of lines) {
+    const variant = byId.get(line.variantId);
+    const product = variant && products.get(variant.productId);
+    if (!variant || !product?.published) {
+      short.push({ variantId: line.variantId, available: 0 });
+    } else if (variant.stock < line.quantity) {
+      short.push({ variantId: line.variantId, available: variant.stock });
+    }
+  }
+  if (short.length > 0) {
+    throw new ConflictError('Some items in your cart are no longer available in that quantity', {
+      code: 'OUT_OF_STOCK',
+      details: { items: short },
+    });
+  }
+  for (const line of lines) {
+    const variant = byId.get(line.variantId)!;
+    await shopRepository.setStock(
+      variant,
+      {
+        stock: variant.stock - line.quantity,
+        reason: 'reservation',
+        note: null,
+        actorUserId: null,
+        orderId,
+      },
+      tx,
+    );
+  }
+  return lines.map((line) => {
+    const variant = byId.get(line.variantId)!;
+    return {
+      variantId: variant.id,
+      productName: products.get(variant.productId)!.name,
+      variantName: variant.name,
+      priceCents: variant.priceCents,
+    };
+  });
+}
+
+/**
+ * Puts an order's items back in stock, in the caller's transaction: `release` when an
+ * unpaid order ends, `return` when a refunded order's items go back on sale.
+ */
+export async function putBackStock(
+  lines: { variantId: number; quantity: number }[],
+  orderId: number,
+  reason: 'release' | 'return',
+  tx: PoolClient,
+): Promise<void> {
+  const locked = await shopRepository.lockVariants(
+    lines.map((l) => l.variantId),
+    tx,
+  );
+  const byId = new Map(locked.map((v) => [v.id, v]));
+  for (const line of lines) {
+    const variant = byId.get(line.variantId)!;
+    await shopRepository.setStock(
+      variant,
+      { stock: variant.stock + line.quantity, reason, note: null, actorUserId: null, orderId },
+      tx,
+    );
+  }
 }

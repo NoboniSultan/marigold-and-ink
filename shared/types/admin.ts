@@ -116,6 +116,10 @@ export interface MonthlyReportRow {
   /** The part of sales that paid for shipping and packaging (milestone 11). */
   shippingCents: number;
   refundsCents: number;
+  /** Shop orders paid that month, and shop refunds made that month (milestone 12b). */
+  shopSalesCents: number;
+  shopRefundsCents: number;
+  /** Commission and shop sales, less both kinds of refunds. */
   netSalesCents: number;
   treesOrdered: number;
   treesOrderedCents: number;

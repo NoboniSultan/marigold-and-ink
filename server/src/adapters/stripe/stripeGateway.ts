@@ -32,6 +32,25 @@ export interface CheckoutRequest {
   expiresAt: Date;
 }
 
+/** A shop order's Checkout page (milestone 12b): its items, paid in full. */
+export interface OrderCheckoutRequest {
+  orderId: number;
+  currency: string;
+  /** Each item with its unit price and quantity; they add up to the order's total. */
+  lines: { name: string; unitAmountCents: number; quantity: number }[];
+  customerEmail: string;
+  successUrl: string;
+  cancelUrl: string;
+  expiresAt: Date;
+}
+
+/** Where a Checkout page stands, read from Stripe (not from a webhook). */
+export interface CheckoutStatus {
+  status: 'open' | 'complete' | 'expired';
+  paid: boolean;
+  paymentIntentId: string | null;
+}
+
 export interface CheckoutSession {
   id: string;
   url: string;
@@ -74,6 +93,12 @@ export interface PaymentGateway {
     request: CheckoutRequest,
     options: { idempotencyKey: string },
   ): Promise<CheckoutSession>;
+  createOrderCheckout(
+    request: OrderCheckoutRequest,
+    options: { idempotencyKey: string },
+  ): Promise<CheckoutSession>;
+  /** Asks Stripe whether a page is still open, was paid, or expired. */
+  getCheckoutStatus(sessionId: string): Promise<CheckoutStatus>;
   /** Closes an open Checkout page so it can't be paid any more. */
   expireCheckoutSession(sessionId: string): Promise<void>;
   createRefund(
@@ -81,7 +106,9 @@ export interface PaymentGateway {
       paymentIntentId: string;
       amountCents: number;
       refundPaymentId: number | null;
-      commissionId: number;
+      /** What it refunds: a commission's payment, or a shop order. */
+      commissionId?: number;
+      orderId?: number;
     },
     options: { idempotencyKey: string },
   ): Promise<RefundInfo>;
@@ -238,6 +265,53 @@ export function createStripeGateway({
       return { id: session.id, url: session.url, expiresAt: new Date(session.expires_at * 1000) };
     },
 
+    async createOrderCheckout(request, { idempotencyKey }) {
+      const metadata = { order_id: String(request.orderId), type: 'order' };
+      const session = await callStripe('Checkout session', () =>
+        stripe.checkout.sessions.create(
+          {
+            mode: 'payment',
+            allowed_payment_method_types: ['card'], // cards settle at once (see above)
+            line_items: request.lines.map((line) => ({
+              quantity: line.quantity,
+              price_data: {
+                currency: request.currency,
+                unit_amount: line.unitAmountCents,
+                product_data: { name: line.name },
+              },
+            })),
+            customer_email: request.customerEmail,
+            client_reference_id: `order-${request.orderId}`,
+            metadata,
+            payment_intent_data: { metadata },
+            success_url: request.successUrl,
+            cancel_url: request.cancelUrl,
+            expires_at: Math.floor(request.expiresAt.getTime() / 1000),
+          },
+          { idempotencyKey },
+        ),
+      );
+      if (!session.url) throw new PaymentGatewayError('Stripe returned a session without a URL');
+      return { id: session.id, url: session.url, expiresAt: new Date(session.expires_at * 1000) };
+    },
+
+    async getCheckoutStatus(sessionId) {
+      const session = await callStripe('session lookup', () =>
+        stripe.checkout.sessions.retrieve(sessionId),
+      );
+      const status: CheckoutStatus['status'] =
+        session.status === 'complete'
+          ? 'complete'
+          : session.status === 'expired'
+            ? 'expired'
+            : 'open';
+      return {
+        status,
+        paid: session.payment_status === 'paid',
+        paymentIntentId: idOf(session.payment_intent),
+      };
+    },
+
     async expireCheckoutSession(sessionId) {
       await callStripe('session expiry', () => stripe.checkout.sessions.expire(sessionId));
     },
@@ -249,7 +323,8 @@ export function createStripeGateway({
             payment_intent: request.paymentIntentId,
             amount: request.amountCents,
             metadata: {
-              commission_id: String(request.commissionId),
+              ...(request.commissionId ? { commission_id: String(request.commissionId) } : {}),
+              ...(request.orderId ? { order_id: String(request.orderId) } : {}),
               ...(request.refundPaymentId
                 ? { refund_payment_id: String(request.refundPaymentId) }
                 : {}),

@@ -1,5 +1,6 @@
 import * as usersService from './users.service.ts';
 import * as accountService from '../auth/auth.account.service.ts';
+import * as ordersService from '../orders/orders.service.ts';
 import * as filesService from '../files/files.service.ts';
 import { logger } from '../../lib/logger.js';
 import {
@@ -58,10 +59,12 @@ export async function exportMe(req, res) {
 }
 
 export async function deleteMe(req, res) {
-  const { canceled, removedFileKeys } = await accountService.deleteAccount(
+  const { canceled, removedFileKeys, canceledOrderSessions } = await accountService.deleteAccount(
     req.user.id,
     req.validated.body,
   );
+  // Unpaid shop orders ended with the account; close their Stripe pages (best effort).
+  await ordersService.expireCheckoutPages(canceledOrderSessions, req.app.locals.adapters?.payments);
   // The reference photos' rows went with the account; now remove the stored files.
   await filesService.removeStoredObjects(req.app.locals.adapters?.storage, removedFileKeys);
   // As after any cancel: close the commissions' open Stripe pages. The deletion has
