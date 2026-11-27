@@ -4,7 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Account } from '@shared/types/user.ts';
 import { ApiError, fieldErrors, formMessage } from '../api/client.ts';
 import { ACCOUNT_EXPORT_URL, accountApi } from '../api/endpoints.ts';
-import { queryKeys, useAccount, useMyCommissions } from '../api/queries.ts';
+import { queryKeys, useAccount, useMyCommissions, useMyOrders } from '../api/queries.ts';
+import { ORDER_STATUS_TEXT } from '../features/orders/orderFormat.ts';
+import { usd } from '../features/shop/shopFormat.ts';
 import { FormField } from '../components/FormField.tsx';
 import { ErrorMessage, Loading } from '../components/Loading.tsx';
 import { useCountdown } from '../hooks/useCountdown.ts';
@@ -27,6 +29,7 @@ export function AccountPage() {
       <ProfileSection account={account.data} />
       <EmailSection account={account.data} />
       <CommissionsSection />
+      <OrdersSection />
       <PasswordSection account={account.data} />
       <DataSection />
       <DeleteSection account={account.data} />
@@ -292,6 +295,25 @@ function DataSection() {
       >
         Download my data
       </a>
+    </section>
+  );
+}
+
+/** Shop orders (milestone 12b); the section only shows once there is one. */
+function OrdersSection() {
+  const orders = useMyOrders(1);
+  if (!orders.data || orders.data.data.length === 0) return null;
+  return (
+    <section className={styles.section} aria-labelledby="orders-heading">
+      <h2 id="orders-heading">Your orders</h2>
+      <ul className={styles.list}>
+        {orders.data.data.map((o) => (
+          <li key={o.id}>
+            <Link to={`/orders/${o.id}`}>Order #{o.id}</Link>: {usd(o.subtotalCents)}.{' '}
+            {ORDER_STATUS_TEXT[o.status]}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

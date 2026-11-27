@@ -79,13 +79,19 @@ export function AdminReportPage() {
               <tr>
                 <th scope="col">Month</th>
                 <th scope="col" className={styles.number}>
-                  Sales
+                  Commission sales
                 </th>
                 <th scope="col" className={styles.number}>
                   Of which shipping
                 </th>
                 <th scope="col" className={styles.number}>
-                  Refunds
+                  Commission refunds
+                </th>
+                <th scope="col" className={styles.number}>
+                  Shop sales
+                </th>
+                <th scope="col" className={styles.number}>
+                  Shop refunds
                 </th>
                 <th scope="col" className={styles.number}>
                   Net sales
@@ -108,6 +114,8 @@ export function AdminReportPage() {
                   <td className={styles.number}>{money(row.salesCents)}</td>
                   <td className={styles.number}>{money(row.shippingCents)}</td>
                   <td className={styles.number}>{money(row.refundsCents)}</td>
+                  <td className={styles.number}>{money(row.shopSalesCents)}</td>
+                  <td className={styles.number}>{money(row.shopRefundsCents)}</td>
                   <td className={styles.number}>{money(row.netSalesCents)}</td>
                   <td className={styles.number}>
                     {row.treesOrdered} ({money(row.treesOrderedCents)})
@@ -123,6 +131,8 @@ export function AdminReportPage() {
                 <td className={styles.number}>{money(sum((r) => r.salesCents))}</td>
                 <td className={styles.number}>{money(sum((r) => r.shippingCents))}</td>
                 <td className={styles.number}>{money(sum((r) => r.refundsCents))}</td>
+                <td className={styles.number}>{money(sum((r) => r.shopSalesCents))}</td>
+                <td className={styles.number}>{money(sum((r) => r.shopRefundsCents))}</td>
                 <td className={styles.number}>{money(sum((r) => r.netSalesCents))}</td>
                 <td className={styles.number}>
                   {sum((r) => r.treesOrdered)} ({money(sum((r) => r.treesOrderedCents))})

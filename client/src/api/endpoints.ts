@@ -53,6 +53,15 @@ import type {
 import { API_BASE, request, upload } from './client.ts';
 import type { CommissionFile, FilesResponse } from '@shared/types/files.ts';
 import type {
+  AdminOrder,
+  CartLine,
+  CartPreview,
+  CheckoutStarted,
+  Order,
+  OrderStatus,
+  RefundOrderInput,
+} from '@shared/types/order.ts';
+import type {
   AdminProduct,
   InventoryMovement,
   Product,
@@ -400,4 +409,31 @@ export const adminShopApi = {
     ),
   removePhoto: (photoId: number) =>
     data(request<ApiResponse<AdminProduct>>(`/admin/shop/photos/${photoId}`, { method: 'DELETE' })),
+};
+
+/** The cart and orders (milestone 12b). Prices always come from the server. */
+export const cartApi = {
+  preview: (items: CartLine[]) =>
+    data(request<ApiResponse<CartPreview>>('/cart/preview', { method: 'POST', body: { items } })),
+};
+
+export const ordersApi = {
+  /** Holds the items and opens a Stripe page; answers with its URL. */
+  checkout: (items: CartLine[]) =>
+    data(request<ApiResponse<CheckoutStarted>>('/orders', { method: 'POST', body: { items } })),
+  mine: (page: number, signal?: AbortSignal) =>
+    request<PaginatedResponse<Order>>('/orders', { query: { page }, signal }),
+  get: (id: number, signal?: AbortSignal) =>
+    data(request<ApiResponse<Order>>(`/orders/${id}`, { signal })),
+};
+
+export type AdminOrderRow = Omit<AdminOrder, 'events' | 'refunds' | 'refundable'>;
+
+export const adminOrdersApi = {
+  list: (filters: { status?: OrderStatus; page?: number }, signal?: AbortSignal) =>
+    request<PaginatedResponse<AdminOrderRow>>('/admin/orders', { query: { ...filters }, signal }),
+  get: (id: number, signal?: AbortSignal) =>
+    data(request<ApiResponse<AdminOrder>>(`/admin/orders/${id}`, { signal })),
+  refund: (id: number, body: RefundOrderInput) =>
+    data(request<ApiResponse<AdminOrder>>(`/admin/orders/${id}/refund`, { method: 'POST', body })),
 };

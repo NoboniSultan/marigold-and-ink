@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router';
 import { motion } from 'motion/react';
 import { Header } from './Header.tsx';
 import { Footer } from './Footer.tsx';
+import { CartProvider } from '../features/cart/CartContext.tsx';
 import styles from './Layout.module.css';
 
 /**
@@ -22,23 +23,25 @@ export function Layout() {
   }, [location.pathname]);
 
   return (
-    <div className={styles.shell}>
-      <a href="#main" className={styles.skipLink}>
-        Skip to content
-      </a>
-      <Header />
-      <motion.main
-        id="main"
-        // A new key per path remounts the wrapper, which replays the fade-in.
-        key={location.pathname}
-        className={styles.main}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-      >
-        <Outlet />
-      </motion.main>
-      <Footer />
-    </div>
+    <CartProvider>
+      <div className={styles.shell}>
+        <a href="#main" className={styles.skipLink}>
+          Skip to content
+        </a>
+        <Header />
+        <motion.main
+          id="main"
+          // A new key per path remounts the wrapper, which replays the fade-in.
+          key={location.pathname}
+          className={styles.main}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <Outlet />
+        </motion.main>
+        <Footer />
+      </div>
+    </CartProvider>
   );
 }
