@@ -35,7 +35,8 @@ services:
         value: 26.13.1
       - key: TRUST_PROXY # Render's load balancer is one proxy hop
         value: '1'
-      # The shop: leave unset (closed, admin-only preview) until it should open; then 'true'.
+      # The shop: leave unset (closed, admin-only preview) until it should open; then 'true'
+      # (needs payments and shipping on; see docs/shop-opening-checklist.md).
       - key: SHOP_OPEN
         sync: false
       # Postgres is hosted on Neon (ADR 0006). Paste Neon's DIRECT connection string

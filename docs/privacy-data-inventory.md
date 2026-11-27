@@ -95,7 +95,7 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Cloudflare R2 | Storing commission files and shop photos | Reference photos (metadata removed), previews, final files, product photos (metadata removed) | Cloudflare, Eastern North America (location hint ENAM) |
 | Shippo | Shipping physical commissions and shop orders (once configured) | The shipping address, the package's weight and size, the label, and its tracking | Shippo's infrastructure (a US company) |
 | USPS | Delivering physical commissions and shop orders (labels bought through Shippo) | The shipping address, and the sender's name, address, email, and phone | United States |
-| Digital Humani | Requesting trees for fully paid commissions (once configured) | **No personal data:** a reference like `commission-12` and a number of trees | Digital Humani's infrastructure (Canada) |
+| Digital Humani | Requesting trees for fully paid commissions and delivered shop orders (once configured) | **No personal data:** a reference like `commission-12` or `order-12` (12d) and a number of trees | Digital Humani's infrastructure (Canada) |
 
 All the site's own data is stored in the United States.
 

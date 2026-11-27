@@ -1,6 +1,6 @@
 /**
- * Giving (ADR 0013): a share of every fully paid commission plants trees through Digital
- * Humani.
+ * Giving (ADR 0013): a share of every fully paid commission, and of every delivered shop
+ * order (milestone 12d, ADR 0022), plants trees through Digital Humani.
  *
  * 1. recordForFinalPayment: inside the Stripe webhook's transaction, the final payment
  *    records a pending donation of N trees. Nothing external happens yet, so a Digital
@@ -9,8 +9,11 @@
  *    pending donation is sent to Digital Humani. It runs outside any long transaction:
  *    the attempt is stamped and committed first, so if the answer is lost, the next try
  *    asks Digital Humani how many trees it already has under our reference (one per
- *    commission) instead of planting twice.
+ *    commission or order) instead of planting twice.
  * 3. withheldForTreesCents: the refund flow never gives back tree money.
+ *
+ * Shop orders record their trees in recordForDeliveredOrder, in the transaction that marks
+ * them delivered (an order refunded before it arrives never orders trees).
  */
 import type { PoolClient } from 'pg';
 import type { TreePlanter } from '../../adapters/digitalHumani.ts';
@@ -24,9 +27,18 @@ import * as givingRepository from './giving.repository.ts';
 /** An attempt younger than this may still be in flight, so it's left alone. */
 export const RETRY_AFTER_MINUTES = 5;
 
+/**
+ * Giving as the server runs it: the share (null while giving is off) and a way to ask for
+ * pending trees once a transaction has committed. Passed to code that delivers shop orders.
+ */
+export interface GivingSetup {
+  donationPercent: number | null;
+  requestTrees?: () => Promise<unknown>;
+}
+
 /** The reference Digital Humani stores with a request: no personal data, ever. */
-export function referenceFor(commissionId: number): string {
-  return `commission-${commissionId}`;
+export function referenceFor(source: givingRepository.DonationSource): string {
+  return `${source.kind}-${source.id}`;
 }
 
 /**
@@ -71,6 +83,53 @@ export function withheldForTreesCents(commissionId: number, { client }: { client
   return givingRepository.withheldForTreesCents(commissionId, client);
 }
 
+/**
+ * Called when a shop order is delivered, in that transaction (milestone 12d). The share is
+ * of the items only, never shipping. Returns the donation's ID, or null when giving is off,
+ * nothing is funded, or the order already has its donation.
+ */
+export async function recordForDeliveredOrder(
+  { orderId, subtotalCents }: { orderId: number; subtotalCents: number },
+  { client, donationPercent }: { client: PoolClient; donationPercent: number | null },
+): Promise<number | null> {
+  if (donationPercent === null) return null; // giving is off
+  const { treeCount, donationCents } = treesFor(subtotalCents, donationPercent);
+  if (treeCount === 0) return null;
+
+  const charityId = await givingRepository.findActiveCharityId(client);
+  if (charityId === null) {
+    logger.error({ orderId }, 'no active charity: trees were not recorded');
+    return null;
+  }
+  return givingRepository.insertOrderTreeDonation(
+    {
+      orderId,
+      charityId,
+      percentage: donationPercent,
+      baseAmountCents: subtotalCents,
+      donationAmountCents: donationCents,
+      treeCount,
+    },
+    client,
+  );
+}
+
+/** An order's tree money (12d), which a refund never gives back. */
+export function withheldForOrderTreesCents(
+  orderId: number,
+  { client }: { client?: PoolClient } = {},
+) {
+  return givingRepository.withheldForOrderTreesCents(orderId, client);
+}
+
+/** An order's trees, for its admin page. */
+export async function orderTrees(orderId: number) {
+  const donation = await givingRepository.treeDonationForOrder(orderId);
+  return donation && donation.treeCount !== null
+    ? { count: donation.treeCount, status: donation.status, amountCents: donation.amountCents }
+    : null;
+}
+
 /** Sends every pending donation's trees. Never throws: failures stay pending for next time. */
 export async function requestPendingTrees(
   planter: TreePlanter | null | undefined,
@@ -97,10 +156,10 @@ async function requestOne(id: number, planter: TreePlanter): Promise<boolean> {
   );
   if (!donation) return false;
 
-  const reference = referenceFor(donation.commissionId);
+  const reference = referenceFor(donation.source);
   // Tried before without hearing back: the request may have gone through. Digital Humani
   // can't list requests, but it counts the trees under a reference, and each commission
-  // has its own. Whatever is already there counts toward this donation.
+  // and order has its own. Whatever is already there counts toward this donation.
   const alreadyRequested = donation.requestAttemptedAt ? await planter.countTrees(reference) : 0;
   const missing = donation.treeCount - alreadyRequested;
   const requestId =
@@ -110,7 +169,7 @@ async function requestOne(id: number, planter: TreePlanter): Promise<boolean> {
   logger.info(
     {
       donationId: donation.id,
-      commissionId: donation.commissionId,
+      source: donation.source,
       trees: donation.treeCount,
       alreadyRequested,
     },

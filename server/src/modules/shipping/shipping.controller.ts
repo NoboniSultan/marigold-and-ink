@@ -9,6 +9,7 @@ import type {
   ShippingResponse,
 } from '@shared/types/shipping.ts';
 import type { AppAdapters } from '../../adapters/index.ts';
+import type { GivingSetup } from '../giving/giving.service.ts';
 import * as shippingService from './shipping.service.ts';
 import * as labelsService from './shipping.labels.service.ts';
 import * as trackingService from './shipping.tracking.service.ts';
@@ -20,7 +21,12 @@ const shipping = (req: Request) => ({
 });
 const shippingAndEmail = (req: Request) => {
   const adapters = req.app.locals.adapters as AppAdapters;
-  return { shipping: adapters.shipping, email: adapters.email };
+  // Giving too: tracking can deliver a shop order, which records its trees (ADR 0022).
+  return {
+    shipping: adapters.shipping,
+    email: adapters.email,
+    giving: req.app.locals.giving as GivingSetup,
+  };
 };
 const commissionId = (req: Request) => (req.validated.params as { id: number }).id;
 /** Label and tracking actions on these routes are for the commission in the URL. */

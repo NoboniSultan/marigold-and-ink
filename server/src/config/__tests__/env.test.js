@@ -291,25 +291,25 @@ describe('loadConfig: files (Cloudflare R2)', () => {
   });
 });
 
-describe('loadConfig: shipping (Shippo)', () => {
-  const paymentsEnv = {
-    ...validEnv,
-    PUBLIC_URL: 'https://example.com',
-    STRIPE_SECRET_KEY: 'sk_test_abc123',
-    STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
-    PAYMENT_CURRENCY: 'usd',
-  };
-  const shippingEnv = {
-    ...paymentsEnv,
-    SHIPPO_API_KEY: 'shippo_test_abc123',
-    PACKAGING_FEE_CENTS: '400', // a test value
-    SHIP_FROM_NAME: 'Test Studio',
-    SHIP_FROM_STREET1: '1 Test St',
-    SHIP_FROM_CITY: 'Testville',
-    SHIP_FROM_STATE: 'NY',
-    SHIP_FROM_ZIP: '10001',
-  };
+const paymentsEnv = {
+  ...validEnv,
+  PUBLIC_URL: 'https://example.com',
+  STRIPE_SECRET_KEY: 'sk_test_abc123',
+  STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
+  PAYMENT_CURRENCY: 'usd',
+};
+const shippingEnv = {
+  ...paymentsEnv,
+  SHIPPO_API_KEY: 'shippo_test_abc123',
+  PACKAGING_FEE_CENTS: '400', // a test value
+  SHIP_FROM_NAME: 'Test Studio',
+  SHIP_FROM_STREET1: '1 Test St',
+  SHIP_FROM_CITY: 'Testville',
+  SHIP_FROM_STATE: 'NY',
+  SHIP_FROM_ZIP: '10001',
+};
 
+describe('loadConfig: shipping (Shippo)', () => {
   it('is off without the Shippo settings', () => {
     expect(loadConfig(paymentsEnv).shipping).toBeNull();
   });
@@ -412,7 +412,17 @@ describe('loadConfig: shipping (Shippo)', () => {
 describe('loadConfig: SHOP_OPEN', () => {
   it('keeps the shop closed unless set to true', () => {
     expect(loadConfig(validEnv).shopOpen).toBe(false);
-    expect(loadConfig({ ...validEnv, SHOP_OPEN: 'true' }).shopOpen).toBe(true);
+    expect(loadConfig({ ...shippingEnv, SHOP_OPEN: 'true' }).shopOpen).toBe(true);
     expect(() => loadConfig({ ...validEnv, SHOP_OPEN: 'yes' })).toThrow(/SHOP_OPEN/);
+  });
+
+  // Milestone 12d: customers must be able to pay and get their orders.
+  it('opens only with payments and shipping switched on', () => {
+    expect(() => loadConfig({ ...validEnv, SHOP_OPEN: 'true' })).toThrow(
+      /shop needs payments[\s\S]*STRIPE_SECRET_KEY[\s\S]*shop needs shipping[\s\S]*SHIPPO_API_KEY/,
+    );
+    expect(() => loadConfig({ ...paymentsEnv, SHOP_OPEN: 'true' })).toThrow(
+      /shop needs shipping[\s\S]*SHIPPO_API_KEY/,
+    );
   });
 });

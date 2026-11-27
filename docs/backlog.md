@@ -1,6 +1,6 @@
 # Backlog
 
-Work that is out of scope for the current build session (milestones 0 to 12c). Next: milestone 12d, trees for shop orders, then opening the shop. Each item links back to the relevant section of [proposal.md](proposal.md).
+Work that is out of scope for the current build session (milestones 0 to 12d). The shop opens when the owner works through [the opening checklist](shop-opening-checklist.md). Each item links back to the relevant section of [proposal.md](proposal.md).
 
 ## Deferred features
 
@@ -14,7 +14,9 @@ Work that is out of scope for the current build session (milestones 0 to 12c). N
   - Let the owner correct the package after the final payment (today the label can be bought from Shippo's dashboard instead).
   - A 4×6 label option for a label printer (`LABEL_FILE_TYPE` in `adapters/shippo.ts`).
   - Ask Shippo's sales team to sign webhooks (HMAC), then check the signature too.
-- **Shop, next** (6.10, ADRs 0019 to 0021): **12d** trees for shop orders (recommended: recorded at delivery), then the opening checklist and `SHOP_OPEN`.
+- **Shop, 12d follow-ups** (ADR 0022):
+  - Tell customers their order's trees (the proposal's "confirmation shows the donation"): on the order page or in the delivered email, once the owner writes the wording.
+  - A reminder for orders still not delivered after a few weeks (they fund no trees until marked delivered).
 - **Shop, 12c follow-ups** (ADR 0021):
   - Packing several large items in more than one box (today an order goes in its largest packing type, up to USPS's 70 lb).
   - Partial pickups (an order with a pickup-only piece is all collected locally today).

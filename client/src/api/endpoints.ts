@@ -460,7 +460,10 @@ export const ordersApi = {
     data(request<ApiResponse<Order>>(`/orders/${id}`, { signal })),
 };
 
-export type AdminOrderRow = Omit<AdminOrder, 'events' | 'refunds' | 'refundable'>;
+export type AdminOrderRow = Omit<
+  AdminOrder,
+  'events' | 'refunds' | 'refundable' | 'refundableCents' | 'trees'
+>;
 
 export const adminOrdersApi = {
   list: (filters: { status?: OrderStatus; page?: number }, signal?: AbortSignal) =>

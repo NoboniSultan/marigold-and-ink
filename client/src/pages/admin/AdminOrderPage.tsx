@@ -120,7 +120,7 @@ function RefundForm({ order }: { order: AdminOrder }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!window.confirm(`Refund ${usd(order.totalCents)} for order #${order.id}?`)) return;
+    if (!window.confirm(`Refund ${usd(order.refundableCents)} for order #${order.id}?`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -157,12 +157,18 @@ function RefundForm({ order }: { order: AdminOrder }) {
         <input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />
         <span>Put the items back on sale</span>
       </label>
+      {order.trees && (
+        <p className={styles.muted}>
+          The {usd(order.trees.amountCents)} that went to trees isn&rsquo;t refunded: they&rsquo;re
+          on order and can&rsquo;t be cancelled.
+        </p>
+      )}
       <button
         type="submit"
         className={`${buttonStyles.button} ${buttonStyles.primary}`}
         disabled={busy || !reason.trim()}
       >
-        {busy ? 'Refunding…' : `Refund ${usd(order.totalCents)}`}
+        {busy ? 'Refunding…' : `Refund ${usd(order.refundableCents)}`}
       </button>
     </form>
   );
@@ -195,6 +201,12 @@ export function AdminOrderPage() {
             <>
               <dt>Paid</dt>
               <dd>{formatDate(order.paidAt)}</dd>
+              <dt>Trees</dt>
+              <dd>
+                {order.trees
+                  ? `${order.trees.count} trees, ${usd(order.trees.amountCents)} (${order.trees.status})`
+                  : 'None yet: trees are ordered once the order is delivered'}
+              </dd>
             </>
           )}
         </dl>
@@ -280,7 +292,11 @@ export function AdminOrderPage() {
           <RefundForm order={order} />
         ) : (
           order.refunds.length === 0 && (
-            <p className={styles.muted}>Only a paid order can be refunded.</p>
+            <p className={styles.muted}>
+              {order.trees && order.refundableCents === 0
+                ? 'Nothing is left to refund: the whole order went to trees.'
+                : 'Only a paid order can be refunded.'}
+            </p>
           )
         )}
       </section>

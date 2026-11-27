@@ -293,3 +293,18 @@ export async function createDonation(overrides = {}) {
     charityId,
   });
 }
+
+/** A shop order's tree donation (milestone 12d), for a new order unless one is given. */
+export async function createOrderDonation(overrides = {}) {
+  const orderId = overrides.orderId ?? (await createOrder()).id;
+  const charityId = overrides.charityId ?? (await createCharity()).id;
+  return insert('donations', {
+    percentage: 25,
+    baseAmountCents: 800,
+    donationAmountCents: 200,
+    treeCount: 2,
+    ...overrides,
+    orderId,
+    charityId,
+  });
+}

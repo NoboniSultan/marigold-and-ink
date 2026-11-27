@@ -3,6 +3,29 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one entry per milestone.
 
+## [0.17.0] - 2026-11-27 (Milestone 12d: trees for shop orders, and getting ready to open)
+
+### Added
+
+- **Trees for shop orders** ([ADR 0022](docs/decisions/0022-trees-for-shop-orders.md)):
+  - When an order is delivered (by tracking, "Mark delivered", or "Mark picked up"), `DONATION_PERCENT` of its items, never shipping, is recorded as trees in the same transaction. The trees are then requested from Digital Humani under the reference `order-<id>`, with the same retries as commissions.
+  - An order refunded before it arrives never orders trees.
+  - The admin order page shows the order's trees, and the admin Giving page lists order donations, linked to their order.
+  - The public tree total and the monthly report include them.
+- **Opening the shop:** `docs/shop-opening-checklist.md` lists the owner's steps: the catalog, wording, terms and privacy, Stripe settings, sales tax, the Shippo token, and turning it on. `SHOP_OPEN=true` now refuses to start unless payments and shipping are configured.
+
+### Changed
+
+- **Refunds after delivery** give back everything except the order's tree money, as for commissions. The refund button shows the real amount. An order whose trees took everything can't be refunded, and a Stripe Dashboard refund of all but the trees marks the order refunded.
+- `donations` rows come from a commission payment or a shop order (`order_id`, `donations_source_check`).
+- The account page's data download description now mentions shop orders (included since 0.15.0).
+
+### Notes
+
+- The site's lines about giving ("Every commission plants trees", the footer, the Giving page), the terms, and the privacy policy still say only commissions plant trees. They're the owner's wording, so they're on the opening checklist rather than changed here.
+- The shop stays closed (`SHOP_OPEN` unset) until the owner works through the checklist.
+- Checked in a real browser against Digital Humani's sandbox: marking the 12c test order delivered recorded 3 trees ($3.00, 25% of its $9 in items, not its shipping), and the sandbox accepted the request. The order page showed the trees and "Refund $16.81" (the total less the trees), and the Giving page listed "order #10".
+
 ## [0.16.0] - 2026-11-27 (Milestone 12c: shipping for shop orders)
 
 ### Added
