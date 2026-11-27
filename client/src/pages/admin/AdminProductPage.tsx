@@ -178,7 +178,8 @@ function PublishPart({ product }: { product: AdminProduct }) {
     setDeleteError(null);
     try {
       await adminShopApi.remove(product.id);
-      queryClient.removeQueries({ queryKey: queryKeys.adminProduct(product.id) });
+      // Only the list is refreshed. The deleted product's own cache entry is left to expire:
+      // clearing it while this page is still shown would ask the server for it again.
       await queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
       navigate('/admin/shop');
     } catch (err) {
@@ -537,7 +538,7 @@ export function AdminProductPage() {
       </section>
 
       <section className={styles.section} aria-label="Details">
-        <DetailsForm key={product.updatedAt} product={product} />
+        <DetailsForm key={product.id} product={product} />
       </section>
     </>
   );
