@@ -20,6 +20,7 @@ import { expireOpenCheckouts } from './modules/payments/payments.service.ts';
 import { requestPendingTrees } from './modules/giving/giving.service.ts';
 import { purgeExpiredFiles } from './modules/files/files.service.ts';
 import { shippoWebhookRouter } from './modules/shipping/shipping.routes.ts';
+import { shopPhotosRouter } from './modules/shop/shop.routes.ts';
 import {
   notifyStatusChange,
   refreshAllTracking,
@@ -47,6 +48,8 @@ export function createApp({
   adapters = createDefaultAdapters(),
   // The share of a fully paid commission that goes to trees; null = giving is off.
   donationPercent = config.giving?.donationPercent ?? null,
+  // The shop (ADR 0019): closed (admin-only preview) until SHOP_OPEN=true.
+  shopOpen = config.shopOpen,
   canonicalUrl = config.nodeEnv === 'production' ? config.publicUrl : null,
   fileOrigin = config.files
     ? `https://${config.files.bucket}.${config.files.accountId}.r2.cloudflarestorage.com`
@@ -55,6 +58,7 @@ export function createApp({
   const app = express();
   app.locals.adapters = adapters;
   app.locals.donationPercent = donationPercent;
+  app.locals.shopOpen = shopOpen;
   // Runs after a status change through the generic endpoint. Wired here so the commissions
   // module needn't know about payments: a cancelled commission's open Stripe Checkout pages
   // are closed so they can't be paid.
@@ -120,6 +124,10 @@ export function createApp({
       }),
     );
   }
+
+  //    Shop product photos: kept in the private file bucket, served from here (ADR 0019).
+  //    Their names contain a content hash, so they're cached forever too.
+  app.use('/media/shop/products', shopPhotosRouter);
 
   //    The React site (client/dist), when built: its files, and index.html for page URLs.
   //    Also before sessions: serving the site never needs one. See lib/clientSite.ts.

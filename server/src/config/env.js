@@ -23,6 +23,8 @@ const envSchema = z.object({
   // Number of reverse proxies in front of the app (1 on Render). Needed so req.ip is
   // the real client IP (rate limiting) and req.secure is true behind HTTPS (cookies).
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+  // The shop (milestone 12, ADR 0019): closed (visible to the admin only) until set to true.
+  SHOP_OPEN: z.enum(['true', 'false']).default('false'),
   // bcrypt work factor: each +1 doubles hashing time. Tests use the minimum (4) for speed.
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
   SESSION_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(90).default(7),
@@ -331,6 +333,7 @@ export function loadConfig(rawEnv) {
     authSecret: e.AUTH_SECRET,
     corsOrigins: Object.freeze(e.CORS_ORIGINS),
     trustProxy: e.TRUST_PROXY,
+    shopOpen: e.SHOP_OPEN === 'true',
     bcryptRounds: e.BCRYPT_ROUNDS,
     sessionMaxAgeMs: e.SESSION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
     rateLimits: Object.freeze({

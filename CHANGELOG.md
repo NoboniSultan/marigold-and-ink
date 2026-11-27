@@ -3,16 +3,40 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one entry per milestone.
 
-## [Unreleased]
+## [0.14.0] - 2026-11-27 (Milestone 12a: shop catalog)
 
 ### Added
 
+- **The shop catalog** ([ADR 0019](docs/decisions/0019-shop-catalog.md)):
+  - **Products** in the proposal's four categories (beaded jewelry, greeting cards, stickers, upcycled thrifted pieces), each with options that have their own price and stock, and up to 10 photos.
+  - **Admin pages** (Admin → Shop):
+    - create a product (it starts as a draft), edit its details, add and reprice options, and set stock with a reason;
+    - upload photos, write their alt text, and reorder or delete them;
+    - publish, hide, or delete the product;
+    - a product can be published only with an option, a photo, and alt text on every photo.
+  - **Stock log:** every stock change is recorded (`inventory_movements`) with its reason and who made it.
+  - **One-of-a-kind pieces:** one option with a stock of 0 or 1, shown as **Sold** once sold, and kept visible until hidden.
+  - **Photos:**
+    - processed into two WebP sizes with no metadata (location removed);
+    - stored in R2 and served by the site at `/media/shop/...`, cached forever.
+  - **Public pages:**
+    - `/shop` with category filters;
+    - `/shop/:slug` with photos, options and prices, description, materials and size.
+  - **`SHOP_OPEN`:** until set to `true`, only the admin sees the shop (a preview with a note). Visitors get "Page not found", and the header's Shop link is hidden from them.
+  - **Shop text:** the intro and the empty-shop message in `copy.ts` are `PLACEHOLDER:`, waiting for the owner's wording.
 - **Shipping emails:** the owner's wording for the "on its way" and "has arrived" emails, so they're now sent in production too.
 - **Privacy policy, section 1F:** the shipping address is also shared with the carrier (such as USPS) to deliver the package, and shipping emails are sent with Resend.
 
 ### Changed
 
+- Admin label buttons sit together (found in the 11b browser check).
 - The "on its way" email leaves out "You can follow its journey using the tracking link below." when there's no tracking link (a commission marked shipped by hand without a label).
+
+### Notes
+
+- Checked in a real browser on the local site, with the R2 dev bucket:
+  - creating a product, adding options and a photo, writing alt text, publishing, the shop and product pages on desktop and phone, the visitor's "Page not found" while closed, and deleting (the photos left R2);
+  - two bugs it found are fixed (the details form's "Saved" note, and a refetch after delete).
 
 ## [0.13.0] - 2026-11-26 (Milestone 11b: labels, tracking, and shipping emails)
 

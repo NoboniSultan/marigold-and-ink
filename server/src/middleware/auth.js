@@ -22,6 +22,16 @@ export async function requireAuth(req, _res, next) {
   next();
 }
 
+/**
+ * Loads the logged-in user onto `req.user` if there is one, and carries on either way:
+ * for public pages that show more to the admin (the shop before it opens).
+ */
+export async function optionalAuth(req, _res, next) {
+  const userId = req.session?.userId;
+  if (userId) req.user = (await usersService.findById(userId)) ?? undefined;
+  next();
+}
+
 /** Use after requireAuth: `requireRole('admin')`. */
 export function requireRole(...roles) {
   return (req, _res, next) => {

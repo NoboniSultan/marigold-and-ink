@@ -1,0 +1,129 @@
+.page {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4) 0;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: var(--space-6);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr);
+  gap: var(--space-12);
+  align-items: start;
+}
+
+.photos {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.main {
+  width: 100%;
+  height: auto;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  display: block;
+}
+
+.thumbs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.thumb {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.thumb[aria-pressed='true'] {
+  border-color: var(--color-marigold);
+}
+
+.thumb img {
+  width: 4rem;
+  height: 4rem;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+
+.details h1 {
+  font-size: var(--text-2xl);
+  margin-top: 0;
+}
+
+.price {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-4);
+}
+
+.sold {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-ink);
+  color: var(--color-white);
+  font-size: var(--text-sm);
+  border-radius: var(--radius);
+  vertical-align: middle;
+}
+
+.options {
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--space-6);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.options legend {
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.option {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-6);
+}
+
+.facts dt {
+  color: var(--color-gray);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.preview {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-4);
+  border-left: 4px solid var(--color-marigold);
+  background: color-mix(in srgb, var(--color-marigold) 12%, var(--color-white));
+}
+
+@media (max-width: 48rem) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}

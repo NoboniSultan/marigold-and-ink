@@ -15,7 +15,10 @@ import {
   commissionsApi,
   paymentsApi,
   shippingApi,
+  shopApi,
+  adminShopApi,
   type ArtworkFilters,
+  type ShopFilters,
 } from './endpoints.ts';
 
 export const queryKeys = {
@@ -43,7 +46,51 @@ export const queryKeys = {
   adminDonations: (filters: { page: number; status: string }) =>
     ['admin', 'donations', filters] as const,
   monthlyReport: (year: number) => ['admin', 'report', year] as const,
+  shopStatus: ['shop-status'] as const,
+  shopProducts: (filters: ShopFilters) => ['shop', 'products', filters] as const,
+  shopProduct: (slug: string) => ['shop', 'product', slug] as const,
+  adminProducts: (filters: ShopFilters) => ['admin', 'products', filters] as const,
+  adminProduct: (id: number) => ['admin', 'product', id] as const,
 };
+
+/** Whether the shop is open (the header shows its link to everyone then). */
+export function useShopStatus() {
+  return useQuery({
+    queryKey: queryKeys.shopStatus,
+    queryFn: ({ signal }) => shopApi.status(signal),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useShopProducts(filters: ShopFilters) {
+  return useQuery({
+    queryKey: queryKeys.shopProducts(filters),
+    queryFn: ({ signal }) => shopApi.products(filters, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useShopProduct(slug: string) {
+  return useQuery({
+    queryKey: queryKeys.shopProduct(slug),
+    queryFn: ({ signal }) => shopApi.product(slug, signal),
+  });
+}
+
+export function useAdminProducts(filters: ShopFilters) {
+  return useQuery({
+    queryKey: queryKeys.adminProducts(filters),
+    queryFn: ({ signal }) => adminShopApi.products(filters, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAdminProduct(id: number) {
+  return useQuery({
+    queryKey: queryKeys.adminProduct(id),
+    queryFn: ({ signal }) => adminShopApi.product(id, signal),
+  });
+}
 
 export function useArtworks(filters: ArtworkFilters) {
   return useQuery({

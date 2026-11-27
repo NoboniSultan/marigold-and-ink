@@ -48,6 +48,12 @@ What personal data the site collects, where it goes, and how long it stays, take
 - **Account deletion** removes the name and street from the client's past shipments; the city, state, and ZIP stay for records. The data download includes each commission's shipment.
 - Only active once Shippo is configured (`SHIPPO_API_KEY` and the rest); the privacy policy should describe shipping addresses and Shippo before then (docs/setup-shippo.md).
 
+## 3c. Shop catalog (`products`, `product_variants`, `product_photos`, `inventory_movements`; milestone 12a, [ADR 0019](decisions/0019-shop-catalog.md))
+
+- **No personal data about clients.** Products, prices, stock, and photos are the owner's.
+- **Product photos** are stored in Cloudflare R2 after processing removes their metadata (location, camera, time), and are public once the product is published.
+- **The stock log** records which admin account changed a count, and when.
+
 ## 4. Payments (`payments`, `processed_webhook_events`)
 
 - **Card details never reach the site.** Clients pay on Stripe's hosted Checkout page.
@@ -78,7 +84,7 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Stripe | Payments | Email, amounts, card details (entered on Stripe's page) | Stripe's infrastructure |
 | Google | "Continue with Google" | That the person is signing in to this app | Google's infrastructure |
 | Resend | Account and shipping emails (once configured) | Email address and the code; for shipping, the tracking number and links | Resend's infrastructure |
-| Cloudflare R2 | Storing commission files | Reference photos (metadata removed), previews, final files | Cloudflare, Eastern North America (location hint ENAM) |
+| Cloudflare R2 | Storing commission files and shop photos | Reference photos (metadata removed), previews, final files, product photos (metadata removed) | Cloudflare, Eastern North America (location hint ENAM) |
 | Shippo | Shipping physical commissions (once configured) | The shipping address, the package's weight and size, the label, and its tracking | Shippo's infrastructure (a US company) |
 | USPS | Delivering physical commissions (labels bought through Shippo) | The shipping address, and the sender's name, address, email, and phone | United States |
 | Digital Humani | Requesting trees for fully paid commissions (once configured) | **No personal data:** a reference like `commission-12` and a number of trees | Digital Humani's infrastructure (Canada) |

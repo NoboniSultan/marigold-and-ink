@@ -1,6 +1,6 @@
 /** The real R2 adapter with a fake S3 client: no request ever leaves the machine. */
 import { describe, it, expect } from 'vitest';
-import { DeleteObjectsCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { FileStorageError, attachmentHeader, createR2Storage } from '../r2Storage.ts';
 
 const settings = {
@@ -63,6 +63,37 @@ describe('createR2Storage', () => {
     expect(download.searchParams.get('response-content-disposition')).toBe(
       attachmentHeader('Benito.pdf'),
     );
+  });
+
+  it('reads an object, and answers null for a missing one', async () => {
+    const sent: unknown[] = [];
+    const storage = createR2Storage({
+      ...settings,
+      client: {
+        send: (async (command: GetObjectCommand) => {
+          sent.push(command);
+          if (command.input.Key === 'missing') {
+            throw Object.assign(new Error('gone'), { name: 'NoSuchKey' });
+          }
+          if (command.input.Key === 'broken') throw new Error('network down');
+          return {
+            ContentType: 'image/webp',
+            Body: { transformToByteArray: async () => new Uint8Array([1, 2, 3]) },
+          };
+        }) as never,
+      },
+    });
+
+    await expect(storage.get('a/b.webp')).resolves.toEqual({
+      body: Buffer.from([1, 2, 3]),
+      contentType: 'image/webp',
+    });
+    expect((sent[0] as GetObjectCommand).input).toEqual({
+      Bucket: 'marigold-files',
+      Key: 'a/b.webp',
+    });
+    await expect(storage.get('missing')).resolves.toBeNull();
+    await expect(storage.get('broken')).rejects.toBeInstanceOf(FileStorageError);
   });
 
   it('reports a storage failure as FileStorageError', async () => {

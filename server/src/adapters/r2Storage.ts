@@ -15,6 +15,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export interface FileStorage {
   put(input: { key: string; body: Buffer; contentType: string }): Promise<void>;
+  /**
+   * Reads one object, or null if it doesn't exist. Used for public shop photos, which the
+   * site serves itself (the bucket stays private).
+   */
+  get(key: string): Promise<{ body: Buffer; contentType: string } | null>;
   /** Deletes the given objects; missing ones are not an error. */
   remove(keys: string[]): Promise<void>;
   /**
@@ -81,6 +86,20 @@ export function createR2Storage({
           new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }),
         );
       });
+    },
+
+    async get(key) {
+      try {
+        const answer = await sender.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+        const bytes = await answer.Body!.transformToByteArray();
+        return {
+          body: Buffer.from(bytes),
+          contentType: answer.ContentType ?? 'application/octet-stream',
+        };
+      } catch (err) {
+        if ((err as { name?: string }).name === 'NoSuchKey') return null;
+        throw new FileStorageError('File storage failed to read a file', { cause: err });
+      }
     },
 
     async remove(keys) {
