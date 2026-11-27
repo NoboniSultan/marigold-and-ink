@@ -3,9 +3,14 @@ import {
   ADDRESS_STATUSES,
   addressOpen,
   choosingOpen,
+  isDeliveryProblem,
+  labelOpen,
   offered,
   shippingCents,
   ships,
+  trackingCarrier,
+  trackingMoves,
+  voidable,
 } from '../shipping.rules.ts';
 import { STATUSES } from '../../commissions/commissions.stateMachine.ts';
 
@@ -53,5 +58,51 @@ describe('shippingCents', () => {
     expect(shippingCents(758, 400)).toBe(1158);
     expect(shippingCents(758, 0)).toBe(758);
     expect(() => shippingCents(7.5, 400)).toThrow(TypeError);
+  });
+});
+
+describe('labels', () => {
+  it('can be bought only once paid and before it ships', () => {
+    expect(STATUSES.filter(labelOpen)).toEqual(['ready_to_ship']);
+  });
+
+  it('can be voided until the carrier scans the package', () => {
+    expect(voidable('unknown')).toBe(true);
+    expect(voidable('pre_transit')).toBe(true);
+    for (const status of ['transit', 'delivered', 'returned', 'failure'] as const) {
+      expect(voidable(status)).toBe(false);
+    }
+  });
+
+  it("are tracked with the carrier's token", () => {
+    expect(trackingCarrier(' USPS ')).toBe('usps');
+  });
+});
+
+describe('trackingMoves', () => {
+  // Every commission status against every tracking status: only these move anything.
+  const EXPECTED: Record<string, string[]> = {
+    'ready_to_ship>transit': ['shipped'],
+    'ready_to_ship>delivered': ['shipped', 'delivered'],
+    'shipped>delivered': ['delivered'],
+  };
+  const TRACKING = [
+    'unknown',
+    'pre_transit',
+    'transit',
+    'delivered',
+    'returned',
+    'failure',
+  ] as const;
+
+  it.each(STATUSES.flatMap((status) => TRACKING.map((tracking) => [status, tracking] as const)))(
+    '%s + %s',
+    (status, tracking) => {
+      expect(trackingMoves(status, tracking)).toEqual(EXPECTED[`${status}>${tracking}`] ?? []);
+    },
+  );
+
+  it('treats returned and failed deliveries as problems for the owner', () => {
+    expect(TRACKING.filter(isDeliveryProblem)).toEqual(['returned', 'failure']);
   });
 });

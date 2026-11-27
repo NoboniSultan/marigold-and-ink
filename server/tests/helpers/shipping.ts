@@ -4,14 +4,19 @@
  */
 import type {
   PostalAddress,
+  RefundStatus,
   ShippingProvider,
   ShippingRate,
   ShippingSetup,
+  TrackingInfo,
 } from '../../src/adapters/shippo.ts';
 import { ShippingProviderError } from '../../src/adapters/shippo.ts';
 
 /** A test packaging fee (deliberately unlike any real one). */
 export const TEST_PACKAGING_FEE_CENTS = 333;
+
+/** A test webhook secret (32+ characters, like the real setting requires). */
+export const TEST_WEBHOOK_TOKEN = 'test-webhook-token-0123456789abcdef';
 
 export const TEST_FROM: PostalAddress = {
   name: 'Test Studio',
@@ -20,6 +25,8 @@ export const TEST_FROM: PostalAddress = {
   city: 'Testville',
   state: 'NY',
   zip: '10001',
+  email: 'studio@example.com',
+  phone: '212-555-0100',
 };
 
 /** The services a quote answers with, by token: [name, cents, days]. */
@@ -35,6 +42,11 @@ export function fakeShipping() {
     checkAddress: [] as PostalAddress[],
     quote: [] as Parameters<ShippingProvider['quote']>[0][],
     getRate: [] as string[],
+    buyLabel: [] as { rateId: string; note: string }[],
+    labelFileUrl: [] as string[],
+    requestRefund: [] as string[],
+    getRefund: [] as string[],
+    track: [] as { carrier: string; trackingNumber: string }[],
   };
   const settings = {
     /** null = valid; otherwise the reasons it isn't. */
@@ -46,9 +58,16 @@ export function fakeShipping() {
     duringQuote: null as null | (() => Promise<void>),
     /** Throws once from the next call of this method. */
     failNext: null as null | { method: keyof typeof calls; status: number | null },
+    /** null = labels are made; otherwise the carrier's reasons it couldn't make one. */
+    labelFails: null as string[] | null,
+    /** What a refund request answers (and getRefund, once changed). */
+    refundStatus: 'queued' as RefundStatus,
+    /** What tracking answers, by tracking number (unknown numbers: no news yet). */
+    tracking: new Map<string, TrackingInfo>(),
   };
   const rates = new Map<string, ShippingRate>();
   let shipments = 0;
+  let labels = 0;
 
   function maybeFail(method: keyof typeof calls) {
     if (settings.failNext?.method !== method) return;
@@ -105,12 +124,53 @@ export function fakeShipping() {
       if (!rate) throw new ShippingProviderError('Shippo answered 404', 404);
       return { ...rate, amountCents: rate.amountCents + settings.priceChange };
     },
+    async buyLabel(rateId, note) {
+      calls.buyLabel.push({ rateId, note });
+      maybeFail('buyLabel');
+      if (settings.labelFails) return { ok: false, messages: settings.labelFails };
+      labels += 1;
+      return {
+        ok: true,
+        transactionId: `txn_${labels}`,
+        trackingNumber: `9400TEST${labels}`,
+        trackingUrl: `https://tools.usps.com/go/TrackConfirmAction?tLabels=9400TEST${labels}`,
+      };
+    },
+    async labelFileUrl(transactionId) {
+      calls.labelFileUrl.push(transactionId);
+      maybeFail('labelFileUrl');
+      return `https://labels.example/${transactionId}.pdf?Expires=1`;
+    },
+    async requestRefund(transactionId) {
+      calls.requestRefund.push(transactionId);
+      maybeFail('requestRefund');
+      return { id: `ref_${transactionId}`, status: settings.refundStatus };
+    },
+    async getRefund(refundId) {
+      calls.getRefund.push(refundId);
+      maybeFail('getRefund');
+      return { id: refundId, status: settings.refundStatus };
+    },
+    async track(carrier, trackingNumber) {
+      calls.track.push({ carrier, trackingNumber });
+      maybeFail('track');
+      return (
+        settings.tracking.get(trackingNumber) ?? {
+          status: 'unknown',
+          details: null,
+          updatedAt: null,
+          eta: null,
+          scans: [],
+        }
+      );
+    },
   };
 
   const setup: ShippingSetup = {
     provider,
     packagingFeeCents: TEST_PACKAGING_FEE_CENTS,
     from: TEST_FROM,
+    webhookToken: TEST_WEBHOOK_TOKEN,
   };
   return { setup, calls, settings };
 }

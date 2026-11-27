@@ -50,6 +50,14 @@ export async function findById(id: number, client: Db = pool): Promise<UserRecor
   return firstUser(rows);
 }
 
+/** The admin accounts (the owner), e.g. to tell them about a delivery problem. */
+export async function findAdmins(client: Db = pool): Promise<UserRecord[]> {
+  const { rows } = await client.query(
+    `SELECT ${PUBLIC_COLUMNS} FROM users WHERE role = 'admin' AND deleted_at IS NULL ORDER BY id`,
+  );
+  return rows.map(toUser);
+}
+
 /** Several users at once (the admin commission list); deleted accounts are left out. */
 export async function findByIds(ids: number[], client: Db = pool): Promise<UserRecord[]> {
   if (ids.length === 0) return [];

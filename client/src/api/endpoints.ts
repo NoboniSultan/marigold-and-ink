@@ -1,6 +1,7 @@
 /** Typed functions for each API endpoint the site uses. Types come from shared/types. */
 import type { AboutContent } from '@shared/types/about.ts';
 import type {
+  LabelOption,
   Shipment,
   ShippingAddressInput,
   ShippingOption,
@@ -191,7 +192,35 @@ export const shippingApi = {
         body: parcel,
       }),
     ),
+  /** Admin: today's label prices (the client's service marked), cheapest first. */
+  labelOptions: (commissionId: number) =>
+    data(
+      request<ApiResponse<LabelOption[]>>(
+        `/admin/commissions/${commissionId}/shipping/label-options`,
+        { method: 'POST' },
+      ),
+    ),
+  /** Admin: buys the label for one of those prices; answers with the whole shipment. */
+  buyLabel: (commissionId: number, rateId: string) =>
+    request<ShippingResponse>(`/admin/commissions/${commissionId}/shipping/label`, {
+      method: 'POST',
+      body: { rateId },
+    }),
+  /** Admin: voids the label in use (its postage is refunded). */
+  voidLabel: (commissionId: number) =>
+    request<ShippingResponse>(`/admin/commissions/${commissionId}/shipping/label/void`, {
+      method: 'POST',
+    }),
+  /** Admin: checks the package's tracking now. */
+  refreshTracking: (commissionId: number) =>
+    request<ShippingResponse>(`/admin/commissions/${commissionId}/shipping/tracking/refresh`, {
+      method: 'POST',
+    }),
 };
+
+/** Admin: opens the label PDF (the server redirects to a fresh, expiring link). */
+export const labelFileUrl = (commissionId: number) =>
+  `${API_BASE}/admin/commissions/${commissionId}/shipping/label/file`;
 
 /** The admin screens (milestone 9). The server refuses all of these to anyone but the admin. */
 export const adminApi = {

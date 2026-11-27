@@ -34,6 +34,9 @@ erDiagram
     commissions ||--o{ files : "has"
     commissions ||--o{ messages : "thread"
     commissions ||--o{ donations : "generates"
+    commissions ||--o| shipments : "ships as"
+    shipments ||--o{ shipping_labels : "labelled by (one in use)"
+    shipping_labels ||--o{ tracking_events : "scanned"
 
     payments ||--o{ payments : "refunded by"
     payments ||--o| donations : "funds (one each)"
@@ -359,6 +362,34 @@ Milestone 11 ([ADR 0017](decisions/0017-us-shipping-with-shippo.md)): one row pe
 | `shipments_rate_check` | CHECK | A chosen option is complete (rate, carrier, service, postage, packaging fee, when), and needs the quote it came from, the package, and the address (or its removal). |
 | `shipments_rate_amounts_check` | CHECK | Postage, packaging fee, and estimated days are never negative. |
 | `shipments_set_updated_at` | Trigger | `updated_at` on every change. |
+| `shipments.label_quote_id` | Column | Milestone 11b: the Shippo shipment the latest label prices belong to; a label can only be bought from those. Cleared once bought. |
+
+### shipping_labels
+
+Milestone 11b ([ADR 0018](decisions/0018-shipping-labels-and-tracking.md)): postage labels bought through Shippo, with where the package is. The label PDF isn't stored (Shippo gives a fresh link on request). A voided label stays, with its refund.
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `shipping_labels.shipment_id` | FK, `ON DELETE RESTRICT` | A label is postage paid for: part of the money history. |
+| `shipping_labels_provider_transaction_id_key` | UNIQUE | Each Shippo transaction is recorded once. |
+| `shipping_labels_one_active_idx` | Partial UNIQUE index (`shipment_id` where `voided_at IS NULL`) | At most one label in use per shipment; any number voided. |
+| `shipping_labels_tracking_number_idx` | Index | Tracking webhooks find the label by its tracking number. |
+| `shipping_labels_postage_cents_check` | CHECK | What the postage cost the studio is never negative. |
+| `shipping_labels_text_check` | CHECK | Transaction ID, carrier, service, and tracking number non-empty and short; tracking details at most 500 characters. |
+| `shipping_labels_tracking_url_check` | CHECK | Tracking links are `https://`. |
+| `tracking_status` | Domain (`tracking_status_check`) | `unknown`, `pre_transit`, `transit`, `delivered`, `returned`, `failure`, as Shippo reports them. Shared with `tracking_events`. |
+| `shipping_labels_refund_check` | CHECK | A voided label has a refund ID and status (`queued`, `pending`, `success`, `error`); a label in use has neither. |
+| `shipping_labels_set_updated_at` | Trigger | `updated_at` on every change. |
+
+### tracking_events
+
+The carrier's scans for a label, from Shippo. Written once, never changed (no `updated_at`). The place is the carrier facility's town, never the delivery address.
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `tracking_events.label_id` | FK, `ON DELETE RESTRICT` | Scans belong to their label's history. |
+| `tracking_events_label_event_key` | UNIQUE | Shippo's ID for each scan, per label: a repeated webhook (Shippo's aren't idempotent) adds nothing. |
+| `tracking_events_text_check` | CHECK | Scan ID 1–100 characters; details at most 500, city 100, state 50. |
 
 ### processed_webhook_events
 

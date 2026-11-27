@@ -6,8 +6,8 @@
  * 4. the final payment adds that option's postage plus the owner's packaging fee.
  *
  * Every price comes from the shipping service (never from a request), and a change to the
- * address or package forgets the prices quoted for the old one. Labels and tracking come
- * in milestone 11b.
+ * address or package forgets the prices quoted for the old one. Labels are in
+ * shipping.labels.service.ts and tracking in shipping.tracking.service.ts (milestone 11b).
  */
 import type { PoolClient } from 'pg';
 import type {
@@ -25,61 +25,27 @@ import {
   type ShippingSetup,
 } from '../../adapters/shippo.ts';
 import { withTransaction } from '../../db/transaction.ts';
-import {
-  AppError,
-  BusinessRuleError,
-  ConflictError,
-  ServiceUnavailableError,
-} from '../../errors/index.js';
-import { logger } from '../../lib/logger.js';
+import { BusinessRuleError, ConflictError } from '../../errors/index.js';
 import * as commissionsService from '../commissions/commissions.service.js';
 import * as shippingRepository from './shipping.repository.ts';
 import type { ShipmentRecord } from './shipping.repository.ts';
-import { addressOpen, choosingOpen, offered, shippingCents, ships } from './shipping.rules.ts';
-
-interface SessionUser {
-  id: number;
-  role: 'client' | 'admin';
-}
-
-interface CommissionLike {
-  id: number;
-  status: string;
-  fulfillmentType: string;
-}
-
-type Setup = ShippingSetup | null | undefined;
-
-function requireShipping(setup: Setup): ShippingSetup {
-  if (!setup) {
-    throw new ServiceUnavailableError("Shipping isn't available yet.", {
-      code: 'SHIPPING_UNAVAILABLE',
-    });
-  }
-  return setup;
-}
-
-/** The shipping service failed or didn't answer: a 502 with a message that's safe to show. */
-async function viaProvider<T>(call: () => Promise<T>): Promise<T> {
-  try {
-    return await call();
-  } catch (err) {
-    if (!(err instanceof ShippingProviderError)) throw err;
-    logger.error({ err }, 'shipping provider error');
-    throw new AppError("The shipping service couldn't be reached. Please try again.", {
-      status: 502,
-      code: 'SHIPPING_PROVIDER_ERROR',
-    });
-  }
-}
-
-function assertShips(commission: CommissionLike) {
-  if (!ships(commission.fulfillmentType)) {
-    throw new ConflictError('This commission is delivered as files, not shipped', {
-      code: 'DOES_NOT_SHIP',
-    });
-  }
-}
+import {
+  addressOpen,
+  choosingOpen,
+  labelOpen,
+  offered,
+  shippingCents,
+  ships,
+} from './shipping.rules.ts';
+import {
+  assertShips,
+  requireShipping,
+  viaProvider,
+  type CommissionLike,
+  type SessionUser,
+  type Setup,
+} from './shipping.guards.ts';
+import { labelParts, type LabelParts } from './shipping.labels.service.ts';
 
 function assertAddressOpen(commission: CommissionLike) {
   if (!addressOpen(commission.status)) {
@@ -114,9 +80,13 @@ function toAddress(record: ShipmentRecord): ShippingAddress | null {
   };
 }
 
-export function toShipment(record: ShipmentRecord): Shipment {
+/** No label yet: the address, package, and choice only change before one can be bought. */
+const NO_LABEL: LabelParts = { label: null, voidedLabels: [] };
+
+export function toShipment(record: ShipmentRecord, labels: LabelParts = NO_LABEL): Shipment {
   const choice = record.choice;
   return {
+    ...labels,
     address: toAddress(record),
     addressRemovedAt: record.addressRemovedAt?.toISOString() ?? null,
     package: record.parcel,
@@ -133,13 +103,18 @@ export function toShipment(record: ShipmentRecord): Shipment {
   };
 }
 
-function metaFor(commission: CommissionLike, setup: Setup): ShippingMeta {
+function metaFor(
+  commission: CommissionLike,
+  setup: Setup,
+  { admin, labels }: { admin: boolean; labels: LabelParts },
+): ShippingMeta {
   const physical = ships(commission.fulfillmentType);
   return {
     shippingEnabled: Boolean(setup),
     ships: physical,
     addressOpen: physical && addressOpen(commission.status),
     choosingOpen: physical && choosingOpen(commission.status),
+    labelOpen: admin && physical && labelOpen(commission.status) && labels.label === null,
   };
 }
 
@@ -181,7 +156,12 @@ export async function getShipping(
 ): Promise<{ data: Shipment | null; meta: ShippingMeta }> {
   const commission = await commissionsService.getCommissionForUser(commissionId, user);
   const record = await shippingRepository.findByCommission(commissionId);
-  return { data: record ? toShipment(record) : null, meta: metaFor(commission, shipping) };
+  const admin = user.role === 'admin';
+  const labels = record ? await labelParts(commission, { admin }) : NO_LABEL;
+  return {
+    data: record ? toShipment(record, labels) : null,
+    meta: metaFor(commission, shipping, { admin, labels }),
+  };
 }
 
 // --- Setting the address and package ---
@@ -407,8 +387,8 @@ export function removeAddressesForDeletedClient(
   return shippingRepository.removeStreetForClient(clientId, client);
 }
 
-/** The commission's shipment for the client's data download, or null. */
-export async function shipmentForExport(commissionId: number): Promise<Shipment | null> {
-  const record = await shippingRepository.findByCommission(commissionId);
-  return record ? toShipment(record) : null;
+/** The commission's shipment (as the client sees it) for their data download, or null. */
+export async function shipmentForExport(commission: CommissionLike): Promise<Shipment | null> {
+  const record = await shippingRepository.findByCommission(commission.id);
+  return record ? toShipment(record, await labelParts(commission, { admin: false })) : null;
 }

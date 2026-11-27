@@ -27,8 +27,8 @@ stateDiagram-v2
     awaiting_final_payment --> delivered: system (digital, mixed media)
     awaiting_final_payment --> refunded: admin or system (refund flow)
 
-    ready_to_ship --> shipped: admin
-    shipped --> delivered: admin
+    ready_to_ship --> shipped: admin, system
+    shipped --> delivered: admin, system
     delivered --> completed: admin
 
     completed --> [*]
@@ -55,8 +55,8 @@ stateDiagram-v2
 | awaiting_final_payment | ready_to_ship | system | Physical only; the Stripe webhook: the balance (with shipping, milestone 11) was paid |
 | awaiting_final_payment | delivered | system | Digital and mixed media (delivered as files, owner decision 2026-11-25); the Stripe webhook: the balance was paid |
 | awaiting_final_payment | refunded | admin, system | Only through the refund flow |
-| ready_to_ship | shipped | admin | |
-| shipped | delivered | admin | A carrier webhook will do this later |
+| ready_to_ship | shipped | admin, system | The system: the carrier's first scan (tracking, milestone 11b). The admin can also mark it |
+| shipped | delivered | admin, system | The system: the carrier reports it delivered. If that's the first news, the commission goes through `shipped` first |
 | delivered | completed | admin | |
 | completed, canceled, refunded | — | — | Terminal: no further changes |
 

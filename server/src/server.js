@@ -6,6 +6,8 @@ import { pool } from './db/pool.js';
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 /** How often expired files are swept (ADR 0016); also once at startup. */
 const FILE_SWEEP_MS = 24 * 60 * 60 * 1000;
+/** How often packages on their way are checked with Shippo; also once at startup. */
+const TRACKING_CHECK_MS = 24 * 60 * 60 * 1000;
 
 const app = createApp();
 const server = app.listen(config.port, () => {
@@ -16,6 +18,10 @@ const server = app.listen(config.port, () => {
   // plan also restarts the server often, so this runs at least that often.)
   app.locals.purgeExpiredFiles();
   setInterval(() => app.locals.purgeExpiredFiles(), FILE_SWEEP_MS).unref();
+  // Packages on their way are checked now, then once a day, in case a tracking webhook
+  // from Shippo was missed (milestone 11b). Never throws.
+  app.locals.refreshTracking();
+  setInterval(() => app.locals.refreshTracking(), TRACKING_CHECK_MS).unref();
 });
 
 /**

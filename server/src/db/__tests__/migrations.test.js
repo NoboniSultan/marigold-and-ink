@@ -26,7 +26,9 @@ const EXPECTED_TABLES = [
   'quotes',
   'sessions',
   'shipments',
+  'shipping_labels',
   'tags',
+  'tracking_events',
   'users',
 ];
 

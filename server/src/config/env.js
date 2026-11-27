@@ -139,11 +139,27 @@ const envSchema = z.object({
     .string()
     .regex(/^[0-9]{5}(-[0-9]{4})?$/, 'must be a ZIP code, e.g. 10001')
     .optional(),
+  // The sender's contact details, which USPS requires on every label (milestone 11b).
+  // Optional so the site still starts without them; labels can't be bought until both are
+  // set. Private: .env / Render only.
+  SHIP_FROM_EMAIL: z.email().max(254).optional(),
+  SHIP_FROM_PHONE: z
+    .string()
+    .regex(/^\+?[0-9 ().-]{10,20}$/, 'must be a phone number, e.g. 212-555-0100')
+    .optional(),
+  // The secret part of the tracking webhook's link (milestone 11b): Shippo calls
+  // <PUBLIC_URL>/api/v1/webhooks/shippo?token=<this>. Optional: without it, tracking is
+  // still checked once a day. Generate with: openssl rand -hex 32
+  SHIPPO_WEBHOOK_TOKEN: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{32,128}$/, 'must be 32 to 128 letters, digits, - or _')
+    .optional(),
 });
 
 const STRIPE_KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'PAYMENT_CURRENCY'];
 const FILES_KEYS = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET'];
-// SHIP_FROM_STREET2 is the only optional one.
+// Optional: SHIP_FROM_STREET2, SHIP_FROM_EMAIL and SHIP_FROM_PHONE (needed for labels), and
+// SHIPPO_WEBHOOK_TOKEN.
 const SHIPPING_KEYS = [
   'SHIPPO_API_KEY',
   'PACKAGING_FEE_CENTS',
@@ -222,7 +238,13 @@ function groupProblems(env) {
       problems.push(`✖ is required for file uploads (with the other R2 settings)\n  → at ${key}`);
     }
   }
-  const shippingOn = [...SHIPPING_KEYS, 'SHIP_FROM_STREET2'].some((key) => env[key] !== undefined);
+  const shippingOn = [
+    ...SHIPPING_KEYS,
+    'SHIP_FROM_STREET2',
+    'SHIP_FROM_EMAIL',
+    'SHIP_FROM_PHONE',
+    'SHIPPO_WEBHOOK_TOKEN',
+  ].some((key) => env[key] !== undefined);
   for (const key of SHIPPING_KEYS) {
     if (shippingOn && env[key] === undefined) {
       problems.push(`✖ is required for shipping (with the other shipping settings)\n  → at ${key}`);
@@ -372,7 +394,10 @@ export function loadConfig(rawEnv) {
             city: e.SHIP_FROM_CITY,
             state: e.SHIP_FROM_STATE,
             zip: e.SHIP_FROM_ZIP,
+            email: e.SHIP_FROM_EMAIL ?? null,
+            phone: e.SHIP_FROM_PHONE ?? null,
           }),
+          webhookToken: e.SHIPPO_WEBHOOK_TOKEN ?? null,
         })
       : null,
     // null = file uploads are off: the file endpoints answer 503 FILES_UNAVAILABLE.

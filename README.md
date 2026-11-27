@@ -29,7 +29,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Giving: 25% of every fully paid commission plants trees through Digital Humani; Giving page with a growing tree; refunds never give back tree money | Built (sandbox); needs [setup](docs/setup-digital-humani.md) |
 | Admin screens: commissions (quote, status, refunds), giving (mark tree invoices paid in batches), monthly report with CSV | Built ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)) |
 | Files: reference photos (metadata stripped), watermarked previews, final-file downloads; private R2 storage with signed links and automatic deletion | Built; needs [setup](docs/setup-r2.md) ([ADR 0016](docs/decisions/0016-commission-files-on-r2.md)) |
-| Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)); labels and tracking in 11b |
+| Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)) |
+| Labels and tracking: buy, print, and void USPS labels from the admin page; tracking by webhook and a daily check moves the commission to shipped and delivered; shipped, delivered, and delivery-problem emails | Built (11b); needs the [webhook and label settings](docs/setup-shippo.md) ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)); email wording is a placeholder |
 | Messaging, shop, slots | Later (see backlog) |
 
 ## Tech stack
@@ -264,11 +265,17 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | DELETE | `/api/v1/commissions/:id/files/:fileId` | Owner or admin | The client removes their reference photos until work starts; the admin removes any file. 204. |
 | POST | `/api/v1/admin/commissions/:id/files/previews` | Admin | A work-in-progress image (≤ 25 MB), watermarked before it's stored. |
 | POST | `/api/v1/admin/commissions/:id/files/finals` | Admin | A final file as uploaded: JPEG, PNG, PDF, or TIFF, ≤ 100 MB. |
-| GET | `/api/v1/commissions/:id/shipping` | Owner or admin | `{ data, meta }`: the shipment (address, package, chosen option) or null; `meta.shippingEnabled`, `ships` (physical only), `addressOpen`, `choosingOpen`. |
+| GET | `/api/v1/commissions/:id/shipping` | Owner or admin | `{ data, meta }`: the shipment (address, package, chosen option, label with tracking; the admin also sees postage cost and voided labels) or null; `meta.shippingEnabled`, `ships` (physical only), `addressOpen`, `choosingOpen`, `labelOpen` (admin). |
 | PUT | `/api/v1/commissions/:id/shipping/address` | Owner or admin | A US address, from the deposit until the final payment. Checked by Shippo and stored standardized (422 `ADDRESS_NOT_DELIVERABLE` with the carrier's reasons). Forgets earlier prices. |
 | PUT | `/api/v1/admin/commissions/:id/shipping/package` | Admin | The packed weight (oz) and size (in). Forgets earlier prices. |
 | POST | `/api/v1/commissions/:id/shipping/options` | Owner or admin | While the final payment is due: live USPS options, cheapest first, each with postage, packaging fee, and total. |
 | PUT | `/api/v1/commissions/:id/shipping/choice` | Owner or admin | `{ rateId }` from the latest options; the price is read from Shippo (409 `SHIPPING_OPTION_STALE` for an old one). |
+| POST | `/api/v1/admin/commissions/:id/shipping/label-options` | Admin | Once paid (`ready_to_ship`): today's label prices, the client's service marked with what they paid (409 `LABEL_CLOSED` / `LABEL_EXISTS`; 503 `LABEL_SETUP_INCOMPLETE` without the return email and phone). |
+| POST | `/api/v1/admin/commissions/:id/shipping/label` | Admin | `{ rateId }` from those prices: buys the label; answers like GET (409 `LABEL_OPTION_STALE`; 422 `LABEL_FAILED` with the carrier's reasons). |
+| GET | `/api/v1/admin/commissions/:id/shipping/label/file` | Admin | Redirects to a fresh link to the label PDF. |
+| POST | `/api/v1/admin/commissions/:id/shipping/label/void` | Admin | Voids the label in use and asks for a refund, until the carrier scans it (409 `LABEL_IN_USE`). |
+| POST | `/api/v1/admin/commissions/:id/shipping/tracking/refresh` | Admin | Reads the tracking from Shippo now and applies it. |
+| POST | `/api/v1/webhooks/shippo?token=…` | Shippo (secret link) | Tracking updates: only the tracking number is used; the tracking is read back from Shippo. 401 for a wrong token, 404 while switched off. |
 | GET | `/api/v1/admin/commissions` | Admin | Commissions newest first, each with its `client` (`null` once deleted). `?status=`, `?page=`. |
 | GET | `/api/v1/admin/commissions/:id` | Admin | `{ commission, client, money }`: details with allowed moves, the client, and paid / refunded / tree money / still refundable ([ADR 0015](docs/decisions/0015-admin-screens-and-monthly-report.md)). |
 | GET | `/api/v1/admin/donations` | Admin | Tree donations, newest first. `?status=owed|paid|pending|reversed`, `?page=`. |
@@ -351,6 +358,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0015: Admin screens and the monthly report](docs/decisions/0015-admin-screens-and-monthly-report.md)
 - [0016: Commission files on Cloudflare R2](docs/decisions/0016-commission-files-on-r2.md)
 - [0017: US shipping with Shippo](docs/decisions/0017-us-shipping-with-shippo.md)
+- [0018: Shipping labels and tracking](docs/decisions/0018-shipping-labels-and-tracking.md)
 
 ## Roadmap
 

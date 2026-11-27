@@ -1,11 +1,15 @@
 import { logger as defaultLogger } from '../lib/logger.js';
 
 /**
- * Paths whose query string carries one-time secrets and is never logged. Google's callback
- * brings a sign-in code and state; they're single-use, but logs are kept longer and seen
- * more widely than the sign-in they belong to.
+ * Paths whose query string carries secrets and is never logged. Google's callback brings a
+ * sign-in code and state; they're single-use, but logs are kept longer and seen more widely
+ * than the sign-in they belong to. Shippo's webhook link carries its secret token.
  */
-const SECRET_QUERY_PATHS = new Set(['/api/v1/auth/google/callback']);
+const SECRET_QUERY_PATHS = new Set([
+  '/api/v1/auth/google/callback',
+  '/api/v1/webhooks/shippo',
+  '/api/v1/webhooks/shippo/',
+]);
 
 /** The URL to log: as requested, but with the query string hidden on SECRET_QUERY_PATHS. */
 export function loggablePath(originalUrl) {

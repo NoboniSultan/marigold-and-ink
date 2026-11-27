@@ -13,6 +13,7 @@ import {
   createCharity,
   createDonation,
   createShipment,
+  createShippingLabel,
 } from '../../../tests/factories/index.js';
 
 beforeEach(truncateAllTables);
@@ -776,6 +777,150 @@ describe('shipments', () => {
     const shipment = await createShipment();
     await expectViolation(
       pool.query('DELETE FROM commissions WHERE id = $1', [shipment.commission_id]),
+      FOREIGN_KEY_VIOLATION,
+    );
+  });
+});
+
+describe('shipping_labels', () => {
+  const VOIDED = { voidedAt: new Date(), refundId: 'ref_1', refundStatus: 'queued' };
+
+  it('allows one label in use per shipment, any number voided', async () => {
+    const label = await createShippingLabel();
+    await expect(
+      createShippingLabel({ shipmentId: label.shipment_id, ...VOIDED }),
+    ).resolves.toBeDefined();
+    await expectViolation(
+      createShippingLabel({ shipmentId: label.shipment_id }),
+      UNIQUE_VIOLATION,
+      'shipping_labels_one_active_idx',
+    );
+  });
+
+  it('records each Shippo transaction once', async () => {
+    await createShippingLabel({ providerTransactionId: 'txn_same' });
+    await expectViolation(
+      createShippingLabel({ providerTransactionId: 'txn_same' }),
+      UNIQUE_VIOLATION,
+      'shipping_labels_provider_transaction_id_key',
+    );
+  });
+
+  it('keeps text short and non-empty, and the cost non-negative', async () => {
+    await expectViolation(
+      createShippingLabel({ trackingNumber: '' }),
+      CHECK_VIOLATION,
+      'shipping_labels_text_check',
+    );
+    await expectViolation(
+      createShippingLabel({ trackingDetails: 'x'.repeat(501) }),
+      CHECK_VIOLATION,
+      'shipping_labels_text_check',
+    );
+    await expectViolation(
+      createShippingLabel({ postageCents: -1 }),
+      CHECK_VIOLATION,
+      'shipping_labels_postage_cents_check',
+    );
+  });
+
+  it('only links to https tracking pages', async () => {
+    await expectViolation(
+      createShippingLabel({ trackingUrl: 'http://tools.usps.com' }),
+      CHECK_VIOLATION,
+      'shipping_labels_tracking_url_check',
+    );
+    await expect(createShippingLabel({ trackingUrl: null })).resolves.toBeDefined();
+  });
+
+  it('only allows the known tracking statuses', async () => {
+    await expectViolation(
+      createShippingLabel({ trackingStatus: 'lost' }),
+      CHECK_VIOLATION,
+      'tracking_status_check',
+    );
+  });
+
+  it('records a refund with every void, and only then', async () => {
+    await expectViolation(
+      createShippingLabel({ ...VOIDED, refundId: null }),
+      CHECK_VIOLATION,
+      'shipping_labels_refund_check',
+    );
+    await expectViolation(
+      createShippingLabel({ refundStatus: 'queued' }),
+      CHECK_VIOLATION,
+      'shipping_labels_refund_check',
+    );
+    await expectViolation(
+      createShippingLabel({ ...VOIDED, refundStatus: 'maybe' }),
+      CHECK_VIOLATION,
+      'shipping_labels_refund_check',
+    );
+  });
+
+  it("can't be deleted out from under its shipment", async () => {
+    const label = await createShippingLabel();
+    await expectViolation(
+      pool.query('DELETE FROM shipments WHERE id = $1', [label.shipment_id]),
+      FOREIGN_KEY_VIOLATION,
+    );
+  });
+});
+
+describe('tracking_events', () => {
+  const insertEvent = (labelId, overrides = {}) => {
+    const row = {
+      provider_event_id: 'e1',
+      status: 'transit',
+      details: null,
+      city: null,
+      state: null,
+      ...overrides,
+    };
+    return pool.query(
+      `INSERT INTO tracking_events (label_id, provider_event_id, status, details, city, state)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [labelId, row.provider_event_id, row.status, row.details, row.city, row.state],
+    );
+  };
+
+  it("records each of a label's scans once", async () => {
+    const label = await createShippingLabel();
+    await insertEvent(label.id);
+    await expectViolation(
+      insertEvent(label.id),
+      UNIQUE_VIOLATION,
+      'tracking_events_label_event_key',
+    );
+    const other = await createShippingLabel();
+    await expect(insertEvent(other.id)).resolves.toBeDefined();
+  });
+
+  it('only allows the known statuses, and short text', async () => {
+    const label = await createShippingLabel();
+    await expectViolation(
+      insertEvent(label.id, { status: 'lost' }),
+      CHECK_VIOLATION,
+      'tracking_status_check',
+    );
+    await expectViolation(
+      insertEvent(label.id, { provider_event_id: '' }),
+      CHECK_VIOLATION,
+      'tracking_events_text_check',
+    );
+    await expectViolation(
+      insertEvent(label.id, { city: 'x'.repeat(101) }),
+      CHECK_VIOLATION,
+      'tracking_events_text_check',
+    );
+  });
+
+  it("can't be deleted out from under its label", async () => {
+    const label = await createShippingLabel();
+    await insertEvent(label.id);
+    await expectViolation(
+      pool.query('DELETE FROM shipping_labels WHERE id = $1', [label.id]),
       FOREIGN_KEY_VIOLATION,
     );
   });

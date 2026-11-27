@@ -4,6 +4,7 @@
  * Pure, so they're unit-tested on their own. Owner decisions (2026-11-25): United States
  * only, USPS only to start, mixed media is delivered as files and never shipped.
  */
+import type { TrackingStatus } from '@shared/types/shipping.ts';
 import { sumCents } from '../../lib/money.js';
 
 /** Only physical work ships. Digital and mixed-media work is delivered as files. */
@@ -115,3 +116,47 @@ export const US_STATES = [
 /** USPS limits: 70 lb, and no side over 108 inches. */
 export const MAX_WEIGHT_OZ = 70 * 16;
 export const MAX_SIDE_IN = 108;
+
+// --- Labels and tracking (milestone 11b) ---
+
+/** The label is bought once the client has paid, and before the carrier has the package. */
+export function labelOpen(status: string): boolean {
+  return status === 'ready_to_ship';
+}
+
+/** A label can be voided (its postage refunded) until the carrier has scanned it. */
+export function voidable(trackingStatus: TrackingStatus): boolean {
+  return trackingStatus === 'unknown' || trackingStatus === 'pre_transit';
+}
+
+/** Commissions whose label is still worth checking for tracking news. */
+export const TRACKED_STATUSES = ['ready_to_ship', 'shipped'] as const;
+
+/**
+ * The commission status changes a package's tracking calls for, in order (owner decision
+ * 2026-11-26: shipped at the carrier's first scan). Delivered as the first news moves
+ * through shipped. Anything else, including a problem, changes nothing.
+ */
+export function trackingMoves(
+  commissionStatus: string,
+  trackingStatus: TrackingStatus,
+): ('shipped' | 'delivered')[] {
+  if (trackingStatus === 'transit') {
+    return commissionStatus === 'ready_to_ship' ? ['shipped'] : [];
+  }
+  if (trackingStatus === 'delivered') {
+    if (commissionStatus === 'ready_to_ship') return ['shipped', 'delivered'];
+    if (commissionStatus === 'shipped') return ['delivered'];
+  }
+  return [];
+}
+
+/** Tracking news the owner should hear about: the package is coming back, or is stuck. */
+export function isDeliveryProblem(trackingStatus: TrackingStatus): boolean {
+  return trackingStatus === 'returned' || trackingStatus === 'failure';
+}
+
+/** Shippo's tracking takes the carrier's token ("usps"); rates name it ("USPS"). */
+export function trackingCarrier(carrier: string): string {
+  return carrier.trim().toLowerCase();
+}

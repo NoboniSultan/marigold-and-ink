@@ -45,3 +45,20 @@ export const packageBody = z.object({
 });
 
 export const chooseBody = z.object({ rateId: z.string().trim().min(1).max(100) });
+
+export const labelBody = z.object({ rateId: z.string().trim().min(1).max(100) });
+
+export const webhookQuery = z.object({ token: z.string().max(200).optional() });
+
+/**
+ * A Shippo webhook. Only the event name and tracking number are used (to find the label);
+ * the rest is read from Shippo itself, so nothing else in the body is trusted or needed.
+ */
+export const webhookBody = z.object({
+  event: z.string().max(100),
+  data: z
+    .object({ tracking_number: z.string().max(100).optional() })
+    .loose()
+    .nullish()
+    .catch(null),
+});
