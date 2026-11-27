@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 
 ## [Unreleased]
 
+### Added
+
+- **Privacy policy, section 1F:** shipping information (the US address, shared with Shippo for addresses, postage, labels, and tracking; what account deletion removes). "Last Updated" is now November 26, 2026.
+
 ## [0.12.0] - 2026-11-25 (Milestone 11a: shipping addresses, prices, and the final payment)
 
 ### Added
