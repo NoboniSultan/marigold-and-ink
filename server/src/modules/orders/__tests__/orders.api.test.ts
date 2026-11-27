@@ -619,6 +619,22 @@ describe('the release sweep', () => {
     expect(email.sent).toHaveLength(1);
   });
 
+  it('leaves a page that completed with a delayed payment alone (its stock stays held)', async () => {
+    const { orderId, id } = await pendingOrder(2);
+    stripe.setSessionStatus(sessionFor(orderId), {
+      status: 'complete',
+      paid: false,
+      paymentIntentId: 'pi_delayed',
+    });
+    const { releaseExpiredOrders } = await import('../orders.service.ts');
+
+    expect(
+      await releaseExpiredOrders({ gateway: stripe.gateway, email: null, now: later() }),
+    ).toEqual({ paid: 0, expired: 0, failed: 0 });
+    expect((await orderRow(orderId)).status).toBe('pending_payment');
+    expect(await stock(id)).toBe(1);
+  });
+
   it('carries on past a failure, and does nothing without payments', async () => {
     await pendingOrder();
     const { releaseExpiredOrders } = await import('../orders.service.ts');

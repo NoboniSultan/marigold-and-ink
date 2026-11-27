@@ -670,6 +670,12 @@ export async function releaseExpiredOrders({
       try {
         const status = await gateway.getCheckoutStatus(candidate.stripeCheckoutSessionId!);
         if (status.status === 'open') continue;
+        // Completed but not paid yet: a delayed payment method. Its stock stays held; the
+        // order is left for the owner to look at rather than released under a paying client.
+        if (status.status === 'complete' && !status.paid) {
+          logger.warn({ orderId: candidate.id }, 'order paid by a delayed method; still waiting');
+          continue;
+        }
         const after: AfterCommit = [];
         await withTransaction(async (tx) => {
           const order = (await ordersRepository.findById(candidate.id, tx, { forUpdate: true }))!;
