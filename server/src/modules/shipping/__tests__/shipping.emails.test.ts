@@ -21,12 +21,22 @@ describe('shipping emails', () => {
     expect(message.to).toBe('ana@example.com');
     expect(message.subject).toBe(SHIPPING_EMAIL_COPY.shipped.subject);
     expect(message.text.split('\n\n')).toEqual([
-      ...SHIPPING_EMAIL_COPY.shipped.lines,
+      'Your order has been packed with care and is officially on its way to you! You can follow its journey using the tracking link below.',
       'Tracking number: 9400111 (USPS Ground Advantage)',
       'Track the package: https://tools.usps.com/x?a=1&b=2',
       'Your commission: https://site.example/commissions/7',
     ]);
     expect(message.html).toContain('a=1&#38;b=2'); // escaped in HTML
+  });
+
+  it('only mention the tracking link when there is one', () => {
+    for (const facts of [null, { ...FACTS, trackingUrl: null }]) {
+      const message = shippedEmail('ana@example.com', facts, FACTS.pageUrl);
+      expect(message.text.split('\n\n')[0]).toBe(
+        'Your order has been packed with care and is officially on its way to you!',
+      );
+      expect(message.text).not.toContain('tracking link');
+    }
   });
 
   it('leave out what a hand-marked change has no label for', () => {
