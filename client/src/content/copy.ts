@@ -10,6 +10,8 @@ export const COPY = {
     'Art you can hold onto.',
     'Charcoal, ink, acrylic, and clay.',
     'Every commission plants trees.',
+    // The owner's line (2026-11-27).
+    "You need artists to make art. Because machines don't suffer.",
   ],
   /** The main call-to-action button (Home and header). */
   primaryCta: 'Commission a piece',

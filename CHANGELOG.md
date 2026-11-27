@@ -3,6 +3,13 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one entry per milestone.
 
+## [Unreleased]
+
+### Added
+
+- **Login page:** the logo, revealed by the ink spread (a plain fade with reduced motion). The reveal (`InkReveal`) moved to `components/` and takes an optional timing; the logo spreads more slowly than the About photo, since a small logo is covered sooner.
+- **Home typewriter:** the owner's line "You need artists to make art. Because machines don't suffer."
+
 ## [0.14.0] - 2026-11-27 (Milestone 12a: shop catalog)
 
 ### Added

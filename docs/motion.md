@@ -90,11 +90,11 @@ Every animation on the site: where it lives, how it behaves, what it does under 
 - **Loaded on demand:** the Giving route is lazy, so flubber (about 23 KB gzipped with the page) downloads only there.
 - **Reduced motion:** no morph; the nearest whole stage fades in once.
 
-### About: ink-spread reveal
+### About and login: ink-spread reveal
 
-`features/about/InkReveal.tsx`
+`components/InkReveal.tsx` (About's main photo; since 2026-11-27 also the logo on the login page)
 
-- The main photo is revealed through an irregular **ink blot** (an SVG CSS mask) that spreads from the center.
+- The main photo (and the login page's logo) is revealed through an irregular **ink blot** (an SVG CSS mask) that spreads from the center.
 - It plays **once**, the first time the photo is 35% in view (1.6 s, ease-out).
 - Motion animates the CSS variable `--ink` from 0 to 1; CSS turns that into `mask-size`.
 - The closing photo at the bottom fades in when scrolled into view.
