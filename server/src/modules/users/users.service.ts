@@ -23,6 +23,11 @@ export async function findByIds(ids: number[]): Promise<Map<number, UserRecord>>
   return new Map(users.map((user) => [user.id, user]));
 }
 
+/** The admin accounts (the owner), for notices meant for them. */
+export function findAdmins(): Promise<UserRecord[]> {
+  return usersRepository.findAdmins();
+}
+
 export async function getById(id: number, { client }: Tx = {}): Promise<UserRecord> {
   const user = await usersRepository.findById(id, client);
   if (!user) throw new NotFoundError('User not found', { code: 'USER_NOT_FOUND' });

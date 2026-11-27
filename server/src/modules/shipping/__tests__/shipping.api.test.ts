@@ -113,7 +113,13 @@ describe('GET /commissions/:id/shipping', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       data: null,
-      meta: { shippingEnabled: true, ships: true, addressOpen: true, choosingOpen: false },
+      meta: {
+        shippingEnabled: true,
+        ships: true,
+        addressOpen: true,
+        choosingOpen: false,
+        labelOpen: false,
+      },
     });
   });
 
@@ -269,6 +275,8 @@ describe('PUT /admin/commissions/:id/shipping/package', () => {
       addressRemovedAt: null,
       package: PACKAGE,
       chosen: null,
+      label: null,
+      voidedLabels: [],
     });
   });
 

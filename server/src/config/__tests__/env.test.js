@@ -326,9 +326,27 @@ describe('loadConfig: shipping (Shippo)', () => {
         state: 'NY',
         zip: '10001',
       },
+      webhookToken: null,
     });
     expect(loadConfig({ ...shippingEnv, SHIP_FROM_STREET2: 'Unit 2' }).shipping?.from.street2).toBe(
       'Unit 2',
+    );
+  });
+
+  it('reads the optional tracking webhook secret, which must be long and link-safe', () => {
+    const token = 'a'.repeat(32);
+    expect(loadConfig({ ...shippingEnv, SHIPPO_WEBHOOK_TOKEN: token }).shipping?.webhookToken).toBe(
+      token,
+    );
+    expect(() => loadConfig({ ...shippingEnv, SHIPPO_WEBHOOK_TOKEN: 'a'.repeat(31) })).toThrow(
+      /SHIPPO_WEBHOOK_TOKEN/,
+    );
+    expect(() =>
+      loadConfig({ ...shippingEnv, SHIPPO_WEBHOOK_TOKEN: `${'a'.repeat(32)}&x=1` }),
+    ).toThrow(/SHIPPO_WEBHOOK_TOKEN/);
+    // Alone, it switches shipping on, so the other settings are asked for.
+    expect(() => loadConfig({ ...paymentsEnv, SHIPPO_WEBHOOK_TOKEN: token })).toThrow(
+      /SHIPPO_API_KEY/,
     );
   });
 

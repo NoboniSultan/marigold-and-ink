@@ -156,8 +156,9 @@ const TRANSITION_TABLE = [
     guard: deliveredAsFiles,
   },
   { from: 'awaiting_final_payment', to: 'refunded', actors: ['admin', 'system'], via: 'refund' },
-  { from: 'ready_to_ship', to: 'shipped', actors: ['admin'] },
-  { from: 'shipped', to: 'delivered', actors: ['admin'] },
+  // The system moves these from the carrier's tracking (milestone 11b); the admin still can.
+  { from: 'ready_to_ship', to: 'shipped', actors: ['admin', 'system'] },
+  { from: 'shipped', to: 'delivered', actors: ['admin', 'system'] },
   { from: 'delivered', to: 'completed', actors: ['admin'] },
 ] satisfies Transition[];
 

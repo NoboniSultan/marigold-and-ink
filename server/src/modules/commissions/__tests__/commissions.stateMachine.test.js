@@ -26,8 +26,8 @@ const EXPECTED = {
   'awaiting_final_payment>ready_to_ship': { actors: ['system'], fulfillment: 'physical' },
   'awaiting_final_payment>delivered': { actors: ['system'], fulfillment: 'digital or mixed_media' },
   'awaiting_final_payment>refunded': { actors: ['admin', 'system'], via: 'refund' },
-  'ready_to_ship>shipped': { actors: ['admin'] },
-  'shipped>delivered': { actors: ['admin'] },
+  'ready_to_ship>shipped': { actors: ['admin', 'system'] },
+  'shipped>delivered': { actors: ['admin', 'system'] },
   'delivered>completed': { actors: ['admin'] },
 };
 

@@ -62,6 +62,7 @@ export default defineConfig({
       SHIP_FROM_CITY: '',
       SHIP_FROM_STATE: '',
       SHIP_FROM_ZIP: '',
+      SHIPPO_WEBHOOK_TOKEN: '',
       // Small fixture content and images (tests/fixtures), so tests never depend on the
       // owner's real photos. content.real.test.ts validates the real files separately.
       CONTENT_DIR: path.join(import.meta.dirname, 'tests/fixtures/content'),

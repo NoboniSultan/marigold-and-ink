@@ -183,6 +183,23 @@ export async function createShipment(overrides = {}) {
   });
 }
 
+/** A bought postage label (milestone 11b), on a new shipment unless one is given. */
+export async function createShippingLabel(overrides = {}) {
+  const n = next();
+  const shipmentId = overrides.shipmentId ?? (await createShipment()).id;
+  return insert('shipping_labels', {
+    providerTransactionId: `txn_${n}`,
+    carrier: 'USPS',
+    serviceToken: 'usps_ground_advantage',
+    serviceName: 'Ground Advantage',
+    trackingNumber: `9400TEST${n}`,
+    trackingUrl: `https://tools.usps.com/go/TrackConfirmAction?tLabels=9400TEST${n}`,
+    postageCents: 758,
+    ...overrides,
+    shipmentId,
+  });
+}
+
 export function createCharity(overrides = {}) {
   const n = next();
   return insert('charities', { name: `Test Charity ${n}`, ...overrides });

@@ -47,13 +47,15 @@ export interface ShipmentRecord {
   providerShipmentId: string | null;
   choice: ChoiceFields | null;
   rateChosenAt: Date | null;
+  /** The latest prices fetched for buying the label (milestone 11b). */
+  labelQuoteId: string | null;
   updatedAt: Date;
 }
 
 const COLUMNS = `id, commission_id, recipient_name, address_line1, address_line2, city, state,
   postal_code, address_removed_at, weight_oz, length_in, width_in, height_in,
   provider_shipment_id, rate_id, carrier, service_token, service_name, estimated_days,
-  postage_cents, packaging_fee_cents, rate_chosen_at, updated_at`;
+  postage_cents, packaging_fee_cents, rate_chosen_at, label_quote_id, updated_at`;
 
 /** Clearing these forgets the chosen option. */
 const CLEAR_CHOICE = `rate_id = NULL, carrier = NULL, service_token = NULL, service_name = NULL,
@@ -96,6 +98,7 @@ function toShipment(row: Record<string, unknown>): ShipmentRecord {
             packagingFeeCents: Number(row.packaging_fee_cents),
           },
     rateChosenAt: row.rate_chosen_at as Date | null,
+    labelQuoteId: row.label_quote_id as string | null,
     updatedAt: row.updated_at as Date,
   };
 }
@@ -194,6 +197,18 @@ export async function saveChoice(
     ],
   );
   return toShipment(rows[0]);
+}
+
+/** Records (or, with null, forgets) the prices fetched for buying the label. */
+export async function saveLabelQuote(
+  commissionId: number,
+  labelQuoteId: string | null,
+  client: Db = pool,
+): Promise<void> {
+  await client.query('UPDATE shipments SET label_quote_id = $2 WHERE commission_id = $1', [
+    commissionId,
+    labelQuoteId,
+  ]);
 }
 
 /**

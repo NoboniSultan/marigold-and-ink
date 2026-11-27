@@ -68,6 +68,7 @@ export function createDefaultAdapters(): AppAdapters {
             state: config.shipping.from.state!,
             zip: config.shipping.from.zip!,
           },
+          webhookToken: config.shipping.webhookToken,
         }
       : null,
   };

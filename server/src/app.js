@@ -19,6 +19,11 @@ import { stripeWebhook } from './modules/payments/payments.controller.ts';
 import { expireOpenCheckouts } from './modules/payments/payments.service.ts';
 import { requestPendingTrees } from './modules/giving/giving.service.ts';
 import { purgeExpiredFiles } from './modules/files/files.service.ts';
+import { shippoWebhookRouter } from './modules/shipping/shipping.routes.ts';
+import {
+  notifyStatusChange,
+  refreshAllTracking,
+} from './modules/shipping/shipping.tracking.service.ts';
 
 const MEDIA_COLLECTIONS = ['artworks', 'about'];
 
@@ -58,10 +63,17 @@ export function createApp({
   app.locals.requestPendingTrees = () => requestPendingTrees(adapters.trees);
   // Deletes files whose keeping period is over (ADR 0016); server.js runs it daily.
   app.locals.purgeExpiredFiles = () => purgeExpiredFiles(adapters.storage);
+  // Checks every package still on its way, and pending label refunds (milestone 11b);
+  // server.js runs it at startup and daily, as a backup to Shippo's tracking webhook.
+  app.locals.refreshTracking = () =>
+    refreshAllTracking({ shipping: adapters.shipping, email: adapters.email });
   app.locals.onCommissionStatusChange = async (commission) => {
     if (commission.status === 'canceled') {
       await expireOpenCheckouts(commission.id, adapters.payments);
     }
+    // The owner marked a package shipped or delivered by hand: the client hears about it as
+    // they would from tracking.
+    await notifyStatusChange(commission, adapters.email);
   };
 
   // Behind Render's proxy, trust X-Forwarded-For/-Proto from that many hops, so req.ip
@@ -122,6 +134,11 @@ export function createApp({
     express.raw({ type: 'application/json', limit: '1mb' }),
     stripeWebhook,
   );
+
+  //    Shippo's tracking webhook: also no session or Origin check (Shippo isn't a browser).
+  //    A secret in its link is checked instead; see shipping.routes.ts. Tracking updates
+  //    carry the package's whole history, hence the larger limit.
+  app.use('/api/v1/webhooks/shippo', express.json({ limit: '1mb' }), shippoWebhookRouter);
 
   //    Parse JSON bodies, rejecting anything over 100 KB to limit abuse.
   app.use(express.json({ limit: '100kb' }));

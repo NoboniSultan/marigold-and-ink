@@ -159,7 +159,7 @@ export async function exportData(user: UserRecord) {
       const [events, payments, shipment] = await Promise.all([
         commissionsService.listEvents(commission.id, user),
         paymentsService.listPayments(commission.id, user),
-        shippingService.shipmentForExport(commission.id),
+        shippingService.shipmentForExport(commission),
       ]);
       let quote = null;
       try {

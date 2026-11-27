@@ -11,6 +11,7 @@ function buildApp() {
   app.get('/missing', (req, res) => res.status(404).end());
   app.get('/broken', (req, res) => res.status(500).end());
   app.get('/api/v1/auth/google/callback', (req, res) => res.redirect(303, '/'));
+  app.post('/api/v1/webhooks/shippo', (req, res) => res.end());
   return { app, logger };
 }
 
@@ -48,6 +49,16 @@ describe('requestLogger', () => {
 
     const [fields] = logger.info.mock.calls[0];
     expect(fields.path).toBe('/api/v1/auth/google/callback?[REDACTED]');
+    expect(JSON.stringify(logger.info.mock.calls)).not.toMatch(/secret/);
+  });
+
+  it("never logs the secret in Shippo's webhook link", async () => {
+    const { app, logger } = buildApp();
+
+    await request(app).post('/api/v1/webhooks/shippo?token=secret-token');
+
+    const [fields] = logger.info.mock.calls[0];
+    expect(fields.path).toBe('/api/v1/webhooks/shippo?[REDACTED]');
     expect(JSON.stringify(logger.info.mock.calls)).not.toMatch(/secret/);
   });
 });
