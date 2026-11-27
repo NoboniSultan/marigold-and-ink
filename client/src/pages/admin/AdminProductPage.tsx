@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { AdminProduct, AdminVariant, ProductCategory } from '@shared/types/shop.ts';
 import { ApiError, fieldErrors, formMessage } from '../../api/client.ts';
 import { adminShopApi } from '../../api/endpoints.ts';
-import { queryKeys, useAdminProduct } from '../../api/queries.ts';
+import { queryKeys, useAdminProduct, usePackingTypes } from '../../api/queries.ts';
 import { FormField } from '../../components/FormField.tsx';
 import { ErrorMessage, Loading } from '../../components/Loading.tsx';
 import buttonStyles from '../../components/Button.module.css';
@@ -65,7 +65,10 @@ function DetailsForm({ product }: { product: AdminProduct }) {
     materials: product.materials ?? '',
     dimensions: product.dimensions ?? '',
     oneOfAKind: product.oneOfAKind,
+    packingTypeId: product.packingTypeId === null ? '' : String(product.packingTypeId),
+    pickupOnly: product.pickupOnly,
   });
+  const packingTypes = usePackingTypes();
   const [saved, setSaved] = useState(false);
   const fields = fieldErrors(error);
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
@@ -80,6 +83,7 @@ function DetailsForm({ product }: { product: AdminProduct }) {
         ...form,
         materials: form.materials || null,
         dimensions: form.dimensions || null,
+        packingTypeId: form.packingTypeId ? Number(form.packingTypeId) : null,
       }),
     );
     setSaved(ok);
@@ -145,6 +149,35 @@ function DetailsForm({ product }: { product: AdminProduct }) {
         error={fields.dimensions}
         maxLength={200}
       />
+      <label className={styles.label}>
+        Packing (what it ships in)
+        <select
+          className={styles.select}
+          value={form.packingTypeId}
+          onChange={(e) => set('packingTypeId', e.target.value)}
+          disabled={form.pickupOnly}
+        >
+          <option value="">Not chosen yet</option>
+          {packingTypes.data?.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.lengthIn} × {t.widthIn} × {t.heightIn} in)
+            </option>
+          ))}
+        </select>
+      </label>
+      {packingTypes.data?.length === 0 && (
+        <p className={styles.muted}>
+          Add your mailers and boxes under <Link to="/admin/shop">Packing types</Link> first.
+        </p>
+      )}
+      <label className={pageStyles.choice}>
+        <input
+          type="checkbox"
+          checked={form.pickupOnly}
+          onChange={(e) => set('pickupOnly', e.target.checked)}
+        />
+        <span>Local pickup only (not shipped; an order with it is collected)</span>
+      </label>
       <label className={pageStyles.choice}>
         <input
           type="checkbox"
@@ -230,6 +263,7 @@ function VariantRow({ product, variant }: { product: AdminProduct; variant: Admi
   const { run, busy, error } = useProductChange(product.id);
   const [name, setName] = useState(variant.name);
   const [price, setPrice] = useState((variant.priceCents / 100).toFixed(2));
+  const [weight, setWeight] = useState(variant.weightOz === null ? '' : String(variant.weightOz));
   const [stock, setStock] = useState(String(variant.stock));
   const [reason, setReason] = useState<'restock' | 'adjustment'>('restock');
   const [note, setNote] = useState('');
@@ -243,7 +277,13 @@ function VariantRow({ product, variant }: { product: AdminProduct; variant: Admi
       return;
     }
     setPriceError(null);
-    await run(() => adminShopApi.updateVariant(variant.id, { name, priceCents }));
+    await run(() =>
+      adminShopApi.updateVariant(variant.id, {
+        name,
+        priceCents,
+        weightOz: weight.trim() ? Number(weight) : null,
+      }),
+    );
   }
 
   async function saveStock(event: FormEvent) {
@@ -275,6 +315,13 @@ function VariantRow({ product, variant }: { product: AdminProduct; variant: Admi
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           error={priceError ?? undefined}
+        />
+        <FormField
+          label="Packed weight (oz)"
+          inputMode="decimal"
+          value={weight}
+          onChange={(e) => setWeight(e.target.value)}
+          error={fieldErrors(error).weightOz}
         />
         <button type="submit" className={secondary} disabled={busy}>
           Save
@@ -324,6 +371,7 @@ function AddVariantForm({ product }: { product: AdminProduct }) {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState(product.oneOfAKind ? '1' : '');
+  const [weight, setWeight] = useState('');
   const [priceError, setPriceError] = useState<string | null>(null);
   const fields = fieldErrors(error);
 
@@ -336,12 +384,18 @@ function AddVariantForm({ product }: { product: AdminProduct }) {
     }
     setPriceError(null);
     const ok = await run(() =>
-      adminShopApi.addVariant(product.id, { name, priceCents, stock: Number(stock) || 0 }),
+      adminShopApi.addVariant(product.id, {
+        name,
+        priceCents,
+        stock: Number(stock) || 0,
+        weightOz: weight.trim() ? Number(weight) : null,
+      }),
     );
     if (ok) {
       setName('');
       setPrice('');
       setStock('');
+      setWeight('');
     }
   }
 
@@ -374,6 +428,14 @@ function AddVariantForm({ product }: { product: AdminProduct }) {
         value={stock}
         onChange={(e) => setStock(e.target.value)}
         error={fields.stock}
+      />
+      <FormField
+        label="Packed weight (oz)"
+        hint="The item as it goes in the box, with any wrapping. Needed to ship it."
+        inputMode="decimal"
+        value={weight}
+        onChange={(e) => setWeight(e.target.value)}
+        error={fields.weightOz}
       />
       <button type="submit" className={primary} disabled={busy}>
         {busy ? 'Adding…' : 'Add option'}

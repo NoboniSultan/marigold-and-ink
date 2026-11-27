@@ -87,7 +87,7 @@ export function AdminOrdersPage() {
                     <td>{o.client?.displayName ?? 'Deleted user'}</td>
                     <td>{o.items.reduce((n, i) => n + i.quantity, 0)}</td>
                     <td>{ORDER_STATUS_TEXT[o.status]}</td>
-                    <td className={styles.number}>{usd(o.subtotalCents)}</td>
+                    <td className={styles.number}>{usd(o.totalCents)}</td>
                     <td>{formatDate(o.createdAt)}</td>
                   </tr>
                 ))}

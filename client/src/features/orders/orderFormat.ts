@@ -4,6 +4,8 @@ import type { OrderStatus } from '@shared/types/order.ts';
 export const ORDER_STATUS_TEXT: Record<OrderStatus, string> = {
   pending_payment: 'Waiting for payment',
   paid: 'Paid',
+  shipped: 'Shipped',
+  delivered: 'Delivered',
   expired: 'Not paid (the payment page closed)',
   canceled: 'Canceled',
   refunded: 'Refunded',

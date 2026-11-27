@@ -30,13 +30,13 @@ import { US_STATES } from './states.ts';
 const usd = (cents: number) => formatMoney(cents, 'usd');
 
 /** The carrier's reasons an address was refused, if it sent any. */
-function addressProblems(error: unknown): string[] {
+export function addressProblems(error: unknown): string[] {
   if (!(error instanceof ApiError) || error.code !== 'ADDRESS_NOT_DELIVERABLE') return [];
   const messages = (error.details as { messages?: unknown } | undefined)?.messages;
   return Array.isArray(messages) ? messages.filter((m): m is string => typeof m === 'string') : [];
 }
 
-function AddressLines({ address }: { address: ShippingAddress }) {
+export function AddressLines({ address }: { address: ShippingAddress }) {
   return (
     <address>
       {address.name}
@@ -239,7 +239,7 @@ function AddressPart({
   );
 }
 
-function describeOption(option: Omit<ShippingOption, 'rateId'>) {
+export function describeOption(option: Omit<ShippingOption, 'rateId'>) {
   const days =
     option.estimatedDays === null
       ? ''
@@ -247,7 +247,7 @@ function describeOption(option: Omit<ShippingOption, 'rateId'>) {
   return `${option.carrier} ${option.serviceName}${days}`;
 }
 
-function Breakdown({ option }: { option: Omit<ShippingOption, 'rateId'> }) {
+export function Breakdown({ option }: { option: Omit<ShippingOption, 'rateId'> }) {
   return (
     <>
       {usd(option.postageCents)} postage
@@ -375,7 +375,7 @@ const when = (iso: string) =>
   new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** The package's tracking number (linked to the carrier), where it is, and its scans. */
-function TrackingPart({ label }: { label: ShippingLabel }) {
+export function TrackingPart({ label }: { label: ShippingLabel }) {
   return (
     <div>
       <h3>Tracking</h3>
@@ -551,11 +551,34 @@ function PackageForm({
   );
 }
 
-/** Puts a fresh answer from a label action straight into the cache. */
-function useSetShipping(commissionId: number) {
+/**
+ * What the label screens can do, for a commission's shipment or (milestone 12c) a shop
+ * order's: each action asks the server and puts its answer in the right cache.
+ */
+export interface LabelActions {
+  /** Distinguishes the radio group on the page. */
+  key: string;
+  /** Says whose service the client chose ("the client’s choice"). */
+  labelOptions(): Promise<LabelOption[]>;
+  buy(rateId: string): Promise<void>;
+  voidLabel(): Promise<void>;
+  refresh(): Promise<void>;
+  fileUrl: string;
+}
+
+function useCommissionLabelActions(commissionId: number): LabelActions {
   const queryClient = useQueryClient();
-  return (response: ShippingResponse) =>
+  const put = (response: ShippingResponse) => {
     queryClient.setQueryData(queryKeys.shipping(commissionId), response);
+  };
+  return {
+    key: `commission-${commissionId}`,
+    labelOptions: () => shippingApi.labelOptions(commissionId),
+    buy: async (rateId) => put(await shippingApi.buyLabel(commissionId, rateId)),
+    voidLabel: async () => put(await shippingApi.voidLabel(commissionId)),
+    refresh: async () => put(await shippingApi.refreshTracking(commissionId)),
+    fileUrl: labelFileUrl(commissionId),
+  };
 }
 
 function difference(option: LabelOption): string {
@@ -568,8 +591,7 @@ function difference(option: LabelOption): string {
 }
 
 /** Admin, once paid: today's prices, then buying the label. */
-function BuyLabel({ commissionId }: { commissionId: number }) {
-  const setShipping = useSetShipping(commissionId);
+export function BuyLabel({ actions }: { actions: LabelActions }) {
   const [options, setOptions] = useState<LabelOption[] | null>(null);
   const [selected, setSelected] = useState('');
   const [busy, setBusy] = useState(false);
@@ -583,7 +605,7 @@ function BuyLabel({ commissionId }: { commissionId: number }) {
     setBusy(true);
     setError(null);
     try {
-      const list = await shippingApi.labelOptions(commissionId);
+      const list = await actions.labelOptions();
       setOptions(list);
       setSelected((list.find((o) => o.matchesChoice) ?? list[0])?.rateId ?? '');
     } catch (err) {
@@ -598,7 +620,7 @@ function BuyLabel({ commissionId }: { commissionId: number }) {
     setBusy(true);
     setError(null);
     try {
-      setShipping(await shippingApi.buyLabel(commissionId, selected));
+      await actions.buy(selected);
     } catch (err) {
       setError(err);
       if (err instanceof ApiError && err.code === 'LABEL_OPTION_STALE') setOptions(null);
@@ -629,7 +651,7 @@ function BuyLabel({ commissionId }: { commissionId: number }) {
               <label key={option.rateId} className={pageStyles.choice}>
                 <input
                   type="radio"
-                  name={`label-${commissionId}`}
+                  name={`label-${actions.key}`}
                   value={option.rateId}
                   checked={selected === option.rateId}
                   onChange={() => setSelected(option.rateId)}
@@ -666,17 +688,16 @@ function BuyLabel({ commissionId }: { commissionId: number }) {
 }
 
 /** Admin: the label in use (print, void, check tracking), and the voided ones. */
-function LabelPart({ commissionId, shipment }: { commissionId: number; shipment: Shipment }) {
-  const setShipping = useSetShipping(commissionId);
+export function LabelPart({ actions, shipment }: { actions: LabelActions; shipment: Shipment }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const label = shipment.label;
 
-  async function run(action: () => Promise<ShippingResponse>) {
+  async function run(action: () => Promise<void>) {
     setBusy(true);
     setError(null);
     try {
-      setShipping(await action());
+      await action();
     } catch (err) {
       setError(err);
     } finally {
@@ -688,7 +709,7 @@ function LabelPart({ commissionId, shipment }: { commissionId: number; shipment:
     if (!window.confirm('Void this label? Its postage is refunded within about two weeks.')) {
       return;
     }
-    void run(() => shippingApi.voidLabel(commissionId));
+    void run(actions.voidLabel);
   }
 
   return (
@@ -707,7 +728,7 @@ function LabelPart({ commissionId, shipment }: { commissionId: number; shipment:
           <div className={adminStyles.actions}>
             <a
               className={`${buttonStyles.button} ${buttonStyles.primary}`}
-              href={labelFileUrl(commissionId)}
+              href={actions.fileUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -716,7 +737,7 @@ function LabelPart({ commissionId, shipment }: { commissionId: number; shipment:
             <button
               type="button"
               className={`${buttonStyles.button} ${buttonStyles.secondary}`}
-              onClick={() => run(() => shippingApi.refreshTracking(commissionId))}
+              onClick={() => run(actions.refresh)}
               disabled={busy}
             >
               Check tracking now
@@ -762,6 +783,7 @@ const REFUND_STATUS = {
 /** The admin commission page's Shipping section (physical work only). */
 export function AdminShipping({ commissionId }: { commissionId: number }) {
   const shipping = useShipping(commissionId);
+  const labelActions = useCommissionLabelActions(commissionId);
 
   if (shipping.isPending) return <Loading label="Loading shipping" />;
   if (shipping.isError) {
@@ -816,8 +838,8 @@ export function AdminShipping({ commissionId }: { commissionId: number }) {
           {meta.labelOpen || shipment?.label || shipment?.voidedLabels.length ? (
             <h3>Label</h3>
           ) : null}
-          {shipment ? <LabelPart commissionId={commissionId} shipment={shipment} /> : null}
-          {meta.labelOpen ? <BuyLabel commissionId={commissionId} /> : null}
+          {shipment ? <LabelPart actions={labelActions} shipment={shipment} /> : null}
+          {meta.labelOpen ? <BuyLabel actions={labelActions} /> : null}
         </>
       )}
     </section>

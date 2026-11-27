@@ -24,7 +24,12 @@ export function soldText(product: Pick<ProductSummary, 'available' | 'oneOfAKind
   return product.oneOfAKind ? 'Sold' : 'Sold out';
 }
 
-const MISSING_TEXT = { variant: 'an option', photo: 'a photo', alt_text: 'alt text' } as const;
+const MISSING_TEXT = {
+  variant: 'an option',
+  photo: 'a photo',
+  alt_text: 'alt text',
+  shipping: 'shipping details',
+} as const;
 
 /** The admin's view of a product's state: published, or what it still needs to be. */
 export function productState(product: {

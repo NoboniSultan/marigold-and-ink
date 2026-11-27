@@ -7,6 +7,8 @@ import buttonStyles from '../components/Button.module.css';
 import { useCart } from '../features/cart/CartContext.tsx';
 import { ORDER_STATUS_TEXT } from '../features/orders/orderFormat.ts';
 import { usd } from '../features/shop/shopFormat.ts';
+import { AddressLines, TrackingPart, describeOption } from '../features/shipping/Shipping.tsx';
+import { COPY } from '../content/copy.ts';
 import adminStyles from './admin/Admin.module.css';
 import styles from './CartPage.module.css';
 
@@ -103,9 +105,15 @@ export function OrderPage() {
             ))}
           </tbody>
           <tfoot>
+            {!o.pickup && (
+              <tr>
+                <td colSpan={2}>Shipping &amp; packaging</td>
+                <td className={adminStyles.number}>{usd(o.shippingCents)}</td>
+              </tr>
+            )}
             <tr>
               <td colSpan={2}>Total</td>
-              <td className={adminStyles.number}>{usd(o.subtotalCents)}</td>
+              <td className={adminStyles.number}>{usd(o.totalCents)}</td>
             </tr>
             {o.refundedCents > 0 && (
               <tr>
@@ -116,6 +124,20 @@ export function OrderPage() {
           </tfoot>
         </table>
       </div>
+
+      {o.pickup ? (
+        <p className={styles.notice}>
+          <strong>{o.status === 'delivered' ? 'Picked up.' : 'Local pickup.'}</strong>{' '}
+          {o.status === 'delivered' ? '' : COPY.shop.pickupNote}
+        </p>
+      ) : o.shipment ? (
+        <section aria-labelledby="order-shipping-heading">
+          <h2 id="order-shipping-heading">Shipping</h2>
+          {o.shipment.address && <AddressLines address={o.shipment.address} />}
+          {o.shipment.chosen && <p>{describeOption(o.shipment.chosen)}.</p>}
+          {o.shipment.label && <TrackingPart label={o.shipment.label} />}
+        </section>
+      ) : null}
 
       {pending && !returned && o.checkoutUrl && (
         <div className={styles.actions}>
