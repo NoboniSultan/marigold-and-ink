@@ -7,7 +7,7 @@ import { FileStorageError } from '../../src/adapters/r2Storage.ts';
 
 export function fakeStorage() {
   const objects = new Map<string, { body: Buffer; contentType: string }>();
-  const failNext = { put: false, remove: false };
+  const failNext = { put: false, remove: false, get: false };
 
   const storage: FileStorage = {
     async put({ key, body, contentType }) {
@@ -16,6 +16,13 @@ export function fakeStorage() {
         throw new FileStorageError('File storage failed to store a file');
       }
       objects.set(key, { body, contentType });
+    },
+    async get(key) {
+      if (failNext.get) {
+        failNext.get = false;
+        throw new FileStorageError('File storage failed to read a file');
+      }
+      return objects.get(key) ?? null;
     },
     async remove(keys) {
       if (failNext.remove) {

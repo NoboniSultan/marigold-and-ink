@@ -18,6 +18,7 @@ import { adminCommissionsRouter } from './modules/admin/admin.routes.ts';
 import { adminReportsRouter } from './modules/reports/reports.routes.ts';
 import { adminFilesRouter, filesRouter } from './modules/files/files.routes.ts';
 import { adminShippingRouter, shippingRouter } from './modules/shipping/shipping.routes.ts';
+import { adminShopRouter, shopRouter } from './modules/shop/shop.routes.ts';
 import { requireAuth, requireRole } from './middleware/auth.js';
 
 /** Mounts every module's router. app.js mounts this whole router under /api/v1. */
@@ -37,6 +38,7 @@ apiRouter.use('/tags', tagsRouter);
 apiRouter.use('/about', aboutRouter);
 apiRouter.use('/pricing', pricingRouter);
 apiRouter.use('/giving', givingRouter);
+apiRouter.use('/shop', shopRouter);
 
 // Admin-only routes share one guard at the router level, so a route added here later
 // can't be left unprotected by forgetting requireRole on it.
@@ -51,4 +53,5 @@ adminRouter.use('/commissions/:id/shipping', adminShippingRouter);
 adminRouter.use('/commissions', adminCommissionsRouter);
 adminRouter.use('/donations', adminDonationsRouter);
 adminRouter.use('/reports', adminReportsRouter);
+adminRouter.use('/shop', adminShopRouter);
 apiRouter.use('/admin', adminRouter);

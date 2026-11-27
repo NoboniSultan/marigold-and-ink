@@ -200,6 +200,45 @@ export async function createShippingLabel(overrides = {}) {
   });
 }
 
+/** A shop product (milestone 12a): unpublished, with no variants or photos, unless given. */
+export function createProduct(overrides = {}) {
+  const n = next();
+  return insert('products', {
+    slug: `test-product-${n}`,
+    name: `Test Product ${n}`,
+    category: 'stickers',
+    ...overrides,
+  });
+}
+
+/** A variant of a new product unless one is given. Stock is set directly (no log row). */
+export async function createVariant(overrides = {}) {
+  const productId = overrides.productId ?? (await createProduct()).id;
+  const n = next();
+  return insert('product_variants', {
+    name: `Option ${n}`,
+    priceCents: 500,
+    stock: 3,
+    ...overrides,
+    productId,
+  });
+}
+
+/** A photo row (no stored file) of a new product unless one is given. */
+export async function createProductPhoto(overrides = {}) {
+  const productId = overrides.productId ?? (await createProduct()).id;
+  const hash = next().toString(16).padStart(16, '0');
+  return insert('product_photos', {
+    smallKey: `shop/products/${productId}/${hash}-small.webp`,
+    largeKey: `shop/products/${productId}/${hash}-large.webp`,
+    width: 1600,
+    height: 1200,
+    altText: 'A test photo',
+    ...overrides,
+    productId,
+  });
+}
+
 export function createCharity(overrides = {}) {
   const n = next();
   return insert('charities', { name: `Test Charity ${n}`, ...overrides });

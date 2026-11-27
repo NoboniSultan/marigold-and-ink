@@ -14,6 +14,9 @@ import {
   createDonation,
   createShipment,
   createShippingLabel,
+  createProduct,
+  createVariant,
+  createProductPhoto,
 } from '../../../tests/factories/index.js';
 
 beforeEach(truncateAllTables);
@@ -922,6 +925,159 @@ describe('tracking_events', () => {
     await expectViolation(
       pool.query('DELETE FROM shipping_labels WHERE id = $1', [label.id]),
       FOREIGN_KEY_VIOLATION,
+    );
+  });
+});
+
+describe('products', () => {
+  it('has unique, URL-safe slugs', async () => {
+    await createProduct({ slug: 'vase' });
+    await expectViolation(createProduct({ slug: 'vase' }), UNIQUE_VIOLATION, 'products_slug_key');
+    await expectViolation(
+      createProduct({ slug: 'Blue Vase' }),
+      CHECK_VIOLATION,
+      'products_slug_format_check',
+    );
+  });
+
+  it('only allows the four categories', async () => {
+    await expectViolation(
+      createProduct({ category: 'furniture' }),
+      CHECK_VIOLATION,
+      'product_category_check',
+    );
+  });
+
+  it('keeps text non-empty and short', async () => {
+    for (const change of [
+      { name: '  ' },
+      { description: 'x'.repeat(5001) },
+      { materials: '' },
+      { dimensions: 'x'.repeat(201) },
+    ]) {
+      await expectViolation(createProduct(change), CHECK_VIOLATION, 'products_text_check');
+    }
+  });
+});
+
+describe('product_variants', () => {
+  it('names each option of a product once', async () => {
+    const variant = await createVariant({ name: 'Single' });
+    await expectViolation(
+      createVariant({ productId: variant.product_id, name: 'Single' }),
+      UNIQUE_VIOLATION,
+      'product_variants_product_name_key',
+    );
+    await expect(createVariant({ name: 'Single' })).resolves.toBeDefined(); // another product
+  });
+
+  it('has a positive price, and never negative stock or position', async () => {
+    await expectViolation(
+      createVariant({ priceCents: 0 }),
+      CHECK_VIOLATION,
+      'product_variants_price_cents_check',
+    );
+    await expectViolation(
+      createVariant({ stock: -1 }),
+      CHECK_VIOLATION,
+      'product_variants_stock_check',
+    );
+    await expectViolation(
+      createVariant({ position: -1 }),
+      CHECK_VIOLATION,
+      'product_variants_position_check',
+    );
+    await expectViolation(
+      createVariant({ name: '' }),
+      CHECK_VIOLATION,
+      'product_variants_name_check',
+    );
+  });
+
+  it('goes with its product', async () => {
+    const variant = await createVariant();
+    await pool.query('DELETE FROM products WHERE id = $1', [variant.product_id]);
+    const { rows } = await pool.query('SELECT id FROM product_variants');
+    expect(rows).toEqual([]);
+  });
+});
+
+describe('product_photos', () => {
+  it('stores keys of the product photo shape only, each once', async () => {
+    const photo = await createProductPhoto();
+    await expectViolation(
+      createProductPhoto({ smallKey: photo.small_key, largeKey: 'x' }),
+      CHECK_VIOLATION,
+      'product_photos_key_check',
+    );
+    await expectViolation(
+      createProductPhoto({
+        productId: photo.product_id,
+        smallKey: photo.small_key,
+        largeKey: photo.large_key,
+      }),
+      UNIQUE_VIOLATION,
+      'product_photos_small_key_key',
+    );
+    await expectViolation(
+      createProductPhoto({ smallKey: 'commissions/1/reference/x.jpg' }),
+      CHECK_VIOLATION,
+      'product_photos_key_check',
+    );
+  });
+
+  it('has a real size, short alt text, and no negative position', async () => {
+    await expectViolation(
+      createProductPhoto({ width: 0 }),
+      CHECK_VIOLATION,
+      'product_photos_size_check',
+    );
+    await expectViolation(
+      createProductPhoto({ altText: ' ' }),
+      CHECK_VIOLATION,
+      'product_photos_alt_text_check',
+    );
+    await expect(createProductPhoto({ altText: null })).resolves.toBeDefined();
+    await expectViolation(
+      createProductPhoto({ position: -1 }),
+      CHECK_VIOLATION,
+      'product_photos_position_check',
+    );
+  });
+});
+
+describe('inventory_movements', () => {
+  const log = (variantId, overrides = {}) => {
+    const row = { change: 5, stockAfter: 5, reason: 'restock', note: null, ...overrides };
+    return pool.query(
+      `INSERT INTO inventory_movements (variant_id, change, stock_after, reason, note)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [variantId, row.change, row.stockAfter, row.reason, row.note],
+    );
+  };
+
+  it('records real changes with a known reason', async () => {
+    const variant = await createVariant();
+    await expect(log(variant.id)).resolves.toBeDefined();
+    await expectViolation(
+      log(variant.id, { change: 0 }),
+      CHECK_VIOLATION,
+      'inventory_movements_change_check',
+    );
+    await expectViolation(
+      log(variant.id, { stockAfter: -1 }),
+      CHECK_VIOLATION,
+      'inventory_movements_stock_after_check',
+    );
+    await expectViolation(
+      log(variant.id, { reason: 'gift' }),
+      CHECK_VIOLATION,
+      'inventory_reason_check',
+    );
+    await expectViolation(
+      log(variant.id, { note: '' }),
+      CHECK_VIOLATION,
+      'inventory_movements_note_check',
     );
   });
 });

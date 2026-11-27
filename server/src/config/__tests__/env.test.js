@@ -408,3 +408,11 @@ describe('loadConfig: shipping (Shippo)', () => {
     expect(() => loadConfig({ ...shippingEnv, [key]: value })).toThrow(new RegExp(key));
   });
 });
+
+describe('loadConfig: SHOP_OPEN', () => {
+  it('keeps the shop closed unless set to true', () => {
+    expect(loadConfig(validEnv).shopOpen).toBe(false);
+    expect(loadConfig({ ...validEnv, SHOP_OPEN: 'true' }).shopOpen).toBe(true);
+    expect(() => loadConfig({ ...validEnv, SHOP_OPEN: 'yes' })).toThrow(/SHOP_OPEN/);
+  });
+});
