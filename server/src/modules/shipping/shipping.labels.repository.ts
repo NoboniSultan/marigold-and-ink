@@ -13,7 +13,9 @@ type Db = Pool | PoolClient;
 export interface LabelRecord {
   id: number;
   shipmentId: number;
-  commissionId: number;
+  /** What the shipment belongs to: a commission, or a shop order (milestone 12c). */
+  commissionId: number | null;
+  orderId: number | null;
   transactionId: string;
   carrier: string;
   serviceToken: string;
@@ -51,7 +53,7 @@ export interface NewLabel {
   postageCents: number;
 }
 
-const COLUMNS = `l.id, l.shipment_id, s.commission_id, l.provider_transaction_id, l.carrier,
+const COLUMNS = `l.id, l.shipment_id, s.commission_id, s.order_id, l.provider_transaction_id, l.carrier,
   l.service_token, l.service_name, l.tracking_number, l.tracking_url, l.postage_cents,
   l.tracking_status, l.tracking_details, l.tracking_updated_at, l.eta, l.problem_notified_at,
   l.voided_at, l.refund_id, l.refund_status, l.created_at`;
@@ -61,7 +63,8 @@ function toLabel(row: Record<string, unknown>): LabelRecord {
   return {
     id: Number(row.id),
     shipmentId: Number(row.shipment_id),
-    commissionId: Number(row.commission_id),
+    commissionId: row.commission_id === null ? null : Number(row.commission_id),
+    orderId: row.order_id === null ? null : Number(row.order_id),
     transactionId: row.provider_transaction_id as string,
     carrier: row.carrier as string,
     serviceToken: row.service_token as string,
@@ -112,17 +115,34 @@ export async function findActiveByTrackingNumber(
   return rows.map(toLabel);
 }
 
-/** Labels in use whose package isn't delivered yet, on commissions in these statuses. */
-export async function findToTrack(
-  commissionStatuses: readonly string[],
+/** Every label a shipment has had, newest first (at most one isn't voided). */
+export async function listForShipment(
+  shipmentId: number,
   client: Db = pool,
 ): Promise<LabelRecord[]> {
   const { rows } = await client.query(
-    `SELECT ${COLUMNS} FROM ${FROM} JOIN commissions c ON c.id = s.commission_id
+    `SELECT ${COLUMNS} FROM ${FROM} WHERE l.shipment_id = $1 ORDER BY l.id DESC`,
+    [shipmentId],
+  );
+  return rows.map(toLabel);
+}
+
+/**
+ * Labels in use whose package isn't delivered yet, on commissions or orders in these
+ * statuses (each still waiting for tracking news).
+ */
+export async function findToTrack(
+  statuses: { commission: readonly string[]; order: readonly string[] },
+  client: Db = pool,
+): Promise<LabelRecord[]> {
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS} FROM ${FROM}
+       LEFT JOIN commissions c ON c.id = s.commission_id
+       LEFT JOIN orders o ON o.id = s.order_id
       WHERE l.voided_at IS NULL AND l.tracking_status <> 'delivered'
-        AND c.status = ANY($1::text[])
+        AND (c.status = ANY($1::text[]) OR o.status = ANY($2::text[]))
       ORDER BY l.id`,
-    [commissionStatuses],
+    [statuses.commission, statuses.order],
   );
   return rows.map(toLabel);
 }

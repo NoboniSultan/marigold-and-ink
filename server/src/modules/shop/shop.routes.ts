@@ -8,6 +8,8 @@ import {
   photoBody,
   photoFileParams,
   photoOrderBody,
+  packingTypeBody,
+  packingTypeParams,
   photoParams,
   productIdParams,
   productSlugParams,
@@ -114,4 +116,22 @@ adminShopRouter.delete(
   '/photos/:photoId',
   validate({ params: photoParams }),
   shopController.removePhoto,
+);
+
+// The owner's mailers and boxes (milestone 12c).
+adminShopRouter.get('/packing-types', shopController.listPackingTypes);
+adminShopRouter.post(
+  '/packing-types',
+  validate({ body: packingTypeBody }),
+  shopController.createPackingType,
+);
+adminShopRouter.put(
+  '/packing-types/:packingTypeId',
+  validate({ params: packingTypeParams, body: packingTypeBody }),
+  shopController.updatePackingType,
+);
+adminShopRouter.delete(
+  '/packing-types/:packingTypeId',
+  validate({ params: packingTypeParams }),
+  shopController.deletePackingType,
 );

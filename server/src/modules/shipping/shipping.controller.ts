@@ -23,6 +23,8 @@ const shippingAndEmail = (req: Request) => {
   return { shipping: adapters.shipping, email: adapters.email };
 };
 const commissionId = (req: Request) => (req.validated.params as { id: number }).id;
+/** Label and tracking actions on these routes are for the commission in the URL. */
+const owner = (req: Request) => ({ kind: 'commission' as const, id: commissionId(req) });
 
 /** After a label change, the admin gets the whole shipment back (as GET would answer). */
 async function sendShipping(req: Request, res: Response) {
@@ -84,17 +86,13 @@ export async function choose(req: Request, res: Response) {
 // --- Labels and tracking (admin, milestone 11b) ---
 
 export async function labelOptions(req: Request, res: Response) {
-  const options = await labelsService.labelOptions(
-    req.user as User,
-    commissionId(req),
-    shipping(req),
-  );
+  const options = await labelsService.labelOptions(owner(req), shipping(req));
   res.json({ data: options } satisfies ApiResponse<LabelOption[]>);
 }
 
 export async function buyLabel(req: Request, res: Response) {
   await labelsService.buyLabel(
-    commissionId(req),
+    owner(req),
     (req.validated.body as { rateId: string }).rateId,
     shipping(req),
   );
@@ -103,18 +101,18 @@ export async function buyLabel(req: Request, res: Response) {
 
 /** Sends the browser to a fresh link to the label PDF (the shipping service's links expire). */
 export async function labelFile(req: Request, res: Response) {
-  const url = await labelsService.labelFileUrl(commissionId(req), shipping(req));
+  const url = await labelsService.labelFileUrl(owner(req), shipping(req));
   res.set('Cache-Control', 'no-store');
   res.redirect(302, url);
 }
 
 export async function voidLabel(req: Request, res: Response) {
-  await labelsService.voidLabel(commissionId(req), shipping(req));
+  await labelsService.voidLabel(owner(req), shipping(req));
   await sendShipping(req, res);
 }
 
 export async function refreshTracking(req: Request, res: Response) {
-  await trackingService.refreshCommission(commissionId(req), shippingAndEmail(req));
+  await trackingService.refreshOwner(owner(req), shippingAndEmail(req));
   await sendShipping(req, res);
 }
 

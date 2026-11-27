@@ -46,6 +46,16 @@ import {
   type Setup,
 } from './shipping.guards.ts';
 import { labelParts, type LabelParts } from './shipping.labels.service.ts';
+import type { OwnerRef, OwnerState } from './shipping.owners.ts';
+
+const commissionOwner = (commission: CommissionLike): OwnerRef => ({
+  kind: 'commission',
+  id: commission.id,
+});
+const commissionState = (commission: CommissionLike) => ({
+  status: commission.status,
+  ships: ships(commission.fulfillmentType),
+});
 
 function assertAddressOpen(commission: CommissionLike) {
   if (!addressOpen(commission.status)) {
@@ -157,7 +167,9 @@ export async function getShipping(
   const commission = await commissionsService.getCommissionForUser(commissionId, user);
   const record = await shippingRepository.findByCommission(commissionId);
   const admin = user.role === 'admin';
-  const labels = record ? await labelParts(commission, { admin }) : NO_LABEL;
+  const labels = record
+    ? await labelParts(commissionOwner(commission), commissionState(commission), { admin })
+    : NO_LABEL;
   return {
     data: record ? toShipment(record, labels) : null,
     meta: metaFor(commission, shipping, { admin, labels }),
@@ -390,5 +402,126 @@ export function removeAddressesForDeletedClient(
 /** The commission's shipment (as the client sees it) for their data download, or null. */
 export async function shipmentForExport(commission: CommissionLike): Promise<Shipment | null> {
   const record = await shippingRepository.findByCommission(commission.id);
-  return record ? toShipment(record, await labelParts(commission, { admin: false })) : null;
+  return record
+    ? toShipment(
+        record,
+        await labelParts(commissionOwner(commission), commissionState(commission), {
+          admin: false,
+        }),
+      )
+    : null;
+}
+
+// --- Shop orders (milestone 12c, ADR 0021) ---
+
+export interface ParcelQuote {
+  /** The address as the carrier standardized it. */
+  address: ShippingAddress;
+  /** The shipping service's quote the rates belong to. */
+  providerShipmentId: string;
+  /** Offered services, cheapest first. */
+  rates: ShippingRate[];
+  packagingFeeCents: number;
+}
+
+/**
+ * Checks an address and prices a package to it (for a cart). Answers 422
+ * ADDRESS_NOT_DELIVERABLE with the carrier's reasons, or NO_SHIPPING_OPTIONS.
+ */
+export async function quoteParcel(
+  to: ShippingAddressInput,
+  parcel: ShippingPackage,
+  { shipping }: { shipping?: ShippingSetup | null },
+): Promise<ParcelQuote> {
+  const setup = requireShipping(shipping);
+  const check = await viaProvider(() =>
+    setup.provider.checkAddress({
+      name: to.name,
+      street1: to.line1,
+      street2: to.line2 ?? null,
+      city: to.city,
+      state: to.state,
+      zip: to.postalCode,
+    }),
+  );
+  if (!check.valid) {
+    throw new BusinessRuleError(
+      "That address couldn't be confirmed as deliverable. Please check it and try again.",
+      { code: 'ADDRESS_NOT_DELIVERABLE', details: { messages: check.messages } },
+    );
+  }
+  const quote = await viaProvider(() =>
+    setup.provider.quote({ from: setup.from, to: check.address, parcel }),
+  );
+  const rates = offered(quote.rates);
+  if (rates.length === 0) {
+    throw new BusinessRuleError(
+      'No shipping options are available for this address and package. Please contact us.',
+      { code: 'NO_SHIPPING_OPTIONS' },
+    );
+  }
+  return {
+    address: {
+      name: check.address.name,
+      line1: check.address.street1,
+      line2: check.address.street2,
+      city: check.address.city,
+      state: check.address.state,
+      postalCode: check.address.zip,
+    },
+    providerShipmentId: quote.shipmentId,
+    rates,
+    packagingFeeCents: setup.packagingFeeCents,
+  };
+}
+
+/** Records a shop order's shipment at checkout, in the checkout's transaction. */
+export async function recordOrderShipment(
+  orderId: number,
+  { quote, rate, parcel }: { quote: ParcelQuote; rate: ShippingRate; parcel: ShippingPackage },
+  { client }: { client: PoolClient },
+): Promise<void> {
+  await shippingRepository.insertOrderShipment(
+    orderId,
+    {
+      address: quote.address,
+      parcel,
+      providerShipmentId: quote.providerShipmentId,
+      choice: {
+        rateId: rate.id,
+        carrier: rate.carrier,
+        serviceToken: rate.serviceToken,
+        serviceName: rate.serviceName,
+        estimatedDays: rate.estimatedDays,
+        postageCents: rate.amountCents,
+        packagingFeeCents: quote.packagingFeeCents,
+      },
+    },
+    client,
+  );
+}
+
+/**
+ * A shop order's shipment (with its label and tracking), or null for a pickup. `state` is
+ * the order's, for whether its label may be voided; clients don't see costs or voided labels.
+ */
+export async function orderShipment(
+  orderId: number,
+  state: OwnerState,
+  { admin }: { admin: boolean },
+): Promise<Shipment | null> {
+  const record = await shippingRepository.findByOrder(orderId);
+  if (!record) return null;
+  return toShipment(record, await labelParts({ kind: 'order', id: orderId }, state, { admin }));
+}
+
+/** The ID of an order's shipment, or null (for its emails' tracking). */
+export async function orderShipmentId(orderId: number): Promise<number | null> {
+  return (await shippingRepository.findByOrder(orderId))?.id ?? null;
+}
+
+/** The address of a client's latest shipped order, to fill in the next one; or null. */
+export async function lastOrderAddress(clientId: number): Promise<ShippingAddress | null> {
+  const record = await shippingRepository.lastOrderAddress(clientId);
+  return record ? toAddress(record) : null;
 }

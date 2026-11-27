@@ -3,6 +3,8 @@ import type { ApiResponse, PaginatedResponse } from '@shared/types/api.ts';
 import type {
   AdminProduct,
   InventoryMovement,
+  PackingType,
+  PackingTypeInput,
   Product,
   ProductCategory,
   ProductInput,
@@ -109,7 +111,7 @@ export async function updateVariant(req: Request, res: Response) {
     res,
     await shopService.updateVariant(
       variantId(req),
-      req.validated.body as { name?: string; priceCents?: number },
+      req.validated.body as { name?: string; priceCents?: number; weightOz?: number | null },
     ),
   );
 }
@@ -152,4 +154,30 @@ export async function reorderPhotos(req: Request, res: Response) {
 
 export async function removePhoto(req: Request, res: Response) {
   sendProduct(res, await shopService.deletePhoto(photoId(req), storage(req)));
+}
+
+// --- Packing types (milestone 12c) ---
+
+const packingTypeId = (req: Request) => params<{ packingTypeId: number }>(req).packingTypeId;
+
+export async function listPackingTypes(_req: Request, res: Response) {
+  res.json({ data: await shopService.listPackingTypes() } satisfies ApiResponse<PackingType[]>);
+}
+
+export async function createPackingType(req: Request, res: Response) {
+  const created = await shopService.createPackingType(req.validated.body as PackingTypeInput);
+  res.status(201).json({ data: created } satisfies ApiResponse<PackingType>);
+}
+
+export async function updatePackingType(req: Request, res: Response) {
+  const updated = await shopService.updatePackingType(
+    packingTypeId(req),
+    req.validated.body as PackingTypeInput,
+  );
+  res.json({ data: updated } satisfies ApiResponse<PackingType>);
+}
+
+export async function deletePackingType(req: Request, res: Response) {
+  await shopService.deletePackingType(packingTypeId(req));
+  res.status(204).end();
 }

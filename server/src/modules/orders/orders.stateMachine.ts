@@ -7,10 +7,12 @@
  *   pending_payment → expired    (system: the Stripe page closed unpaid; stock released)
  *   pending_payment → canceled   (the client started a new checkout, or the system on
  *                                 account deletion; stock released)
- *   paid            → refunded   (the admin refunds it in full, or the system records a
+ *   paid            → shipped    (a shipped order: tracking's first scan, or the admin)
+ *   shipped         → delivered  (tracking, or the admin)
+ *   paid            → delivered  (a pickup, collected: the admin)
+ *   paid, shipped,
+ *   delivered       → refunded   (the admin refunds it in full, or the system records a
  *                                 full refund made in the Stripe Dashboard)
- *
- * Shipping (12c) will add paid → shipped → delivered.
  */
 import type { OrderStatus } from '@shared/types/order.ts';
 import { ConflictError, ForbiddenError } from '../../errors/index.js';
@@ -18,6 +20,8 @@ import { ConflictError, ForbiddenError } from '../../errors/index.js';
 export const ORDER_STATUSES = [
   'pending_payment',
   'paid',
+  'shipped',
+  'delivered',
   'expired',
   'canceled',
   'refunded',
@@ -31,13 +35,20 @@ interface OrderTransition {
   readonly from: OrderStatus;
   readonly to: OrderStatus;
   readonly actors: readonly OrderActor['type'][];
+  /** Only for shipped orders (false), or only for pickups (true). */
+  readonly pickup?: boolean;
 }
 
 export const ORDER_TRANSITIONS: readonly OrderTransition[] = Object.freeze([
   { from: 'pending_payment', to: 'paid', actors: ['system'] },
   { from: 'pending_payment', to: 'expired', actors: ['system'] },
   { from: 'pending_payment', to: 'canceled', actors: ['client', 'system'] },
+  { from: 'paid', to: 'shipped', actors: ['admin', 'system'], pickup: false },
+  { from: 'shipped', to: 'delivered', actors: ['admin', 'system'] },
+  { from: 'paid', to: 'delivered', actors: ['admin'], pickup: true },
   { from: 'paid', to: 'refunded', actors: ['admin', 'system'] },
+  { from: 'shipped', to: 'refunded', actors: ['admin', 'system'] },
+  { from: 'delivered', to: 'refunded', actors: ['admin', 'system'] },
 ] satisfies OrderTransition[]);
 
 export type OrderTransitionResult =
@@ -48,11 +59,16 @@ export type OrderTransitionResult =
  * their own order.
  */
 export function canMoveOrder(
-  order: { status: OrderStatus; clientId: number },
+  order: { status: OrderStatus; clientId: number; pickup?: boolean },
   to: OrderStatus,
   actor: OrderActor,
 ): OrderTransitionResult {
-  const transition = ORDER_TRANSITIONS.find((t) => t.from === order.status && t.to === to);
+  const transition = ORDER_TRANSITIONS.find(
+    (t) =>
+      t.from === order.status &&
+      t.to === to &&
+      (t.pickup === undefined || t.pickup === Boolean(order.pickup)),
+  );
   if (!transition) {
     return {
       allowed: false,
@@ -69,7 +85,7 @@ export function canMoveOrder(
 
 /** Like canMoveOrder, but throws the matching API error. */
 export function assertMoveOrder(
-  order: { status: OrderStatus; clientId: number },
+  order: { status: OrderStatus; clientId: number; pickup?: boolean },
   to: OrderStatus,
   actor: OrderActor,
 ): void {
@@ -80,4 +96,15 @@ export function assertMoveOrder(
     throw new ForbiddenError(result.message, { code: 'ORDER_TRANSITION_FORBIDDEN', details });
   }
   throw new ConflictError(result.message, { code: 'ORDER_INVALID_TRANSITION', details });
+}
+
+/** The moves the admin can make by hand now (marking shipped, delivered, or picked up). */
+export function manualMoves(order: {
+  status: OrderStatus;
+  clientId: number;
+  pickup: boolean;
+}): ('shipped' | 'delivered')[] {
+  return (['shipped', 'delivered'] as const).filter(
+    (to) => canMoveOrder(order, to, { type: 'admin', userId: 0 }).allowed,
+  );
 }

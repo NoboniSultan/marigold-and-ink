@@ -5,15 +5,22 @@ import {
   ORDER_SYSTEM,
   assertMoveOrder,
   canMoveOrder,
+  manualMoves,
   type OrderActor,
 } from '../orders.stateMachine.ts';
 
 // The allowed moves, written out independently of the table under test.
-const EXPECTED: Record<string, OrderActor['type'][]> = {
-  'pending_payment>paid': ['system'],
-  'pending_payment>expired': ['system'],
-  'pending_payment>canceled': ['client', 'system'],
-  'paid>refunded': ['admin', 'system'],
+// `ship` and `pickup` say which kind of order a move is for (both when unmarked).
+const EXPECTED: Record<string, { actors: OrderActor['type'][]; only?: 'ship' | 'pickup' }> = {
+  'pending_payment>paid': { actors: ['system'] },
+  'pending_payment>expired': { actors: ['system'] },
+  'pending_payment>canceled': { actors: ['client', 'system'] },
+  'paid>shipped': { actors: ['admin', 'system'], only: 'ship' },
+  'shipped>delivered': { actors: ['admin', 'system'] },
+  'paid>delivered': { actors: ['admin'], only: 'pickup' },
+  'paid>refunded': { actors: ['admin', 'system'] },
+  'shipped>refunded': { actors: ['admin', 'system'] },
+  'delivered>refunded': { actors: ['admin', 'system'] },
 };
 
 const CLIENT: OrderActor = { type: 'client', userId: 7 };
@@ -21,18 +28,29 @@ const OTHER_CLIENT: OrderActor = { type: 'client', userId: 8 };
 const ADMIN: OrderActor = { type: 'admin', userId: 1 };
 const ACTORS = { client: CLIENT, admin: ADMIN, system: ORDER_SYSTEM } as const;
 
-const order = (status: OrderStatus) => ({ status, clientId: 7 });
+const order = (status: OrderStatus, pickup = false) => ({ status, clientId: 7, pickup });
 
 describe('the order state machine', () => {
   const pairs = ORDER_STATUSES.flatMap((from) =>
     ORDER_STATUSES.flatMap((to) =>
-      (['client', 'admin', 'system'] as const).map((actor) => [from, to, actor] as const),
+      (['client', 'admin', 'system'] as const).flatMap((actor) =>
+        [false, true].map((pickup) => [from, to, actor, pickup] as const),
+      ),
     ),
   );
 
-  it.each(pairs)('%s → %s by %s', (from, to, actor) => {
-    const allowed = EXPECTED[`${from}>${to}`]?.includes(actor) ?? false;
-    expect(canMoveOrder(order(from), to, ACTORS[actor]).allowed).toBe(allowed);
+  it.each(pairs)('%s → %s by %s (pickup: %s)', (from, to, actor, pickup) => {
+    const rule = EXPECTED[`${from}>${to}`];
+    const allowed =
+      Boolean(rule?.actors.includes(actor)) && (!rule?.only || (rule.only === 'pickup') === pickup);
+    expect(canMoveOrder(order(from, pickup), to, ACTORS[actor]).allowed).toBe(allowed);
+  });
+
+  it('offers the admin the moves they can make by hand', () => {
+    expect(manualMoves(order('paid'))).toEqual(['shipped']);
+    expect(manualMoves(order('shipped'))).toEqual(['delivered']);
+    expect(manualMoves(order('paid', true))).toEqual(['delivered']);
+    expect(manualMoves(order('pending_payment'))).toEqual([]);
   });
 
   it('lets a client cancel only their own order', () => {

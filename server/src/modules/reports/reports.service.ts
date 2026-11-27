@@ -23,7 +23,8 @@ export async function monthlyReport(year: number, now = new Date()): Promise<Mon
       return {
         month: p.month,
         salesCents: p.salesCents,
-        shippingCents: p.shippingCents,
+        // Shipping paid with commissions and with shop orders.
+        shippingCents: p.shippingCents + s.shippingCents,
         refundsCents: p.refundsCents,
         shopSalesCents: s.salesCents,
         shopRefundsCents: s.refundsCents,

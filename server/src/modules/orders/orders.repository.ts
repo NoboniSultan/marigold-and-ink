@@ -15,6 +15,9 @@ export interface OrderRecord {
   clientId: number;
   status: OrderStatus;
   subtotalCents: number;
+  /** Postage and packaging charged at checkout (0 for a pickup). */
+  shippingCents: number;
+  pickup: boolean;
   currency: string;
   stripeCheckoutSessionId: string | null;
   checkoutUrl: string | null;
@@ -54,7 +57,8 @@ export interface OrderRefundRecord {
   createdAt: Date;
 }
 
-const ORDER_COLUMNS = `id, client_id, status, subtotal_cents, currency, stripe_checkout_session_id,
+const ORDER_COLUMNS = `id, client_id, status, subtotal_cents, shipping_cents, pickup, currency,
+  stripe_checkout_session_id,
   checkout_url, checkout_expires_at, stripe_payment_intent_id, paid_at, created_at`;
 const REFUND_COLUMNS = `id, order_id, amount_cents, status, stripe_refund_id, reason, restock,
   restocked_at, requested_by_user_id, created_at`;
@@ -65,6 +69,8 @@ function toOrder(row: Row): OrderRecord {
     clientId: Number(row.client_id),
     status: row.status as OrderStatus,
     subtotalCents: Number(row.subtotal_cents),
+    shippingCents: Number(row.shipping_cents),
+    pickup: row.pickup as boolean,
     currency: row.currency as string,
     stripeCheckoutSessionId: row.stripe_checkout_session_id as string | null,
     checkoutUrl: row.checkout_url as string | null,
@@ -98,14 +104,23 @@ export async function insertOrder(
   {
     clientId,
     subtotalCents,
+    shippingCents = 0,
+    pickup = false,
     currency,
-  }: { clientId: number; subtotalCents: number; currency: string },
+  }: {
+    clientId: number;
+    subtotalCents: number;
+    shippingCents?: number;
+    pickup?: boolean;
+    currency: string;
+  },
   client: Db = pool,
 ): Promise<OrderRecord> {
   const { rows } = await client.query(
-    `INSERT INTO orders (client_id, subtotal_cents, currency) VALUES ($1, $2, $3)
+    `INSERT INTO orders (client_id, subtotal_cents, shipping_cents, pickup, currency)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING ${ORDER_COLUMNS}`,
-    [clientId, subtotalCents, currency],
+    [clientId, subtotalCents, shippingCents, pickup, currency],
   );
   return toOrder(rows[0]);
 }
@@ -376,19 +391,23 @@ export async function refundsFor(
 
 // --- The monthly report ---
 
-/** Shop sales (paid orders, by when paid) and refunds (succeeded, by when made) per month. */
+/**
+ * Shop sales (paid orders with their shipping, by when paid), the shipping part, and refunds
+ * (succeeded, by when made), per month.
+ */
 export async function monthlyShop(
   year: number,
   timeZone: string,
   client: Db = pool,
-): Promise<{ month: string; salesCents: number; refundsCents: number }[]> {
+): Promise<{ month: string; salesCents: number; shippingCents: number; refundsCents: number }[]> {
   const { rows } = await client.query(
     `WITH months AS (
        SELECT m::date AS starts, (m + interval '1 month')::date AS ends
          FROM generate_series(make_date($1, 1, 1), make_date($1, 12, 1), interval '1 month') AS m
      ),
      sales AS (
-       SELECT (paid_at AT TIME ZONE $2)::date AS day, subtotal_cents AS cents
+       SELECT (paid_at AT TIME ZONE $2)::date AS day, subtotal_cents + shipping_cents AS cents,
+              shipping_cents AS shipping
          FROM orders WHERE paid_at IS NOT NULL
      ),
      refunds AS (
@@ -398,6 +417,8 @@ export async function monthlyShop(
      SELECT to_char(months.starts, 'YYYY-MM') AS month,
        coalesce((SELECT sum(cents) FROM sales
                   WHERE day >= months.starts AND day < months.ends), 0)::int AS sales_cents,
+       coalesce((SELECT sum(shipping) FROM sales
+                  WHERE day >= months.starts AND day < months.ends), 0)::int AS shipping_cents,
        coalesce((SELECT sum(cents) FROM refunds
                   WHERE day >= months.starts AND day < months.ends), 0)::int AS refunds_cents
        FROM months ORDER BY months.starts`,
@@ -406,6 +427,7 @@ export async function monthlyShop(
   return rows.map((row) => ({
     month: row.month as string,
     salesCents: Number(row.sales_cents),
+    shippingCents: Number(row.shipping_cents),
     refundsCents: Number(row.refunds_cents),
   }));
 }

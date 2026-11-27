@@ -35,7 +35,9 @@ export interface ChoiceFields {
 
 export interface ShipmentRecord {
   id: number;
-  commissionId: number;
+  /** What it belongs to: a commission, or a shop order (milestone 12c). */
+  commissionId: number | null;
+  orderId: number | null;
   name: string | null;
   line1: string | null;
   line2: string | null;
@@ -52,7 +54,7 @@ export interface ShipmentRecord {
   updatedAt: Date;
 }
 
-const COLUMNS = `id, commission_id, recipient_name, address_line1, address_line2, city, state,
+const COLUMNS = `id, commission_id, order_id, recipient_name, address_line1, address_line2, city, state,
   postal_code, address_removed_at, weight_oz, length_in, width_in, height_in,
   provider_shipment_id, rate_id, carrier, service_token, service_name, estimated_days,
   postage_cents, packaging_fee_cents, rate_chosen_at, label_quote_id, updated_at`;
@@ -66,7 +68,8 @@ const CLEAR_QUOTE = `provider_shipment_id = NULL, ${CLEAR_CHOICE}`;
 function toShipment(row: Record<string, unknown>): ShipmentRecord {
   return {
     id: Number(row.id),
-    commissionId: Number(row.commission_id),
+    commissionId: row.commission_id === null ? null : Number(row.commission_id),
+    orderId: row.order_id === null ? null : Number(row.order_id),
     name: row.recipient_name as string | null,
     line1: row.address_line1 as string | null,
     line2: row.address_line2 as string | null,
@@ -201,14 +204,107 @@ export async function saveChoice(
 
 /** Records (or, with null, forgets) the prices fetched for buying the label. */
 export async function saveLabelQuote(
-  commissionId: number,
+  shipmentId: number,
   labelQuoteId: string | null,
   client: Db = pool,
 ): Promise<void> {
-  await client.query('UPDATE shipments SET label_quote_id = $2 WHERE commission_id = $1', [
-    commissionId,
+  await client.query('UPDATE shipments SET label_quote_id = $2 WHERE id = $1', [
+    shipmentId,
     labelQuoteId,
   ]);
+}
+
+export async function findByOrder(
+  orderId: number,
+  client: Db = pool,
+): Promise<ShipmentRecord | null> {
+  const { rows } = await client.query(`SELECT ${COLUMNS} FROM shipments WHERE order_id = $1`, [
+    orderId,
+  ]);
+  return rows[0] ? toShipment(rows[0]) : null;
+}
+
+/** Shipments of these orders (for lists). */
+export async function findByOrders(
+  orderIds: number[],
+  client: Db = pool,
+): Promise<ShipmentRecord[]> {
+  if (orderIds.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS} FROM shipments WHERE order_id = ANY($1::bigint[])`,
+    [orderIds],
+  );
+  return rows.map(toShipment);
+}
+
+/**
+ * A shop order's shipment, recorded whole at checkout (milestone 12c): the address the
+ * carrier standardized, the package the order was packed into, and the option chosen.
+ */
+export async function insertOrderShipment(
+  orderId: number,
+  {
+    address,
+    parcel,
+    providerShipmentId,
+    choice,
+  }: {
+    address: AddressFields;
+    parcel: ParcelFields;
+    providerShipmentId: string;
+    choice: ChoiceFields;
+  },
+  client: Db = pool,
+): Promise<ShipmentRecord> {
+  const { rows } = await client.query(
+    `INSERT INTO shipments (order_id, recipient_name, address_line1, address_line2, city, state,
+                            postal_code, weight_oz, length_in, width_in, height_in,
+                            provider_shipment_id, rate_id, carrier, service_token, service_name,
+                            estimated_days, postage_cents, packaging_fee_cents, rate_chosen_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+             $19, now())
+     RETURNING ${COLUMNS}`,
+    [
+      orderId,
+      address.name,
+      address.line1,
+      address.line2,
+      address.city,
+      address.state,
+      address.postalCode,
+      parcel.weightOz,
+      parcel.lengthIn,
+      parcel.widthIn,
+      parcel.heightIn,
+      providerShipmentId,
+      choice.rateId,
+      choice.carrier,
+      choice.serviceToken,
+      choice.serviceName,
+      choice.estimatedDays,
+      choice.postageCents,
+      choice.packagingFeeCents,
+    ],
+  );
+  return toShipment(rows[0]);
+}
+
+/** The address of a client's latest shipped shop order, to fill in the next one. */
+export async function lastOrderAddress(
+  clientId: number,
+  client: Db = pool,
+): Promise<ShipmentRecord | null> {
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS.split(',')
+      .map((c) => `s.${c.trim()}`)
+      .join(', ')}
+       FROM shipments s JOIN orders o ON o.id = s.order_id
+      WHERE o.client_id = $1 AND s.address_line1 IS NOT NULL
+        AND o.status IN ('paid', 'shipped', 'delivered')
+      ORDER BY o.id DESC LIMIT 1`,
+    [clientId],
+  );
+  return rows[0] ? toShipment(rows[0]) : null;
 }
 
 /**
@@ -221,7 +317,8 @@ export async function removeStreetForClient(clientId: number, client: Db = pool)
         SET recipient_name = NULL, address_line1 = NULL, address_line2 = NULL,
             address_removed_at = now()
       WHERE address_line1 IS NOT NULL
-        AND commission_id IN (SELECT id FROM commissions WHERE client_id = $1)`,
+        AND (commission_id IN (SELECT id FROM commissions WHERE client_id = $1)
+             OR order_id IN (SELECT id FROM orders WHERE client_id = $1))`,
     [clientId],
   );
   return rowCount ?? 0;

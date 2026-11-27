@@ -54,3 +54,20 @@ export function oneOfAKindProblem(oneOfAKind: boolean, variants: VariantLike[]):
   if (variants.some((v) => v.stock > 1)) return 'A one-of-a-kind piece has a stock of 0 or 1';
   return null;
 }
+
+/**
+ * Can this product be shipped (milestone 12c)? It needs a packing type and every option's
+ * packed weight, unless it's collected locally instead.
+ */
+export function shippingMissing({
+  pickupOnly,
+  packingTypeId,
+  variants,
+}: {
+  pickupOnly: boolean;
+  packingTypeId: number | null;
+  variants: { weightOz: number | null }[];
+}): boolean {
+  if (pickupOnly) return false;
+  return packingTypeId === null || variants.some((v) => v.weightOz === null);
+}

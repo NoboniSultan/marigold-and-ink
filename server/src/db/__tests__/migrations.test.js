@@ -24,6 +24,7 @@ const EXPECTED_TABLES = [
   'order_items',
   'order_refunds',
   'orders',
+  'packing_types',
   'payments',
   'pgmigrations',
   'pricing_rules',

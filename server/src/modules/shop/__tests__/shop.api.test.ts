@@ -6,6 +6,7 @@ import { createApp } from '../../../app.js';
 import { pool } from '../../../db/pool.js';
 import { truncateAllTables } from '../../../../tests/setup/database.js';
 import {
+  createPackingType,
   createProduct,
   createProductPhoto,
   createVariant,
@@ -30,10 +31,16 @@ const appWith = (shopOpen: boolean) =>
     shopOpen,
   });
 
-/** A published product: one option, one photo with alt text. */
+/** A published product: one option (with its weight), one photo with alt text, a packing type. */
 async function publishedProduct(overrides: Record<string, unknown> = {}) {
-  const product = await createProduct({ published: true, ...overrides });
-  const variant = await createVariant({ productId: product.id, name: 'Single', priceCents: 400 });
+  const packing = await createPackingType();
+  const product = await createProduct({ published: true, packingTypeId: packing.id, ...overrides });
+  const variant = await createVariant({
+    productId: product.id,
+    name: 'Single',
+    priceCents: 400,
+    weightOz: 1.5,
+  });
   const photo = await createProductPhoto({ productId: product.id, altText: 'Three stickers' });
   return { product, variant, photo };
 }
@@ -208,7 +215,9 @@ describe('admin: products', () => {
       variants: [],
       photos: [],
       stock: 0,
-      missing: ['variant', 'photo'],
+      missing: ['variant', 'photo', 'shipping'],
+      packingTypeId: null,
+      pickupOnly: false,
     });
   });
 
@@ -259,7 +268,7 @@ describe('admin: products', () => {
     const app = appWith(false);
     const { agent } = await admin(app);
     const { product } = await publishedProduct();
-    await createVariant({ productId: product.id, name: 'Pack', stock: 4 });
+    await createVariant({ productId: product.id, name: 'Pack', stock: 4, weightOz: 6 });
     await createProduct({ category: 'cards' });
 
     const res = await agent.get(`${base}/products`);
@@ -283,16 +292,23 @@ describe('admin: products', () => {
     expect(res.status).toBe(422);
     expect(res.body.error).toMatchObject({
       code: 'PRODUCT_INCOMPLETE',
-      details: { missing: ['variant', 'photo'] },
+      details: { missing: ['variant', 'photo', 'shipping'] },
     });
 
     const variant = await createVariant({ productId: product.id });
     const photo = await createProductPhoto({ productId: product.id, altText: null });
-    expect((await publish()).body.error.details.missing).toEqual(['alt_text']);
+    expect((await publish()).body.error.details.missing).toEqual(['alt_text', 'shipping']);
     await send(agent, 'patch', `${base}/photos/${photo.id}`).send({ altText: 'A sticker sheet' });
+    // Shipping: a packing type and every option's weight (or pickup only).
+    const packing = await createPackingType();
+    await send(agent, 'patch', `${base}/products/${product.id}`).send({
+      packingTypeId: Number(packing.id),
+    });
+    expect((await publish()).body.error.details.missing).toEqual(['shipping']);
+    await send(agent, 'patch', `${base}/variants/${variant.id}`).send({ weightOz: 2.5 });
     res = await publish();
     expect(res.status).toBe(200);
-    expect(res.body.data.published).toBe(true);
+    expect(res.body.data).toMatchObject({ published: true, missing: [] });
 
     // While published, removing what it needs is refused.
     for (const attempt of [
@@ -360,7 +376,14 @@ describe('admin: options and stock', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data.variants).toEqual([
-      { id: expect.any(Number), name: 'Pack of 5', priceCents: 1500, available: true, stock: 12 },
+      {
+        id: expect.any(Number),
+        name: 'Pack of 5',
+        priceCents: 1500,
+        available: true,
+        stock: 12,
+        weightOz: null,
+      },
     ]);
     const { rows } = await pool.query(
       'SELECT change, stock_after, reason, actor_user_id FROM inventory_movements',
@@ -497,7 +520,7 @@ describe('admin: photos', () => {
     const meta = await sharp(stored.body).metadata();
     expect(meta.format).toBe('webp');
     expect(meta.exif).toBeUndefined();
-    expect(res.body.data.missing).toEqual(['variant', 'alt_text']);
+    expect(res.body.data.missing).toEqual(['variant', 'alt_text', 'shipping']);
 
     // The site serves it.
     const served = await request(app).get(photo.smallUrl);
@@ -581,5 +604,103 @@ describe('admin: photos', () => {
     expect(deleted.body.data.photos).toEqual([]);
     expect(storage.objects.size).toBe(0);
     expect((await send(agent, 'delete', `${base}/photos/${photoId}`)).status).toBe(404);
+  });
+});
+
+describe('admin: shipping details (milestone 12c)', () => {
+  const packingBody = {
+    name: 'Flat mailer',
+    lengthIn: 9.5,
+    widthIn: 6.5,
+    heightIn: 0.5,
+    weightOz: 0.4,
+  };
+
+  it("manages the owner's packing types", async () => {
+    const app = appWith(false);
+    const { agent } = await admin(app);
+
+    const created = await send(agent, 'post', `${base}/packing-types`).send(packingBody);
+    expect(created.status).toBe(201);
+    expect(created.body.data).toEqual({ id: expect.any(Number), ...packingBody });
+    const id = created.body.data.id;
+    expect(
+      (await send(agent, 'post', `${base}/packing-types`).send(packingBody)).body.error.code,
+    ).toBe('PACKING_TYPE_NAME_TAKEN');
+    const updated = await send(agent, 'put', `${base}/packing-types/${id}`).send({
+      ...packingBody,
+      weightOz: 0,
+    });
+    expect(updated.body.data.weightOz).toBe(0);
+    expect((await agent.get(`${base}/packing-types`)).body.data).toHaveLength(1);
+
+    // In use: can't be deleted.
+    const product = await createProduct({ packingTypeId: id });
+    expect((await send(agent, 'delete', `${base}/packing-types/${id}`)).body.error.code).toBe(
+      'PACKING_TYPE_IN_USE',
+    );
+    await send(agent, 'patch', `${base}/products/${product.id}`).send({ packingTypeId: null });
+    expect((await send(agent, 'delete', `${base}/packing-types/${id}`)).status).toBe(204);
+    expect((await send(agent, 'delete', `${base}/packing-types/${id}`)).status).toBe(404);
+    expect((await send(agent, 'put', `${base}/packing-types/${id}`).send(packingBody)).status).toBe(
+      404,
+    );
+  });
+
+  it('validates packing types, and is admin only', async () => {
+    const app = appWith(false);
+    const { agent } = await admin(app);
+    for (const body of [
+      { ...packingBody, lengthIn: 0 },
+      { ...packingBody, heightIn: 109 },
+      { ...packingBody, weightOz: -1 },
+      { ...packingBody, weightOz: 0.125 },
+      { ...packingBody, name: '' },
+    ]) {
+      expect((await send(agent, 'post', `${base}/packing-types`).send(body)).status).toBe(400);
+    }
+    const client = await loggedInAgent(app);
+    expect((await client.agent.get(`${base}/packing-types`)).status).toBe(403);
+  });
+
+  it('publishes a pickup-only product without packing details, and refuses an unknown packing type', async () => {
+    const app = appWith(false);
+    const { agent } = await admin(app);
+    const product = await createProduct({ pickupOnly: true, category: 'upcycled' });
+    await createVariant({ productId: product.id });
+    await createProductPhoto({ productId: product.id });
+
+    const res = await send(agent, 'patch', `${base}/products/${product.id}`).send({
+      published: true,
+    });
+    expect(res.body.data).toMatchObject({ published: true, pickupOnly: true, missing: [] });
+    const unknown = await send(agent, 'patch', `${base}/products/${product.id}`).send({
+      packingTypeId: 99999,
+    });
+    expect(unknown.status).toBe(422);
+    expect(unknown.body.error.code).toBe('PACKING_TYPE_NOT_FOUND');
+  });
+
+  it("doesn't hold a product published before 12c to shipping details on other edits", async () => {
+    const app = appWith(false);
+    const { agent } = await admin(app);
+    const product = await createProduct({ published: true });
+    const variant = await createVariant({ productId: product.id, stock: 1 });
+    await createProductPhoto({ productId: product.id });
+
+    const res = await send(agent, 'put', `${base}/variants/${variant.id}/stock`).send({
+      stock: 4,
+      reason: 'restock',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.missing).toEqual(['shipping']);
+  });
+
+  it('shows a pickup-only product as such on its page', async () => {
+    const app = appWith(true);
+    const { product } = await publishedProduct({ pickupOnly: true });
+    expect(
+      (await request(app).get(`/api/v1/shop/products/${product.slug}`)).body.data.pickupOnly,
+    ).toBe(true);
   });
 });

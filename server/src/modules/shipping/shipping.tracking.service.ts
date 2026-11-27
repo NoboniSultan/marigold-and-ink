@@ -15,8 +15,8 @@ import { config } from '../../config/env.js';
 import { withTransaction } from '../../db/transaction.ts';
 import { NotFoundError, UnauthorizedError } from '../../errors/index.js';
 import { logger } from '../../lib/logger.js';
-import * as commissionsService from '../commissions/commissions.service.js';
-import { SYSTEM_ACTOR } from '../commissions/commissions.stateMachine.ts';
+import * as shippingRepository from './shipping.repository.ts';
+import { ownerHandler, type OwnerRef } from './shipping.owners.ts';
 import * as usersService from '../users/users.service.ts';
 import * as labelsRepository from './shipping.labels.repository.ts';
 import type { LabelRecord } from './shipping.labels.repository.ts';
@@ -56,15 +56,54 @@ async function sendSafely(email: Email, message: EmailMessage, context: Record<s
   }
 }
 
-function factsFor(label: LabelRecord | null, commissionId: number): PackageFacts | null {
+function factsFor(label: LabelRecord | null, pageUrl: string): PackageFacts | null {
   if (!label) return null;
   return {
     carrier: label.carrier,
     serviceName: label.serviceName,
     trackingNumber: label.trackingNumber,
     trackingUrl: label.trackingUrl,
-    pageUrl: `${siteUrl()}/commissions/${commissionId}`,
+    pageUrl,
   };
+}
+
+/** What a label belongs to. */
+function ownerOf(label: LabelRecord): OwnerRef {
+  return label.orderId !== null
+    ? { kind: 'order', id: label.orderId }
+    : { kind: 'commission', id: label.commissionId! };
+}
+
+/**
+ * Emails a client that their package shipped or was delivered, with its tracking when the
+ * shipment has a label (milestone 12c: commissions and shop orders alike).
+ */
+export async function sendPackageEmail(
+  {
+    clientId,
+    status,
+    shipmentId,
+    pageUrl,
+    context,
+  }: {
+    clientId: number;
+    status: 'shipped' | 'delivered';
+    shipmentId: number | null;
+    pageUrl: string;
+    context: Record<string, unknown>;
+  },
+  email: Email,
+): Promise<void> {
+  if (!email) return;
+  const client = await usersService.findById(clientId);
+  if (!client) return; // the account was deleted
+  const labels = shipmentId ? await labelsRepository.listForShipment(shipmentId) : [];
+  const facts = factsFor(labels.find((l) => l.voidedAt === null) ?? null, pageUrl);
+  const message =
+    status === 'shipped'
+      ? shippedEmail(client.email, facts, pageUrl)
+      : deliveredEmail(client.email, facts, pageUrl);
+  await sendSafely(email, message, { ...context, status });
 }
 
 /**
@@ -77,32 +116,33 @@ export async function notifyStatusChange(
 ): Promise<void> {
   if (!email || !ships(commission.fulfillmentType)) return;
   if (commission.status !== 'shipped' && commission.status !== 'delivered') return;
-  const client = await usersService.findById(commission.clientId);
-  if (!client) return; // the account was deleted
-  const labels = await labelsRepository.listForCommission(commission.id);
-  const label = labels.find((l) => l.voidedAt === null) ?? null;
-  const pageUrl = `${siteUrl()}/commissions/${commission.id}`;
-  const facts = factsFor(label, commission.id);
-  const message =
-    commission.status === 'shipped'
-      ? shippedEmail(client.email, facts, pageUrl)
-      : deliveredEmail(client.email, facts, pageUrl);
-  await sendSafely(email, message, { commissionId: commission.id, status: commission.status });
+  const shipment = await shippingRepository.findByCommission(commission.id);
+  await sendPackageEmail(
+    {
+      clientId: commission.clientId,
+      status: commission.status,
+      shipmentId: shipment?.id ?? null,
+      pageUrl: `${siteUrl()}/commissions/${commission.id}`,
+      context: { commissionId: commission.id },
+    },
+    email,
+  );
 }
 
 async function notifyProblem(label: LabelRecord, email: Email) {
+  const owner = ownerOf(label);
   const admins = await usersService.findAdmins();
   for (const admin of admins) {
     await sendSafely(
       email,
       deliveryProblemEmail(admin.email, {
-        commissionId: label.commissionId,
+        what: `${owner.kind} #${owner.id}`,
         trackingNumber: label.trackingNumber,
         status: label.trackingStatus as 'returned' | 'failure',
         details: label.trackingDetails,
-        adminUrl: `${siteUrl()}/admin/commissions/${label.commissionId}`,
+        adminUrl: ownerHandler(owner.kind).adminUrl(owner.id),
       }),
-      { commissionId: label.commissionId, alert: 'delivery problem' },
+      { owner, alert: 'delivery problem' },
     );
   }
 }
@@ -137,27 +177,28 @@ export async function refreshLabel(
     throw err;
   }
 
+  const owner = ownerOf(label);
+  const handler = ownerHandler(owner.kind);
   const outcome = await withTransaction(async (tx) => {
-    const commission = await commissionsService.lockCommission(label.commissionId, tx);
+    const state = await handler.lock(owner.id, tx);
     const current = await labelsRepository.findById(labelId, tx);
     if (!current || current.voidedAt) return null; // voided meanwhile
     await labelsRepository.insertEvents(labelId, info.scans, tx);
     await labelsRepository.updateTracking(labelId, info, tx);
 
     // Emailed about only once this commits: never for a change that then rolls back.
-    const moved: Parameters<typeof notifyStatusChange>[0][] = [];
-    for (const toStatus of trackingMoves(commission.status, info.status)) {
-      const updated = await commissionsService.applyTransition(
+    const moved = trackingMoves(handler.stage(state), info.status);
+    for (const toStatus of moved) {
+      await handler.move(
+        owner.id,
+        toStatus,
+        REASONS[toStatus],
         {
-          commissionId: commission.id,
-          toStatus,
-          actor: SYSTEM_ACTOR,
-          reason: REASONS[toStatus],
-          metadata: { trackingNumber: label.trackingNumber, trackingStatus: info.status },
+          trackingNumber: label.trackingNumber,
+          trackingStatus: info.status,
         },
-        { client: tx },
+        tx,
       );
-      if (updated) moved.push(updated);
     }
     const alert =
       isDeliveryProblem(info.status) && (await labelsRepository.markProblemNotified(labelId, tx));
@@ -165,7 +206,7 @@ export async function refreshLabel(
   });
   if (!outcome) return;
 
-  for (const commission of outcome.moved) await notifyStatusChange(commission, email);
+  for (const to of outcome.moved) await handler.notify(owner.id, to, email);
   if (outcome.alert) {
     await notifyProblem(
       { ...label, trackingStatus: info.status, trackingDetails: info.details },
@@ -260,12 +301,16 @@ export async function refreshAllTracking({
 }
 
 /** The owner's "check tracking now": refreshes the label in use right away. */
-export async function refreshCommission(
-  commissionId: number,
+export async function refreshOwner(
+  owner: OwnerRef,
   { shipping, email }: { shipping: Setup; email: Email },
 ): Promise<void> {
   const setup = requireShipping(shipping);
-  const labels = await labelsRepository.listForCommission(commissionId);
+  const shipment =
+    owner.kind === 'commission'
+      ? await shippingRepository.findByCommission(owner.id)
+      : await shippingRepository.findByOrder(owner.id);
+  const labels = shipment ? await labelsRepository.listForShipment(shipment.id) : [];
   const label = labels.find((l) => l.voidedAt === null);
   if (!label) throw new NotFoundError('This commission has no label', { code: 'LABEL_NOT_FOUND' });
   await viaProvider(() => refreshLabel(label.id, { shipping: setup, email }));

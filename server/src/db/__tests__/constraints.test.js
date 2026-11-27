@@ -19,6 +19,7 @@ import {
   createProductPhoto,
   createOrder,
   createOrderItem,
+  createPackingType,
 } from '../../../tests/factories/index.js';
 
 beforeEach(truncateAllTables);
@@ -1280,6 +1281,84 @@ describe('inventory_movements and orders', () => {
       'inventory_movements_order_check',
     );
     await expectViolation(log('sale', order.order_id), CHECK_VIOLATION, 'inventory_reason_check');
+  });
+});
+
+describe('shop shipping (milestone 12c)', () => {
+  it('keeps packing types named once, with real sizes and a weight', async () => {
+    await createPackingType({ name: 'Mailer' });
+    await expectViolation(
+      createPackingType({ name: 'Mailer' }),
+      UNIQUE_VIOLATION,
+      'packing_types_name_key',
+    );
+    await expectViolation(
+      createPackingType({ name: ' ' }),
+      CHECK_VIOLATION,
+      'packing_types_name_check',
+    );
+    for (const change of [{ lengthIn: 0 }, { heightIn: 109 }]) {
+      await expectViolation(createPackingType(change), CHECK_VIOLATION, 'packing_types_size_check');
+    }
+    await expectViolation(
+      createPackingType({ weightOz: -1 }),
+      CHECK_VIOLATION,
+      'packing_types_weight_check',
+    );
+    await expect(createPackingType({ weightOz: 0 })).resolves.toBeDefined();
+  });
+
+  it("won't delete a packing type a product uses", async () => {
+    const type = await createPackingType();
+    await createProduct({ packingTypeId: type.id });
+    await expectViolation(
+      pool.query('DELETE FROM packing_types WHERE id = $1', [type.id]),
+      FOREIGN_KEY_VIOLATION,
+      'products_packing_type_id_fkey',
+    );
+  });
+
+  it('keeps option weights positive and within USPS limits', async () => {
+    for (const weightOz of [0, 1121]) {
+      await expectViolation(
+        createVariant({ weightOz }),
+        CHECK_VIOLATION,
+        'product_variants_weight_oz_check',
+      );
+    }
+  });
+
+  it('gives a shipment one owner: a commission or an order', async () => {
+    const order = await createOrder();
+    const shipment = (commissionId, orderId) =>
+      pool.query('INSERT INTO shipments (commission_id, order_id) VALUES ($1, $2)', [
+        commissionId,
+        orderId,
+      ]);
+    await expect(shipment(null, order.id)).resolves.toBeDefined();
+    await expectViolation(shipment(null, order.id), UNIQUE_VIOLATION, 'shipments_order_id_key');
+    await expectViolation(shipment(null, null), CHECK_VIOLATION, 'shipments_owner_check');
+    const commission = await createQuotedCommission({ fulfillmentType: 'physical' });
+    const other = await createOrder();
+    await expectViolation(
+      shipment(commission.id, other.id),
+      CHECK_VIOLATION,
+      'shipments_owner_check',
+    );
+  });
+
+  it('charges no shipping for a pickup, and never a negative amount', async () => {
+    await expectViolation(
+      createOrder({ shippingCents: -1 }),
+      CHECK_VIOLATION,
+      'orders_shipping_cents_check',
+    );
+    await expectViolation(
+      createOrder({ pickup: true, shippingCents: 500 }),
+      CHECK_VIOLATION,
+      'orders_shipping_cents_check',
+    );
+    await expect(createOrder({ shippingCents: 1091 })).resolves.toBeDefined();
   });
 });
 

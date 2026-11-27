@@ -14,9 +14,18 @@
  */
 import type { PoolClient } from 'pg';
 import type {
+  Shipment,
+  ShippingAddress,
+  ShippingAddressInput,
+  ShippingPackage,
+} from '@shared/types/shipping.ts';
+import type {
   AdminOrder,
   CartLine,
   CartPreview,
+  CartShippingOption,
+  CartShippingQuote,
+  CheckoutInput,
   CheckoutStarted,
   Order,
   OrderStatus,
@@ -47,9 +56,23 @@ import {
   SWEEP_GRACE_MS,
   lineCents,
   mergeLines,
+  packOrder,
   subtotalCents,
+  type PackLine,
+  type Packed,
 } from './orders.rules.ts';
-import { ORDER_SYSTEM, assertMoveOrder, type OrderActor } from './orders.stateMachine.ts';
+import {
+  ORDER_SYSTEM,
+  assertMoveOrder,
+  manualMoves,
+  type OrderActor,
+} from './orders.stateMachine.ts';
+import type { ParcelQuote } from '../shipping/shipping.service.ts';
+import * as shippingService from '../shipping/shipping.service.ts';
+import * as trackingService from '../shipping/shipping.tracking.service.ts';
+import { registerShipmentOwner, type OwnerState } from '../shipping/shipping.owners.ts';
+import { shippingCents } from '../shipping/shipping.rules.ts';
+import type { ShippingRate, ShippingSetup } from '../../adapters/shippo.ts';
 
 interface SessionUser {
   id: number;
@@ -86,10 +109,19 @@ function assertShopVisible(user: SessionUser | undefined, shopOpen: boolean) {
 
 // --- What the API returns ---
 
+/** Everything the order cost: its items plus postage and packaging. */
+const totalOf = (order: OrderRecord) => order.subtotalCents + order.shippingCents;
+
+const orderState = (order: OrderRecord): OwnerState => ({
+  status: order.status,
+  ships: !order.pickup,
+});
+
 function toOrder(
   order: OrderRecord,
   items: OrderItemRecord[],
   refunds: OrderRefundRecord[],
+  shipment: Shipment | null,
 ): Order {
   const pending = order.status === 'pending_payment';
   return {
@@ -104,6 +136,10 @@ function toOrder(
       lineCents: lineCents(item.unitPriceCents, item.quantity),
     })),
     subtotalCents: order.subtotalCents,
+    shippingCents: order.shippingCents,
+    totalCents: totalOf(order),
+    pickup: order.pickup,
+    shipment,
     currency: order.currency,
     refundedCents: refunds
       .filter((r) => r.status === 'succeeded')
@@ -115,17 +151,26 @@ function toOrder(
   };
 }
 
-async function loadOrders(orders: OrderRecord[], client?: PoolClient): Promise<Order[]> {
+async function loadOrders(
+  orders: OrderRecord[],
+  { admin = false }: { admin?: boolean } = {},
+): Promise<Order[]> {
   const ids = orders.map((o) => o.id);
-  const [items, refunds] = await Promise.all([
-    ordersRepository.itemsFor(ids, client),
-    ordersRepository.refundsFor(ids, client),
+  const [items, refunds, shipments] = await Promise.all([
+    ordersRepository.itemsFor(ids),
+    ordersRepository.refundsFor(ids),
+    Promise.all(
+      orders.map((o) =>
+        o.pickup ? null : shippingService.orderShipment(o.id, orderState(o), { admin }),
+      ),
+    ),
   ]);
-  return orders.map((o) =>
+  return orders.map((o, i) =>
     toOrder(
       o,
-      items.filter((i) => i.orderId === o.id),
+      items.filter((it) => it.orderId === o.id),
       refunds.filter((r) => r.orderId === o.id),
+      shipments[i] ?? null,
     ),
   );
 }
@@ -182,12 +227,14 @@ export async function previewCart(
   const byId = new Map(variants.filter((v) => v.forSale).map((v) => [v.variantId, v]));
   const priced: PricedLine[] = [];
   const unavailable: number[] = [];
+  const packLines: PackLine[] = [];
   for (const line of merged) {
     const v = byId.get(line.variantId);
     if (!v) {
       unavailable.push(line.variantId);
       continue;
     }
+    packLines.push(packLineOf(v, line.quantity));
     priced.push({
       variantId: v.variantId,
       productSlug: v.productSlug,
@@ -207,7 +254,85 @@ export async function previewCart(
     subtotalCents: subtotalCents(priced),
     currency: config.stripe?.currency ?? 'usd',
     ready: priced.length > 0 && unavailable.length === 0 && priced.every((l) => l.ok),
+    delivery: deliveryOf(packOrder(packLines)),
   };
+}
+
+function packLineOf(v: shopService.CartVariant, quantity: number): PackLine {
+  return { quantity, pickupOnly: v.pickupOnly, weightOz: v.weightOz, packing: v.packing };
+}
+
+const deliveryOf = (packed: Packed): CartPreview['delivery'] =>
+  packed.kind === 'ship' ? 'ship' : packed.kind === 'pickup' ? 'pickup' : 'unavailable';
+
+/** The cart's items for sale, and how it would be packed (without locks: a first look). */
+async function cartFacts(lines: CartLine[]) {
+  const merged = mergeLines(lines);
+  const known = new Map(
+    (await shopService.cartVariants(merged.map((l) => l.variantId)))
+      .filter((v) => v.forSale)
+      .map((v) => [v.variantId, v]),
+  );
+  const missing = merged.filter((l) => !known.has(l.variantId));
+  if (missing.length > 0) {
+    throw new ConflictError('Some items in your cart are no longer available in that quantity', {
+      code: 'OUT_OF_STOCK',
+      details: { items: missing.map((l) => ({ variantId: l.variantId, available: 0 })) },
+    });
+  }
+  const packed = packOrder(merged.map((l) => packLineOf(known.get(l.variantId)!, l.quantity)));
+  return { merged, known, packed };
+}
+
+function assertShippable(packed: Packed): asserts packed is Extract<Packed, { kind: 'ship' }> {
+  if (packed.kind === 'unavailable') {
+    throw new ConflictError(
+      packed.reason === 'too_heavy'
+        ? 'This order is too heavy to ship in one package. Please contact us.'
+        : "Some items in your cart can't be shipped yet. Please contact us.",
+      { code: 'CART_NOT_SHIPPABLE', details: { reason: packed.reason } },
+    );
+  }
+  if (packed.kind === 'pickup') {
+    throw new ConflictError('This order is collected locally, not shipped', {
+      code: 'ORDER_IS_PICKUP',
+    });
+  }
+}
+
+const toCartOption = (rate: ShippingRate, packagingFeeCents: number): CartShippingOption => ({
+  serviceToken: rate.serviceToken,
+  carrier: rate.carrier,
+  serviceName: rate.serviceName,
+  estimatedDays: rate.estimatedDays,
+  postageCents: rate.amountCents,
+  packagingFeeCents,
+  totalCents: shippingCents(rate.amountCents, packagingFeeCents),
+});
+
+/**
+ * Live shipping options for a cart to an address (milestone 12c): the address is checked,
+ * the order is packed, and each USPS service priced with the packaging fee added.
+ */
+export async function shippingOptions(
+  user: SessionUser,
+  lines: CartLine[],
+  address: ShippingAddressInput,
+  { shopOpen, shipping }: { shopOpen: boolean; shipping?: ShippingSetup | null },
+): Promise<CartShippingQuote> {
+  assertShopVisible(user, shopOpen);
+  const { packed } = await cartFacts(lines);
+  assertShippable(packed);
+  const quote = await shippingService.quoteParcel(address, packed.parcel, { shipping });
+  return {
+    address: quote.address,
+    options: quote.rates.map((r) => toCartOption(r, quote.packagingFeeCents)),
+  };
+}
+
+/** The address of the client's last shipped order, to fill in the next one. */
+export function lastAddress(user: SessionUser): Promise<ShippingAddress | null> {
+  return shippingService.lastOrderAddress(user.id);
 }
 
 // --- Checkout ---
@@ -252,30 +377,55 @@ async function closeEarlierCheckouts(
  */
 export async function startCheckout(
   user: SessionUser,
-  lines: CartLine[],
+  { items: lines, shipping: chosen }: CheckoutInput,
   {
     gateway: gatewayOrNull,
     email,
     shopOpen,
-  }: { gateway: PaymentGateway | null; email?: Email; shopOpen: boolean },
+    shipping,
+  }: {
+    gateway: PaymentGateway | null;
+    email?: Email;
+    shopOpen: boolean;
+    shipping?: ShippingSetup | null;
+  },
 ): Promise<CheckoutStarted> {
   assertShopVisible(user, shopOpen);
   const { gateway, currency } = requireGateway(gatewayOrNull);
-  const merged = mergeLines(lines);
   // A first look without locks, so the order row starts with a real total. The hold below
   // checks again under the locks and corrects the total if a price changed meanwhile.
-  const known = new Map(
-    (await shopService.cartVariants(merged.map((l) => l.variantId)))
-      .filter((v) => v.forSale)
-      .map((v) => [v.variantId, v]),
-  );
-  const missing = merged.filter((l) => !known.has(l.variantId));
-  if (missing.length > 0) {
-    throw new ConflictError('Some items in your cart are no longer available in that quantity', {
-      code: 'OUT_OF_STOCK',
-      details: { items: missing.map((l) => ({ variantId: l.variantId, available: 0 })) },
-    });
+  const { merged, known, packed } = await cartFacts(lines);
+
+  // Shipping (milestone 12c): priced again here, never taken from the request. The
+  // customer's choice is a service; if its price moved since they saw it, they're told.
+  let delivery: { quote: ParcelQuote; rate: ShippingRate; parcel: ShippingPackage } | null = null;
+  if (packed.kind !== 'pickup') {
+    assertShippable(packed);
+    if (!chosen) {
+      throw new BusinessRuleError('Choose where and how to ship the order', {
+        code: 'SHIPPING_REQUIRED',
+      });
+    }
+    const quote = await shippingService.quoteParcel(chosen.address, packed.parcel, { shipping });
+    const rate = quote.rates.find((r) => r.serviceToken === chosen.serviceToken);
+    const options = quote.rates.map((r) => toCartOption(r, quote.packagingFeeCents));
+    if (!rate) {
+      throw new ConflictError('That shipping option is no longer available. Please choose again.', {
+        code: 'SHIPPING_OPTION_STALE',
+        details: { options },
+      });
+    }
+    if (shippingCents(rate.amountCents, quote.packagingFeeCents) !== chosen.expectedCents) {
+      throw new ConflictError('The shipping price has changed. Please choose shipping again.', {
+        code: 'SHIPPING_PRICE_CHANGED',
+        details: { options },
+      });
+    }
+    delivery = { quote, rate, parcel: packed.parcel };
   }
+  const chargedShipping = delivery
+    ? shippingCents(delivery.rate.amountCents, delivery.quote.packagingFeeCents)
+    : 0;
   const after: AfterCommit = [];
 
   const started = await withTransaction(async (tx) => {
@@ -289,6 +439,8 @@ export async function startCheckout(
             quantity: l.quantity,
           })),
         ),
+        shippingCents: chargedShipping,
+        pickup: packed.kind === 'pickup',
         currency,
       },
       tx,
@@ -303,17 +455,29 @@ export async function startCheckout(
     }));
     await ordersRepository.setSubtotal(order.id, subtotalCents(items), tx);
     await ordersRepository.insertItems(order.id, items, tx);
+    if (delivery) await shippingService.recordOrderShipment(order.id, delivery, { client: tx });
 
     const session = await viaGateway(() =>
       gateway.createOrderCheckout(
         {
           orderId: order.id,
           currency,
-          lines: items.map((item) => ({
-            name: `${item.productName} (${item.variantName})`,
-            unitAmountCents: item.unitPriceCents,
-            quantity: item.quantity,
-          })),
+          lines: [
+            ...items.map((item) => ({
+              name: `${item.productName} (${item.variantName})`,
+              unitAmountCents: item.unitPriceCents,
+              quantity: item.quantity,
+            })),
+            ...(delivery
+              ? [
+                  {
+                    name: `Shipping & packaging (${delivery.rate.carrier} ${delivery.rate.serviceName})`,
+                    unitAmountCents: chargedShipping,
+                    quantity: 1,
+                  },
+                ]
+              : []),
+          ],
           customerEmail: user.email,
           successUrl: `${config.publicUrl}/orders/${order.id}?payment=success`,
           cancelUrl: `${config.publicUrl}/cart?checkout=cancelled`,
@@ -357,7 +521,9 @@ async function sendConfirmation(orderId: number, email: Email) {
   const message = orderConfirmationEmail(client.email, {
     id: order!.id,
     items: order!.items,
-    subtotalCents: order!.subtotalCents,
+    shippingCents: order!.shippingCents,
+    pickup: order!.pickup,
+    totalCents: order!.totalCents,
     pageUrl: `${config.publicUrl ?? ''}/orders/${orderId}`,
   });
   // The owner's wording isn't written yet: never send placeholder text to a real person.
@@ -446,7 +612,7 @@ export async function handleOrderEvent(
         order,
         session.id,
         session.paymentIntentId,
-        session.amountCents ?? order.subtotalCents,
+        session.amountCents ?? totalOf(order),
         gateway,
         tx,
       );
@@ -503,7 +669,7 @@ async function settleRefunds(order: OrderRecord, actor: OrderActor, tx: PoolClie
   const refunded = refunds
     .filter((r) => r.status === 'succeeded')
     .reduce((sum, r) => sum + r.amountCents, 0);
-  if (refunded >= order.subtotalCents && order.status === 'paid') {
+  if (refunded >= totalOf(order) && REFUNDABLE_STATUSES.includes(order.status)) {
     await moveOrder(order, 'refunded', actor, 'Refunded in full', tx);
   }
   for (const r of refunds) {
@@ -515,9 +681,12 @@ async function settleRefunds(order: OrderRecord, actor: OrderActor, tx: PoolClie
   }
 }
 
+/** Paid orders can be refunded, also after they shipped or arrived (a return). */
+const REFUNDABLE_STATUSES: OrderStatus[] = ['paid', 'shipped', 'delivered'];
+
 function refundable(order: OrderRecord, refunds: OrderRefundRecord[]) {
   return (
-    order.status === 'paid' &&
+    REFUNDABLE_STATUSES.includes(order.status) &&
     Boolean(order.stripePaymentIntentId) &&
     !refunds.some((r) => r.status !== 'failed')
   );
@@ -543,7 +712,7 @@ export async function refundOrder(
     const row = await ordersRepository.insertRefund(
       {
         orderId,
-        amountCents: order.subtotalCents,
+        amountCents: totalOf(order),
         status: 'pending',
         stripeRefundId: null,
         reason,
@@ -556,7 +725,7 @@ export async function refundOrder(
       gateway.createRefund(
         {
           paymentIntentId: order.stripePaymentIntentId!,
-          amountCents: order.subtotalCents,
+          amountCents: totalOf(order),
           refundPaymentId: null,
           orderId,
         },
@@ -602,12 +771,16 @@ export async function listAdminOrders(query: {
     status: query.status,
     ...toLimitOffset(query),
   });
-  const [loaded, clients] = await Promise.all([loadOrders(orders), withClients(orders)]);
+  const [loaded, clients] = await Promise.all([
+    loadOrders(orders, { admin: true }),
+    withClients(orders),
+  ]);
   return {
     data: loaded.map((order, i) => {
       const client = clients.get(orders[i]!.clientId);
       return {
         ...order,
+        ...adminShippingFacts(orders[i]!, order),
         client: client
           ? { id: client.id, displayName: client.displayName, email: client.email }
           : null,
@@ -621,7 +794,7 @@ export async function getAdminOrder(orderId: number): Promise<AdminOrder> {
   const order = await ordersRepository.findById(orderId);
   if (!order) throw orderNotFound();
   const [[loaded], events, refunds, clients] = await Promise.all([
-    loadOrders([order]),
+    loadOrders([order], { admin: true }),
     ordersRepository.eventsFor(orderId),
     ordersRepository.refundsFor([orderId]),
     withClients([order]),
@@ -641,8 +814,105 @@ export async function getAdminOrder(orderId: number): Promise<AdminOrder> {
       createdAt: r.createdAt.toISOString(),
     })),
     refundable: refundable(order, refunds),
+    ...adminShippingFacts(order, loaded!),
   };
 }
+
+/** Whether a label can be bought now, and the moves the admin can make by hand. */
+function adminShippingFacts(order: OrderRecord, loaded: Order) {
+  return {
+    labelOpen:
+      !order.pickup &&
+      order.status === 'paid' &&
+      loaded.shipment !== null &&
+      !loaded.shipment.label,
+    manualMoves: manualMoves(order),
+  };
+}
+
+// --- Shipping and pickup (milestone 12c) ---
+
+const MANUAL_REASONS = {
+  shipped: 'Marked shipped by hand',
+  delivered: 'Marked delivered by hand',
+  picked: 'Picked up',
+} as const;
+
+/** Emails the client about a shipped order's move (its tracking if it has a label). */
+async function notifyPackage(orderId: number, to: 'shipped' | 'delivered', email: Email) {
+  const order = await ordersRepository.findById(orderId);
+  if (!order || order.pickup) return;
+  await trackingService.sendPackageEmail(
+    {
+      clientId: order.clientId,
+      status: to,
+      shipmentId: (await shippingService.orderShipmentId(orderId)) ?? null,
+      pageUrl: `${config.publicUrl ?? ''}/orders/${orderId}`,
+      context: { orderId },
+    },
+    email,
+  );
+}
+
+/**
+ * The admin marks an order shipped or delivered by hand (no label, or before tracking
+ * catches up), or a pickup as collected (delivered). Shipped orders' clients are emailed.
+ */
+export async function markOrder(
+  admin: SessionUser,
+  orderId: number,
+  to: 'shipped' | 'delivered',
+  { email }: { email: Email },
+): Promise<AdminOrder> {
+  const order = await withTransaction(async (tx) => {
+    const locked = await ordersRepository.findById(orderId, tx, { forUpdate: true });
+    if (!locked) throw orderNotFound();
+    const reason = locked.pickup ? MANUAL_REASONS.picked : MANUAL_REASONS[to];
+    await moveOrder(locked, to, { type: 'admin', userId: admin.id }, reason, tx);
+    return locked;
+  });
+  if (!order.pickup) {
+    await runAfter([() => notifyPackage(orderId, to, email)]);
+  }
+  return getAdminOrder(orderId);
+}
+
+// Orders can own shipments: labels and tracking work on them through this (ADR 0021).
+registerShipmentOwner('order', {
+  async load(id) {
+    const order = await ordersRepository.findById(id);
+    if (!order) throw orderNotFound();
+    return orderState(order);
+  },
+  async lock(id, tx) {
+    const order = await ordersRepository.findById(id, tx, { forUpdate: true });
+    if (!order) throw orderNotFound();
+    return orderState(order);
+  },
+  stage: (state) =>
+    !state.ships
+      ? 'other'
+      : state.status === 'paid'
+        ? 'ready'
+        : state.status === 'shipped'
+          ? 'shipped'
+          : state.status === 'delivered'
+            ? 'delivered'
+            : 'other',
+  async move(id, to, reason, _metadata, tx) {
+    const order = (await ordersRepository.findById(id, tx, { forUpdate: true }))!;
+    await moveOrder(order, to, ORDER_SYSTEM, reason, tx);
+  },
+  async notify(id, to, email) {
+    try {
+      await notifyPackage(id, to, email);
+    } catch (err) {
+      logger.error({ err, orderId: id }, 'order shipping email failed');
+    }
+  },
+  labelNote: (id) => `Order #${id}`,
+  adminUrl: (id) => `${config.publicUrl ?? ''}/admin/orders/${id}`,
+});
 
 // --- The release sweep ---
 

@@ -65,7 +65,8 @@ export function deliveredEmail(to: string, facts: PackageFacts | null, pageUrl: 
 export function deliveryProblemEmail(
   to: string,
   problem: {
-    commissionId: number;
+    /** What it's for, e.g. "commission #12" or "order #5". */
+    what: string;
     trackingNumber: string;
     status: 'returned' | 'failure';
     details: string | null;
@@ -73,10 +74,10 @@ export function deliveryProblemEmail(
   },
 ) {
   const what = problem.status === 'returned' ? 'is being returned' : "couldn't be delivered";
-  return build(to, `Delivery problem: commission #${problem.commissionId}`, [
-    `The carrier reports that the package for commission #${problem.commissionId} ${what}.`,
+  return build(to, `Delivery problem: ${problem.what}`, [
+    `The carrier reports that the package for ${problem.what} ${what}.`,
     ...(problem.details ? [`Carrier's note: ${problem.details}`] : []),
     `Tracking number: ${problem.trackingNumber}`,
-    `Commission: ${problem.adminUrl}`,
+    `Page: ${problem.adminUrl}`,
   ]);
 }
