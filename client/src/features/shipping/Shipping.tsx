@@ -704,7 +704,7 @@ function LabelPart({ commissionId, shipment }: { commissionId: number; shipment:
             Label bought {when(label.createdAt)}
             {label.postageCents !== null ? ` for ${usd(label.postageCents)} postage` : ''}.
           </p>
-          <div className={pageStyles.row}>
+          <div className={adminStyles.actions}>
             <a
               className={`${buttonStyles.button} ${buttonStyles.primary}`}
               href={labelFileUrl(commissionId)}
