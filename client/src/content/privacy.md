@@ -98,6 +98,10 @@ For physical commissions, we collect your US shipping address, including your na
 
 We share this information with Shippo, our shipping service provider, to validate shipping addresses, calculate postage, purchase shipping labels, and track deliveries. Shippo may process your information as needed to provide these services.
 
+To deliver your order, your shipping address is also shared with the selected shipping carrier, such as USPS. The carrier uses this information to transport and deliver your package.
+
+We use Resend to send shipping-related email notifications, including updates when your order ships and when it is marked as delivered. These emails may include your order details and tracking information.
+
 If you delete your account, your name and street address are removed from your account records. However, shipping or transaction information already shared with Shippo may remain subject to Shippo's own retention practices and privacy policy.
 
 ## 2. How We Use Your Information

@@ -545,8 +545,8 @@ describe('POST /webhooks/shippo', () => {
       ['delivered', 'system'],
     ]);
     expect(email.sent.map((m) => m.subject)).toEqual([
-      expect.stringContaining('shipped'),
-      expect.stringContaining('delivered'),
+      'Your Marigold & Ink order is on its way!',
+      'Your Marigold & Ink order has arrived!',
     ]);
     const { rows } = await pool.query('SELECT count(*)::int AS n FROM tracking_events');
     expect(rows[0].n).toBe(2);

@@ -3,6 +3,13 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one entry per milestone.
 
+## [Unreleased]
+
+### Added
+
+- **Shipping emails:** the owner's wording for the "on its way" and "has arrived" emails, so they're now sent in production too.
+- **Privacy policy, section 1F:** the shipping address is also shared with the carrier (such as USPS) to deliver the package, and shipping emails are sent with Resend.
+
 ## [0.13.0] - 2026-11-26 (Milestone 11b: labels, tracking, and shipping emails)
 
 ### Added
