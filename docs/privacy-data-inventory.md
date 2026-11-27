@@ -54,6 +54,14 @@ What personal data the site collects, where it goes, and how long it stays, take
 - **Product photos** are stored in Cloudflare R2 after processing removes their metadata (location, camera, time), and are public once the product is published.
 - **The stock log** records which admin account changed a count, and when.
 
+## 3d. Shop orders (`orders`, `order_items`, `order_events`, `order_refunds`; milestone 12b, [ADR 0020](decisions/0020-shop-cart-and-checkout.md))
+
+- **The cart** is kept only in the visitor's browser (`localStorage`, key `marigold-cart-v1`): option IDs and quantities, no personal data. It's never sent anywhere until the cart page asks for prices.
+- **An order** records who bought it (the account), what (names, prices, quantities as they were), the total, when it was paid, and Stripe's page and payment IDs. Refunds record the amount, the reason the admin gave, and who asked.
+- **Sent to Stripe:** the client's email (`customer_email`), each item's name, price, and quantity, and the order number.
+- **Emails:** an order confirmation through Resend (the items and total).
+- **Account deletion:** unpaid orders end; paid orders stay as financial records under "Deleted user". The data download includes all orders.
+
 ## 4. Payments (`payments`, `processed_webhook_events`)
 
 - **Card details never reach the site.** Clients pay on Stripe's hosted Checkout page.
@@ -64,7 +72,7 @@ What personal data the site collects, where it goes, and how long it stays, take
 ## 5. Cookies and browser storage
 
 - **One cookie:** the sign-in session cookie. It's `HttpOnly` (scripts can't read it), `Secure`, has no `Domain` (only this host), and expires after 7 days (`SESSION_MAX_AGE_DAYS`). The session row in Postgres (`sessions`) holds the user ID, and briefly the Google sign-in state.
-- No analytics, advertising, or tracking. Nothing in `localStorage` or `sessionStorage`.
+- No analytics, advertising, or tracking. The only thing in `localStorage` is the shop cart (milestone 12b): option IDs and quantities, nothing personal. Nothing in `sessionStorage`.
 - Fonts are bundled with the site (`@fontsource`), so no requests go to Google Fonts.
 - Stripe Checkout and Google sign-in are on their own domains and set their own cookies under their own policies.
 
@@ -81,9 +89,9 @@ What personal data the site collects, where it goes, and how long it stays, take
 | --- | --- | --- | --- |
 | Render | Hosting the site and API | All traffic | US (Oregon) |
 | Neon | Production database | Everything in sections 1 to 4 | AWS US West (Oregon) |
-| Stripe | Payments | Email, amounts, card details (entered on Stripe's page) | Stripe's infrastructure |
+| Stripe | Payments for commissions and shop orders | Email, amounts, shop items (names, prices, quantities), card details (entered on Stripe's page) | Stripe's infrastructure |
 | Google | "Continue with Google" | That the person is signing in to this app | Google's infrastructure |
-| Resend | Account and shipping emails (once configured) | Email address and the code; for shipping, the tracking number and links | Resend's infrastructure |
+| Resend | Account, shipping, and order emails (once configured) | Email address and the code; for shipping, the tracking number and links; for orders, the items and total | Resend's infrastructure |
 | Cloudflare R2 | Storing commission files and shop photos | Reference photos (metadata removed), previews, final files, product photos (metadata removed) | Cloudflare, Eastern North America (location hint ENAM) |
 | Shippo | Shipping physical commissions (once configured) | The shipping address, the package's weight and size, the label, and its tracking | Shippo's infrastructure (a US company) |
 | USPS | Delivering physical commissions (labels bought through Shippo) | The shipping address, and the sender's name, address, email, and phone | United States |

@@ -1,6 +1,6 @@
 # Backlog
 
-Work that is out of scope for the current build session (milestones 0 to 12a). Next: milestone 12b, the shop's cart and checkout. Each item links back to the relevant section of [proposal.md](proposal.md).
+Work that is out of scope for the current build session (milestones 0 to 12b). Next: milestone 12c, shop shipping and trees, then opening the shop. Each item links back to the relevant section of [proposal.md](proposal.md).
 
 ## Deferred features
 
@@ -14,7 +14,11 @@ Work that is out of scope for the current build session (milestones 0 to 12a). N
   - Let the owner correct the package after the final payment (today the label can be bought from Shippo's dashboard instead).
   - A 4×6 label option for a label printer (`LABEL_FILE_TYPE` in `adapters/shippo.ts`).
   - Ask Shippo's sales team to sign webhooks (HMAC), then check the signature too.
-- **Shop, next** (6.10, ADR 0019): **12b** cart and checkout (stock reserved with row-level locking, expiring reservations, paid in full through Stripe, order lines referencing variants with `RESTRICT`); **12c** shop shipping (several items per box, weights per variant, flat mailers for cards and stickers, local pickup for furniture), labels and tracking for orders, and trees for shop orders.
+- **Shop, next** (6.10, ADRs 0019 and 0020): **12c** shop shipping (several items per box, weights per variant, flat mailers for cards and stickers, local pickup for furniture), labels and tracking for orders, and trees for shop orders.
+- **Shop, 12b follow-ups** (ADR 0020):
+  - **Delayed payments:** Stripe's page offers Link's bank and Klarna options. Turn them off in the Stripe Dashboard (Settings → Payment methods → Link), or handle `checkout.session.async_payment_succeeded` and `..._failed` for orders and commissions.
+  - Guest checkout (email only), a cart saved with the account (shared across devices), partial refunds (single items), and the order email's wording (`server/src/modules/orders/orders.emails.ts`; not sent in production until written).
+  - The privacy policy's "Cookies and Browser Storage" section: the cart is kept in `localStorage` (no personal data).
 - **Shop, later:** search in the shop; low-stock alerts on the admin page; drag-and-drop photo ordering; the shop's own wording (`COPY.shop.intro` and `empty` are placeholders).
 - **Header on phones:** with Shop added, the logged-in admin's menu wraps "Log out" onto a second line at 390 px. Visitors see fewer links. Consider a menu button on small screens.
 - **Admin dashboard UI and analytics** (6.8): revenue by month, turnaround time, popular styles, best sellers.

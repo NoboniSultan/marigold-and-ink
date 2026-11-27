@@ -41,6 +41,12 @@ erDiagram
     products ||--o{ product_photos : "shown in"
     product_variants ||--o{ inventory_movements : "stock log"
     users |o--o{ inventory_movements : "changes stock"
+    users ||--o{ orders : "places"
+    orders ||--o{ order_items : "contains"
+    product_variants ||--o{ order_items : "ordered as"
+    orders ||--o{ order_events : "history"
+    orders ||--o{ order_refunds : "refunded by"
+    orders |o--o{ inventory_movements : "holds, releases, returns"
 
     payments ||--o{ payments : "refunded by"
     payments ||--o| donations : "funds (one each)"
@@ -417,6 +423,32 @@ Milestone 12a ([ADR 0019](decisions/0019-shop-catalog.md)): the shop catalog, ma
 | `inventory_movements.actor_user_id` | FK, `ON DELETE RESTRICT` | Who changed the stock (the owner); null for the system. |
 | `inventory_movements_change_check`, `_stock_after_check`, `_note_check` | CHECK | A change is never 0; the count after is never negative; a note is 1–300 characters when set. |
 | `inventory_movements_variant_id_idx` | Index | A variant's log, newest first. |
+| `inventory_reason` (12b) | Domain | `sale` became `return` (items put back after a refund); a paid order changes nothing more, its hold already took the stock. |
+| `inventory_movements.order_id` (12b) | FK, `ON DELETE RESTRICT` | The order a `reservation`, `release`, or `return` belongs to. |
+| `inventory_movements_order_check` (12b) | CHECK | Holds, releases, and returns name their order; restocks and adjustments don't. |
+| `inventory_movements_order_id_idx` (12b) | Index | An order's stock changes. |
+
+### orders, order_items, order_events, order_refunds
+
+Milestone 12b ([ADR 0020](decisions/0020-shop-cart-and-checkout.md)): shop orders, paid in full through Stripe. Money history: nothing here is ever deleted.
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `order_status` | Domain (`order_status_check`) | `pending_payment`, `paid`, `expired`, `canceled`, `refunded` (see `docs/state-machine.md`). |
+| `orders.client_id` | FK, `ON DELETE RESTRICT` | A deleted account is anonymized, never removed, so its orders keep their client. |
+| `orders_subtotal_cents_check`, `orders_currency_check` | CHECK | A positive total (from prices at checkout); a lowercase currency code. |
+| `orders_stripe_checkout_session_id_key`, `orders_stripe_payment_intent_id_key` | UNIQUE | Each Stripe page and payment belongs to one order (webhooks find orders by them). |
+| `orders_checkout_check`, `orders_checkout_url_check` | CHECK | The Stripe page's ID, link (`https://`), and expiry come together. |
+| `orders_paid_check` | CHECK | When paid and the payment come together; paid and refunded orders have them. (A late payment on an ended order is recorded and refunded, so it has them too.) |
+| `orders_client_id_idx`, `orders_pending_idx` | Index | A client's orders; the sweep's pending orders by page expiry (partial). |
+| `order_items.order_id`, `order_items.variant_id` | FK, `ON DELETE RESTRICT` | Lines stay with their order; an ordered option can't be deleted (`order_items_variant_id_fkey`, answered as 409 `PRODUCT_HAS_ORDERS`). |
+| `order_items_order_variant_key` | UNIQUE | One line per option per order. |
+| `order_items_unit_price_cents_check`, `_quantity_check`, `_text_check` | CHECK | Price above 0; quantity 1–100; the names as they were (1–120 and 1–80 characters). |
+| `order_events_actor_check`, `order_events_reason_check` | CHECK | A user for every actor but the system; reasons 1–500 characters. |
+| `order_refunds_amount_cents_check`, `_status_check`, `_reason_check` | CHECK | A positive amount; `pending`, `succeeded`, or `failed`; a reason. |
+| `order_refunds_stripe_refund_id_key` | UNIQUE | Each Stripe refund recorded once. |
+| `order_refunds_restocked_check` | CHECK | Items are put back only when asked, and only after the refund succeeded. |
+| `orders_set_updated_at`, `order_refunds_set_updated_at` | Trigger | `updated_at` on every change. |
 
 ### processed_webhook_events
 
@@ -477,4 +509,4 @@ Server-side login sessions (milestone 3, [ADR 0004](decisions/0004-server-sessio
 ## Deliberately deferred
 
 - **Donation adjustment history** for partial refunds is designed in milestone 8, where the audit rules are decided.
-- **Shop orders** (`orders`, order lines, reservations) come in milestone 12b. `donations.payment_id` and `commission_id` will be revisited then.
+- **Trees for shop orders** come in milestone 12c; `donations` is tied to commission payments until then.

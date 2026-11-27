@@ -3,12 +3,34 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one entry per milestone.
 
-## [Unreleased]
+## [0.15.0] - 2026-11-27 (Milestone 12b: shop cart and checkout)
 
 ### Added
 
+- **Cart and checkout** ([ADR 0020](docs/decisions/0020-shop-cart-and-checkout.md)):
+  - **The cart:** Add to cart on product pages (option and quantity); the cart is kept in the browser, and the header shows Cart (n).
+  - **The cart page** (`/cart`) prices every line on the server, flags items that sold out or are short, drops ones that are gone, and checks out (visitors are asked to log in first).
+  - **Checkout** holds the stock under row locks (two buyers can never get the last piece), records the order, and opens a 30-minute Stripe page. A new checkout ends the client's earlier unpaid one.
+  - **Paid:** Stripe's webhook marks the order paid and emails a confirmation (wording is a placeholder, held back in production). A sweep asks Stripe about orders whose page closed without a webhook, every 5 minutes.
+  - **Not paid:** the order expires and its stock goes back on sale. A payment that arrives after an order ended is refunded automatically.
+  - **Orders:** the order page (`/orders/:id`) waits for the confirmation after paying and empties the cart, and orders are listed on the account page.
+  - **Admin → Orders:** orders by status, each with its history and refunds; refund in full, putting the items back on sale by default.
+  - **Monthly report:** "Shop sales" and "Shop refunds" columns; sales and refunds columns are now "Commission sales" and "Commission refunds", and net sales covers both.
 - **Login page:** the logo, revealed by the ink spread (a plain fade with reduced motion). The reveal (`InkReveal`) moved to `components/` and takes an optional timing; the logo spreads more slowly than the About photo, since a small logo is covered sooner.
 - **Home typewriter:** the owner's line "You need artists to make art. Because machines don't suffer."
+
+### Changed
+
+- The stock log's `sale` reason became `return` (items put back after a refund). Holds, releases, and returns name their order.
+- A product or option that was ever ordered can't be deleted (409 `PRODUCT_HAS_ORDERS`); hide it instead.
+- Account deletion ends unpaid shop orders (their stock goes back on sale); the data download includes orders.
+
+### Notes
+
+- Checked end to end against Stripe's test mode in a real browser:
+  - add to cart, cart page, checkout (stock held), and payment with a test card;
+  - confirmation by Stripe's real webhook (through the Stripe CLI), the cart emptied, the admin's refund with restocking, and the stock restored.
+- **Stripe's page also offers Link's "Bank" and "Klarna"** next to cards, though every session is card-only. A delayed payment would complete as unpaid: the sweep then leaves its stock held, but nothing marks it paid yet. Turning those options off in the Stripe Dashboard avoids it (see the backlog).
 
 ## [0.14.0] - 2026-11-27 (Milestone 12a: shop catalog)
 

@@ -32,6 +32,7 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)) |
 | Labels and tracking: buy, print, and void USPS labels from the admin page; tracking by webhook and a daily check moves the commission to shipped and delivered; shipped, delivered, and delivery-problem emails | Built (11b); needs the [webhook and label settings](docs/setup-shippo.md) ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)) |
 | Shop catalog: products in four categories with options (own price and stock), photos, a logged stock history, admin pages, and the public `/shop` | Built (12a); visible only to the admin until `SHOP_OPEN=true` ([ADR 0019](docs/decisions/0019-shop-catalog.md)); cart and checkout in 12b |
+| Shop cart and checkout: a cart in the browser, checkout that holds stock under row locks (no piece sells twice), 30-minute Stripe page, orders with history, full refunds with optional restocking, order emails, shop columns in the monthly report | Built (12b); shop still admin-only until 12c ([ADR 0020](docs/decisions/0020-shop-cart-and-checkout.md)); order email wording is a placeholder |
 | Messaging, slots | Later (see backlog) |
 
 ## Tech stack
@@ -294,6 +295,11 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | PUT | `/api/v1/admin/shop/variants/:variantId/stock` | Admin | `{ stock, reason: restock\|adjustment, note? }`: the new count, logged. `GET .../movements` lists the log. |
 | POST | `/api/v1/admin/shop/products/:id/photos` | Admin | Upload a photo (the body is the file; JPEG, PNG, or WebP up to 20 MB; at most 10). Stored as two WebP sizes with no metadata. |
 | PATCH / DELETE | `/api/v1/admin/shop/photos/:photoId` | Admin | Set `altText` / delete a photo and its files. `PUT .../products/:id/photo-order` `{ photoIds }` reorders (the first is the cover). |
+| POST | `/api/v1/cart/preview` | Public once the shop is open; admin before | `{ items: [{ variantId, quantity }] }` → each line priced with current prices and stock, what's gone, the subtotal, and whether it can be checked out. |
+| POST | `/api/v1/orders` | Logged in | Checkout: holds the items and opens a 30-minute Stripe page; `{ orderId, url }`. 409 `OUT_OF_STOCK` with what's left; ends the client's earlier unpaid order first. |
+| GET | `/api/v1/orders`, `/api/v1/orders/:id` | Logged in (own orders; admin any) | The client's orders (paid, pending, refunded) / one order, with its Stripe page while unpaid. |
+| GET | `/api/v1/admin/orders`, `/api/v1/admin/orders/:id` | Admin | Every order (`?status`), with the client / one order with its history and refunds. |
+| POST | `/api/v1/admin/orders/:id/refund` | Admin | `{ reason, restock }`: refunds a paid order in full; items go back on sale once it succeeds if `restock`. 422 `ORDER_NOT_REFUNDABLE`. |
 | GET | `/api/v1/admin/artworks` | Admin | All artworks, including drafts. `?status=all\|published\|draft` plus the public filters. |
 | GET | `/api/v1/admin/artworks/:id` | Admin | One artwork with admin fields (`isPublished`, `contentManaged`, ...). |
 | POST | `/api/v1/admin/artworks` | Admin | Create from a processed image: `imageKey`, `slug`, `title`, `category`, optional fields, `tags` (names). |
@@ -372,6 +378,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0017: US shipping with Shippo](docs/decisions/0017-us-shipping-with-shippo.md)
 - [0018: Shipping labels and tracking](docs/decisions/0018-shipping-labels-and-tracking.md)
 - [0019: Shop catalog](docs/decisions/0019-shop-catalog.md)
+- [0020: Shop cart and checkout](docs/decisions/0020-shop-cart-and-checkout.md)
 
 ## Roadmap
 
