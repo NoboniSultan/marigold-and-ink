@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective Date:** November 23, 2026  
-**Last Updated:** November 24, 2026
+**Last Updated:** November 26, 2026
 
 At **Marigold & Ink** ("we," "our," or "us"), we believe that creating art is a personal experience, and respecting your privacy is part of that experience.
 
@@ -91,6 +91,14 @@ If you place a commission, you may upload reference photos to help me create you
 Reference photos are stored using Cloudflare R2, with storage located in the United States. Reference photos are deleted 90 days after the commission ends or when your account is deleted, whichever happens first.
 
 Previews and final artwork files are retained for one year after the commission has been fully paid. After that period, these files are deleted.
+
+### F. Shipping Information
+
+For physical commissions, we collect your US shipping address, including your name and street address, so we can prepare and deliver your order.
+
+We share this information with Shippo, our shipping service provider, to validate shipping addresses, calculate postage, purchase shipping labels, and track deliveries. Shippo may process your information as needed to provide these services.
+
+If you delete your account, your name and street address are removed from your account records. However, shipping or transaction information already shared with Shippo may remain subject to Shippo's own retention practices and privacy policy.
 
 ## 2. How We Use Your Information
 

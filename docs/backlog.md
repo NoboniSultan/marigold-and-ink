@@ -40,7 +40,6 @@ Work that is out of scope for the current build session (milestones 0 to 11a). N
 - **Rush fee shape**: `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column and a branch in `pricing.engine.ts`.
 - **Re-quote after sending**: a sent quote can't change. If the price must change after sending, add a "revise quote" flow (supersede the sent quote, and move the commission back to inquiry or keep it quoted, as the owner decides).
 - **Sales tax on the final payment**: shipping is added since milestone 11a; decide on sales tax (Stripe Tax or a fixed rule) with the owner.
-- **Privacy policy: shipping addresses** (milestone 11): before switching shipping on in production, the owner adds that physical commissions collect a US shipping address, that it's shared with Shippo to check it, price postage, and (11b) buy labels and track the package, and that account deletion removes the name and street. See docs/setup-shippo.md and docs/privacy-data-inventory.md section 3b.
 - **Bundle:** the shipping section adds about 3 KB (gzipped) to the main bundle, since the commission page isn't split out. Fold into "Trim the main bundle".
 - **Refunds after the final payment** (milestone 7 decision): they move money only. If a commission refunded in full after delivery should end as `refunded`, add those transitions to the state machine.
 - **Delayed payment methods** (bank debits, etc.): Checkout is cards-only so `checkout.session.completed` means paid. Others need the `checkout.session.async_payment_succeeded` / `_failed` events.
