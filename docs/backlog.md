@@ -1,6 +1,6 @@
 # Backlog
 
-Work that is out of scope for the current build session (milestones 0 to 12b). Next: milestone 12c, shop shipping and trees, then opening the shop. Each item links back to the relevant section of [proposal.md](proposal.md).
+Work that is out of scope for the current build session (milestones 0 to 12c). Next: milestone 12d, trees for shop orders, then opening the shop. Each item links back to the relevant section of [proposal.md](proposal.md).
 
 ## Deferred features
 
@@ -8,13 +8,18 @@ Work that is out of scope for the current build session (milestones 0 to 12b). N
 - **Email notifications** (6.7): new messages, payment reminders, status changes, shipping updates, and the donation amount in order confirmations.
 - **Background jobs**: BullMQ on Redis for email and scheduled tasks.
 - **Slots and waitlist** (6.6): a maximum number of active commissions per period, with automatic promotion from the waitlist.
-- **Shipping, later** (7, ADRs 0017 and 0018): insurance for originals, signature on delivery, a saved address book (with the shop), local pickup for furniture, international shipping.
+- **Shipping, later** (7, ADRs 0017 and 0018): insurance for originals, signature on delivery, a saved address book (the cart fills in the last order's address since 12c), international shipping.
 - **Label follow-ups** (ADR 0018):
   - Show what labels cost against what clients paid for shipping in the monthly report (the studio covers any difference).
   - Let the owner correct the package after the final payment (today the label can be bought from Shippo's dashboard instead).
   - A 4×6 label option for a label printer (`LABEL_FILE_TYPE` in `adapters/shippo.ts`).
   - Ask Shippo's sales team to sign webhooks (HMAC), then check the signature too.
-- **Shop, next** (6.10, ADRs 0019 and 0020): **12c** shop shipping (several items per box, weights per variant, flat mailers for cards and stickers, local pickup for furniture), labels and tracking for orders, and trees for shop orders.
+- **Shop, next** (6.10, ADRs 0019 to 0021): **12d** trees for shop orders (recommended: recorded at delivery), then the opening checklist and `SHOP_OPEN`.
+- **Shop, 12c follow-ups** (ADR 0021):
+  - Packing several large items in more than one box (today an order goes in its largest packing type, up to USPS's 70 lb).
+  - Partial pickups (an order with a pickup-only piece is all collected locally today).
+  - The pickup wording (`COPY.shop.pickupNote`, and the order email's pickup line in `orders.emails.ts`).
+  - Shop shipping costs against labels in the monthly report (with the label follow-up above).
 - **Shop, 12b follow-ups** (ADR 0020):
   - **Delayed payments:** Stripe's page offers Link's bank and Klarna options. Turn them off in the Stripe Dashboard (Settings → Payment methods → Link), or handle `checkout.session.async_payment_succeeded` and `..._failed` for orders and commissions.
   - Guest checkout (email only), a cart saved with the account (shared across devices), partial refunds (single items), and the order email's wording (`server/src/modules/orders/orders.emails.ts`; not sent in production until written).

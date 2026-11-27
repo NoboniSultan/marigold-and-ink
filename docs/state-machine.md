@@ -78,9 +78,9 @@ A rejected change returns one of three errors, so the client can tell *why* it f
 - **Defense in depth.** The database independently refuses invalid status values, shipping states for digital work, revision counts above the limit, and any edit or deletion of an event row (see [data-model.md](data-model.md)).
 - **Tests.** The unit tests check all 144 status pairs against all three actor types, using an expected table written independently of the implementation. A deliberate mutation (letting clients start work) is caught by the suite.
 
-## Shop orders (milestone 12b)
+## Shop orders (milestones 12b and 12c)
 
-Shop orders have their own, smaller lifecycle (`server/src/modules/orders/orders.stateMachine.ts`, [ADR 0020](decisions/0020-shop-cart-and-checkout.md)). Each change is logged in `order_events`.
+Shop orders have their own, smaller lifecycle (`server/src/modules/orders/orders.stateMachine.ts`, [ADR 0020](decisions/0020-shop-cart-and-checkout.md), shipping in [ADR 0021](decisions/0021-shop-shipping.md)). Each change is logged in `order_events`.
 
 ```mermaid
 stateDiagram-v2
@@ -88,7 +88,12 @@ stateDiagram-v2
     pending_payment --> paid: system (Stripe)
     pending_payment --> expired: system (page closed; stock released)
     pending_payment --> canceled: client (new checkout), system (account deleted)
+    paid --> shipped: system (first scan), admin (not a pickup)
+    shipped --> delivered: system (tracking), admin
+    paid --> delivered: admin (pickup collected)
     paid --> refunded: admin, system (Dashboard refund)
+    shipped --> refunded: admin, system
+    delivered --> refunded: admin, system
     expired --> [*]
     canceled --> [*]
     refunded --> [*]
@@ -99,6 +104,9 @@ stateDiagram-v2
 | pending_payment | paid | system | Stripe's webhook, or the sweep after asking Stripe |
 | pending_payment | expired | system | The 30-minute payment page closed unpaid; the items go back on sale |
 | pending_payment | canceled | client, system | The client started a new checkout, or deleted their account; the items go back on sale |
-| paid | refunded | admin, system | Once refunds cover the whole order; items go back on sale if the admin asked |
+| paid | shipped | system, admin | Shipped orders only: the carrier's first scan of the label, or "Mark shipped" (12c) |
+| shipped | delivered | system, admin | Tracking says delivered, or "Mark delivered" (12c) |
+| paid | delivered | admin | Pickups only: "Mark picked up" (12c) |
+| paid, shipped, delivered | refunded | admin, system | Once refunds cover the whole order (items and shipping); items go back on sale if the admin asked |
 
-409 `ORDER_INVALID_TRANSITION` for a move that doesn't exist, 403 `ORDER_TRANSITION_FORBIDDEN` for the wrong actor. 12c will add shipping (`paid → shipped → delivered`).
+409 `ORDER_INVALID_TRANSITION` for a move that doesn't exist (including shipping a pickup, or picking up a shipped order), 403 `ORDER_TRANSITION_FORBIDDEN` for the wrong actor. Like commissions, tracking that reports delivered as its first news moves the order through shipped, with one email for each.

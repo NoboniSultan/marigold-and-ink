@@ -32,7 +32,8 @@ Marigold & Ink is a full-stack platform for selling handmade art: custom portrai
 | Shipping (US, physical work): checked address, live USPS prices the client chooses from, shipping plus the owner's packaging fee added to the final payment | Built (11a); needs [setup](docs/setup-shippo.md) ([ADR 0017](docs/decisions/0017-us-shipping-with-shippo.md)) |
 | Labels and tracking: buy, print, and void USPS labels from the admin page; tracking by webhook and a daily check moves the commission to shipped and delivered; shipped, delivered, and delivery-problem emails | Built (11b); needs the [webhook and label settings](docs/setup-shippo.md) ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)) |
 | Shop catalog: products in four categories with options (own price and stock), photos, a logged stock history, admin pages, and the public `/shop` | Built (12a); visible only to the admin until `SHOP_OPEN=true` ([ADR 0019](docs/decisions/0019-shop-catalog.md)); cart and checkout in 12b |
-| Shop cart and checkout: a cart in the browser, checkout that holds stock under row locks (no piece sells twice), 30-minute Stripe page, orders with history, full refunds with optional restocking, order emails, shop columns in the monthly report | Built (12b); shop still admin-only until 12c ([ADR 0020](docs/decisions/0020-shop-cart-and-checkout.md)); order email wording is a placeholder |
+| Shop cart and checkout: a cart in the browser, checkout that holds stock under row locks (no piece sells twice), 30-minute Stripe page, orders with history, full refunds with optional restocking, order emails, shop columns in the monthly report | Built (12b); shop still admin-only ([ADR 0020](docs/decisions/0020-shop-cart-and-checkout.md)); order email wording is a placeholder |
+| Shop shipping: the owner's packing types, a packed weight per option, live USPS prices for the whole order in the cart (plus the packaging fee once per order), local pickup for pickup-only pieces, labels, tracking, and shipped/delivered emails for orders | Built (12c); packing types and weights are entered by the owner ([ADR 0021](docs/decisions/0021-shop-shipping.md)); pickup wording is a placeholder |
 | Messaging, slots | Later (see backlog) |
 
 ## Tech stack
@@ -289,17 +290,23 @@ Every response carries an `X-Request-Id` header. Send your own (letters, digits,
 | GET | `/api/v1/shop/products/:slug` | Public once open; admin before | A product with its options (price, available; never the stock count) and photos. The admin may preview unpublished ones. |
 | GET | `/media/shop/products/:id/:file` | Public | A product photo (WebP), cached forever. |
 | GET / POST | `/api/v1/admin/shop/products` | Admin | All products with stock and what each still needs to be published / create a draft (`name`, `category`, optional `slug`, `description`, `materials`, `dimensions`, `oneOfAKind`). |
-| GET / PATCH / DELETE | `/api/v1/admin/shop/products/:id` | Admin | One product / edit (also `published`: 422 `PRODUCT_INCOMPLETE` until it has an option, a photo, and alt text) / delete with its options, photos, and stored files. |
-| POST | `/api/v1/admin/shop/products/:id/variants` | Admin | Add an option: `name`, `priceCents`, starting `stock` (logged as a restock). 422 `ONE_OF_A_KIND` for a second option or a stock above 1 on a one-of-a-kind piece. |
-| PATCH / DELETE | `/api/v1/admin/shop/variants/:variantId` | Admin | Rename or reprice / delete an option. |
+| GET / PATCH / DELETE | `/api/v1/admin/shop/products/:id` | Admin | One product / edit (also `packingTypeId`, `pickupOnly`, and `published`: 422 `PRODUCT_INCOMPLETE` until it has an option, a photo, alt text, and (unless pickup-only) a packing type and a weight on every option) / delete with its options, photos, and stored files. |
+| POST | `/api/v1/admin/shop/products/:id/variants` | Admin | Add an option: `name`, `priceCents`, optional `weightOz` (packed), starting `stock` (logged as a restock). 422 `ONE_OF_A_KIND` for a second option or a stock above 1 on a one-of-a-kind piece. |
+| PATCH / DELETE | `/api/v1/admin/shop/variants/:variantId` | Admin | Rename, reprice, or reweigh / delete an option. |
+| GET / POST | `/api/v1/admin/shop/packing-types` | Admin | The owner's mailers and boxes / add one (`name`, inside `lengthIn`, `widthIn`, `heightIn`, empty `weightOz`). 409 `PACKING_TYPE_NAME_TAKEN`. |
+| PUT / DELETE | `/api/v1/admin/shop/packing-types/:packingTypeId` | Admin | Edit / delete one. 409 `PACKING_TYPE_IN_USE` while a product uses it. |
 | PUT | `/api/v1/admin/shop/variants/:variantId/stock` | Admin | `{ stock, reason: restock\|adjustment, note? }`: the new count, logged. `GET .../movements` lists the log. |
 | POST | `/api/v1/admin/shop/products/:id/photos` | Admin | Upload a photo (the body is the file; JPEG, PNG, or WebP up to 20 MB; at most 10). Stored as two WebP sizes with no metadata. |
 | PATCH / DELETE | `/api/v1/admin/shop/photos/:photoId` | Admin | Set `altText` / delete a photo and its files. `PUT .../products/:id/photo-order` `{ photoIds }` reorders (the first is the cover). |
 | POST | `/api/v1/cart/preview` | Public once the shop is open; admin before | `{ items: [{ variantId, quantity }] }` → each line priced with current prices and stock, what's gone, the subtotal, and whether it can be checked out. |
-| POST | `/api/v1/orders` | Logged in | Checkout: holds the items and opens a 30-minute Stripe page; `{ orderId, url }`. 409 `OUT_OF_STOCK` with what's left; ends the client's earlier unpaid order first. |
-| GET | `/api/v1/orders`, `/api/v1/orders/:id` | Logged in (own orders; admin any) | The client's orders (paid, pending, refunded) / one order, with its Stripe page while unpaid. |
+| POST | `/api/v1/cart/shipping-options` | Logged in | `{ items, address }` → the address as the carrier standardized it and the USPS options for the packed order, each with postage plus the packaging fee. 422 `CART_NOT_SHIPPABLE` / `ORDER_IS_PICKUP`. |
+| GET | `/api/v1/orders/address` | Logged in | The address of the client's last shipped order (to fill in the cart), or `null`. |
+| POST | `/api/v1/orders` | Logged in | Checkout: `{ items, shipping? }` (shipping: `address`, `serviceToken`, `expectedCents`, required unless the order is a pickup). Prices the shipping again, holds the items, and opens a 30-minute Stripe page with a shipping line; `{ orderId, url }`. 409 `OUT_OF_STOCK` with what's left; 422 `SHIPPING_REQUIRED`; 409 `SHIPPING_OPTION_STALE` or `SHIPPING_PRICE_CHANGED` with the current options. Ends the client's earlier unpaid order first. |
+| GET | `/api/v1/orders`, `/api/v1/orders/:id` | Logged in (own orders; admin any) | The client's orders / one order, with its Stripe page while unpaid, and its shipping and tracking (or that it's a pickup). |
 | GET | `/api/v1/admin/orders`, `/api/v1/admin/orders/:id` | Admin | Every order (`?status`), with the client / one order with its history and refunds. |
-| POST | `/api/v1/admin/orders/:id/refund` | Admin | `{ reason, restock }`: refunds a paid order in full; items go back on sale once it succeeds if `restock`. 422 `ORDER_NOT_REFUNDABLE`. |
+| POST | `/api/v1/admin/orders/:id/refund` | Admin | `{ reason, restock }`: refunds a paid, shipped, or delivered order in full (items and shipping); items go back on sale once it succeeds if `restock`. 422 `ORDER_NOT_REFUNDABLE`. |
+| POST | `/api/v1/admin/orders/:id/status` | Admin | `{ toStatus: shipped\|delivered }`: mark shipped or delivered by hand, or a pickup as picked up (`delivered`). 409 `ORDER_INVALID_TRANSITION`. |
+| POST | `/api/v1/admin/orders/:id/shipping/label-options`, `.../shipping/label`, `.../shipping/label/void`, `.../shipping/tracking/refresh`; GET `.../shipping/label/file` | Admin | An order's label, as for commissions: today's postage / buy (`{ rateId }`) / void / check tracking now / print (redirects to Shippo's PDF). |
 | GET | `/api/v1/admin/artworks` | Admin | All artworks, including drafts. `?status=all\|published\|draft` plus the public filters. |
 | GET | `/api/v1/admin/artworks/:id` | Admin | One artwork with admin fields (`isPublished`, `contentManaged`, ...). |
 | POST | `/api/v1/admin/artworks` | Admin | Create from a processed image: `imageKey`, `slug`, `title`, `category`, optional fields, `tags` (names). |
@@ -379,6 +386,7 @@ Architecture Decision Records live in [docs/decisions/](docs/decisions/):
 - [0018: Shipping labels and tracking](docs/decisions/0018-shipping-labels-and-tracking.md)
 - [0019: Shop catalog](docs/decisions/0019-shop-catalog.md)
 - [0020: Shop cart and checkout](docs/decisions/0020-shop-cart-and-checkout.md)
+- [0021: Shipping for shop orders](docs/decisions/0021-shop-shipping.md)
 
 ## Roadmap
 

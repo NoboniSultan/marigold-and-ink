@@ -47,6 +47,8 @@ erDiagram
     orders ||--o{ order_events : "history"
     orders ||--o{ order_refunds : "refunded by"
     orders |o--o{ inventory_movements : "holds, releases, returns"
+    orders ||--o| shipments : "ships as"
+    packing_types |o--o{ products : "packed in"
 
     payments ||--o{ payments : "refunded by"
     payments ||--o| donations : "funds (one each)"
@@ -439,7 +441,7 @@ Milestone 12b ([ADR 0020](decisions/0020-shop-cart-and-checkout.md)): shop order
 | `orders_subtotal_cents_check`, `orders_currency_check` | CHECK | A positive total (from prices at checkout); a lowercase currency code. |
 | `orders_stripe_checkout_session_id_key`, `orders_stripe_payment_intent_id_key` | UNIQUE | Each Stripe page and payment belongs to one order (webhooks find orders by them). |
 | `orders_checkout_check`, `orders_checkout_url_check` | CHECK | The Stripe page's ID, link (`https://`), and expiry come together. |
-| `orders_paid_check` | CHECK | When paid and the payment come together; paid and refunded orders have them. (A late payment on an ended order is recorded and refunded, so it has them too.) |
+| `orders_paid_check` | CHECK | When paid and the payment come together; paid, shipped, delivered, and refunded orders have them. (A late payment on an ended order is recorded and refunded, so it has them too.) |
 | `orders_client_id_idx`, `orders_pending_idx` | Index | A client's orders; the sweep's pending orders by page expiry (partial). |
 | `order_items.order_id`, `order_items.variant_id` | FK, `ON DELETE RESTRICT` | Lines stay with their order; an ordered option can't be deleted (`order_items_variant_id_fkey`, answered as 409 `PRODUCT_HAS_ORDERS`). |
 | `order_items_order_variant_key` | UNIQUE | One line per option per order. |
@@ -449,6 +451,27 @@ Milestone 12b ([ADR 0020](decisions/0020-shop-cart-and-checkout.md)): shop order
 | `order_refunds_stripe_refund_id_key` | UNIQUE | Each Stripe refund recorded once. |
 | `order_refunds_restocked_check` | CHECK | Items are put back only when asked, and only after the refund succeeded. |
 | `orders_set_updated_at`, `order_refunds_set_updated_at` | Trigger | `updated_at` on every change. |
+
+### Shipping for shop orders (milestone 12c)
+
+[ADR 0021](decisions/0021-shop-shipping.md): shop orders ship through the same shipments, labels, and tracking as commissions, packed in the owner's mailers and boxes.
+
+| Name | Type | Why |
+| --- | --- | --- |
+| `packing_types` | Table | The owner's mailers and boxes: a name, the inside size (inches), and the empty weight (ounces). Owner-set, so it starts empty. |
+| `packing_types_name_key`, `packing_types_name_check` | UNIQUE, CHECK | Each name once, 1–60 characters. |
+| `packing_types_size_check`, `packing_types_weight_check` | CHECK | Each side above 0 and at most 108 in (USPS's longest); weight 0–1,120 oz (USPS's 70 lb). |
+| `packing_types_set_updated_at` | Trigger | `updated_at` on every change. |
+| `products.packing_type_id` | FK, `ON DELETE RESTRICT` | What the product ships in. A packing type in use can't be deleted (409 `PACKING_TYPE_IN_USE`). Indexed (`products_packing_type_id_idx`). |
+| `products.pickup_only` | Column | Collected locally, never shipped (large pieces). An order with one is a local pickup. |
+| `product_variants_weight_oz_check` | CHECK | An option's packed weight, above 0 and at most 1,120 oz, when set. Publishing a product that ships needs a packing type and a weight on every option. |
+| `shipments.order_id` | FK, `ON DELETE RESTRICT` | A shipment now belongs to a commission or a shop order; `commission_id` became nullable. |
+| `shipments_order_id_key` | UNIQUE | One shipment per order. |
+| `shipments_owner_check` | CHECK | Exactly one of `commission_id` and `order_id`. |
+| `orders.shipping_cents`, `orders.pickup` | Columns | What the client paid for postage and packaging at checkout; whether the order is collected locally. The total is the subtotal plus shipping. |
+| `orders_shipping_cents_check` | CHECK | Shipping is never negative, and 0 for a pickup. |
+| `order_status` (12c) | Domain | Adds `shipped` and `delivered`. |
+| `orders_paid_check` (12c) | CHECK | Widened so shipped and delivered orders also keep their payment (migration `orders-paid-shipped`). |
 
 ### processed_webhook_events
 

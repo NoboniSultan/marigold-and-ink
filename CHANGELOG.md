@@ -3,6 +3,37 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one entry per milestone.
 
+## [0.16.0] - 2026-11-27 (Milestone 12c: shipping for shop orders)
+
+### Added
+
+- **Shipping for shop orders** ([ADR 0021](docs/decisions/0021-shop-shipping.md)):
+  - **Packing types:** the owner's mailers and boxes (inside size, empty weight), managed on Admin → Shop. Each product ships in one, and each option has a packed weight. A product that ships needs both before it's published. Products can instead be **pickup only** (large pieces), which makes the whole order a local pickup.
+  - **The cart's shipping step:** a US address (filled in from the client's last shipped order), checked by the carrier, then live USPS prices for the whole order packed in its largest packing type, plus the packaging fee once per order. The total shows the items plus shipping.
+  - **Checkout** prices the shipping again, adds a "Shipping & packaging" line to Stripe's page, and saves the shipment with the order. If the option disappeared or its price changed, the cart asks the client to choose again.
+  - **Admin → Orders:** buy, print, and void USPS labels for an order, check tracking, and mark it shipped or delivered by hand (or a pickup as picked up). Tracking moves orders to shipped and delivered, with the same shipped, delivered, and delivery-problem emails as commissions.
+  - **The client's order page** shows shipping, the total, and the tracking (or the pickup note).
+- Orders gain the `shipped` and `delivered` statuses; shipped and delivered orders can still be refunded in full, shipping included.
+
+### Changed
+
+- Shipments belong to a commission or a shop order. The label and tracking code works for both through a small owner interface (`shipping.owners.ts`).
+- The monthly report's shop sales include shop shipping, and its shipping column covers both.
+- Account deletion also removes the street from shop order shipments; the data download includes each order's shipment.
+- A commission whose tracking reported delivered as its first news now gets a shipped email and then a delivered one (both said "arrived" before).
+
+### Notes
+
+- **Placeholders:** the pickup wording (`COPY.shop.pickupNote` and the order email's pickup line). Packing types and weights start empty for the owner to enter.
+- Checked in a real browser against Shippo's and Stripe's test modes:
+  - a product with a packing type and weight;
+  - live USPS prices for a 2-item order (1 oz in a 9.5 × 6.5 × 0.5 in mailer);
+  - Stripe's page showing the items and "Shipping & packaging (USPS Ground Advantage)";
+  - a real test label bought, printed (Shippo PDF link), and voided;
+  - marking the order shipped, and the client's order page.
+
+  The Stripe CLI's login had expired, so payment was marked in the local database instead of by the webhook (the webhook path is unchanged since 12b).
+
 ## [0.15.0] - 2026-11-27 (Milestone 12b: shop cart and checkout)
 
 ### Added
