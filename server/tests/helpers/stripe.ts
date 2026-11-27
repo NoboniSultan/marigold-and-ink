@@ -14,6 +14,8 @@ import {
   createWebhookParser,
   PaymentGatewayError,
   type CheckoutRequest,
+  type CheckoutStatus,
+  type OrderCheckoutRequest,
   type PaymentGateway,
   type RefundInfo,
 } from '../../src/adapters/stripe/stripeGateway.ts';
@@ -23,10 +25,19 @@ export const TEST_WEBHOOK_SECRET = 'whsec_test_secret_for_tests';
 export function fakeStripe() {
   const calls = {
     checkout: [] as { request: CheckoutRequest; idempotencyKey: string }[],
+    orderCheckout: [] as { request: OrderCheckoutRequest; idempotencyKey: string }[],
     expired: [] as string[],
-    refunds: [] as { paymentIntentId: string; amountCents: number; idempotencyKey: string }[],
+    statusLookups: [] as string[],
+    refunds: [] as {
+      paymentIntentId: string;
+      amountCents: number;
+      idempotencyKey: string;
+      orderId?: number;
+    }[],
   };
-  const failNext = { checkout: false, refund: false, expire: false };
+  const failNext = { checkout: false, refund: false, expire: false, status: false };
+  /** What getCheckoutStatus answers, by session ID (default: expired, unpaid). */
+  const sessionStatus = new Map<string, CheckoutStatus>();
   let refundStatus: RefundInfo['status'] = 'succeeded';
 
   const gateway: PaymentGateway = {
@@ -39,6 +50,25 @@ export function fakeStripe() {
       // Like Stripe, the same idempotency key always gives back the same session.
       const id = `cs_test_${idempotencyKey}`;
       return { id, url: `https://checkout.stripe.com/c/pay/${id}`, expiresAt: request.expiresAt };
+    },
+    async createOrderCheckout(request, { idempotencyKey }) {
+      if (failNext.checkout) {
+        failNext.checkout = false;
+        throw new PaymentGatewayError('Stripe Checkout session failed: test outage');
+      }
+      calls.orderCheckout.push({ request, idempotencyKey });
+      const id = `cs_test_${idempotencyKey}`;
+      return { id, url: `https://checkout.stripe.com/c/pay/${id}`, expiresAt: request.expiresAt };
+    },
+    async getCheckoutStatus(sessionId) {
+      if (failNext.status) {
+        failNext.status = false;
+        throw new PaymentGatewayError('Stripe session lookup failed: test outage');
+      }
+      calls.statusLookups.push(sessionId);
+      return (
+        sessionStatus.get(sessionId) ?? { status: 'expired', paid: false, paymentIntentId: null }
+      );
     },
     async expireCheckoutSession(sessionId) {
       if (failNext.expire) {
@@ -56,6 +86,7 @@ export function fakeStripe() {
         paymentIntentId: request.paymentIntentId,
         amountCents: request.amountCents,
         idempotencyKey,
+        ...(request.orderId ? { orderId: request.orderId } : {}),
       });
       return {
         id: `re_${idempotencyKey}`,
@@ -75,6 +106,10 @@ export function fakeStripe() {
     /** Makes the next call of that kind fail as if Stripe were down. */
     failNext(kind: keyof typeof failNext) {
       failNext[kind] = true;
+    },
+    /** What Stripe says about a Checkout page when asked (the release sweep asks). */
+    setSessionStatus(sessionId: string, status: CheckoutStatus) {
+      sessionStatus.set(sessionId, status);
     },
     /** Status Stripe reports for new refunds (cards in test mode usually succeed at once). */
     setRefundStatus(status: RefundInfo['status']) {

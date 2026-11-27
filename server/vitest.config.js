@@ -98,6 +98,12 @@ export default defineConfig({
           lines: 100,
         },
         'src/lib/money.js': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'src/modules/orders/orders.{stateMachine,rules}.ts': {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
         'src/modules/payments/payments.{service,webhooks,repository}.ts': {
           statements: 100,
           branches: 100,

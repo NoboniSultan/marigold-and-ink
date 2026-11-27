@@ -306,6 +306,111 @@ describe('createStripeGateway: requests sent to Stripe', () => {
     expect(requests[0]!.form.has('metadata[refund_payment_id]')).toBe(false);
   });
 
+  it("creates a shop order's Checkout page, each item with its quantity", async () => {
+    const { fetch, requests } = recordingFetch([
+      { body: { id: 'cs_o', url: 'https://checkout.stripe.com/c/pay/cs_o', expires_at: 1 } },
+    ]);
+
+    const session = await gatewayWith(fetch).createOrderCheckout(
+      {
+        orderId: 12,
+        currency: 'usd',
+        lines: [
+          { name: 'Marigold Stickers (Single)', unitAmountCents: 450, quantity: 3 },
+          { name: 'Cards (Pack of 5)', unitAmountCents: 1200, quantity: 1 },
+        ],
+        customerEmail: 'client@example.com',
+        successUrl: 'https://marigold.test/orders/12?payment=success',
+        cancelUrl: 'https://marigold.test/cart?checkout=cancelled',
+        expiresAt,
+      },
+      { idempotencyKey: 'order-checkout-12' },
+    );
+
+    expect(session.id).toBe('cs_o');
+    expect(requests[0]!.headers.get('idempotency-key')).toBe('order-checkout-12');
+    expect(Object.fromEntries(requests[0]!.form)).toMatchObject({
+      mode: 'payment',
+      'allowed_payment_method_types[0]': 'card',
+      'line_items[0][quantity]': '3',
+      'line_items[0][price_data][unit_amount]': '450',
+      'line_items[0][price_data][product_data][name]': 'Marigold Stickers (Single)',
+      'line_items[1][quantity]': '1',
+      'line_items[1][price_data][unit_amount]': '1200',
+      client_reference_id: 'order-12',
+      'metadata[order_id]': '12',
+      'metadata[type]': 'order',
+      'payment_intent_data[metadata][order_id]': '12',
+      expires_at: String(expiresAt.getTime() / 1000),
+    });
+
+    const { fetch: noUrl } = recordingFetch([{ body: { id: 'cs_x', url: null, expires_at: 1 } }]);
+    await expect(
+      gatewayWith(noUrl).createOrderCheckout(
+        {
+          orderId: 1,
+          currency: 'usd',
+          lines: [{ name: 'x', unitAmountCents: 1, quantity: 1 }],
+          customerEmail: 'a@b.c',
+          successUrl: 'https://x',
+          cancelUrl: 'https://x',
+          expiresAt,
+        },
+        { idempotencyKey: 'k' },
+      ),
+    ).rejects.toThrow(PaymentGatewayError);
+  });
+
+  it.each([
+    [
+      { status: 'complete', payment_status: 'paid', payment_intent: 'pi_9' },
+      { status: 'complete', paid: true, paymentIntentId: 'pi_9' },
+    ],
+    [
+      { status: 'expired', payment_status: 'unpaid', payment_intent: null },
+      { status: 'expired', paid: false, paymentIntentId: null },
+    ],
+    [
+      { status: 'open', payment_status: 'unpaid' },
+      { status: 'open', paid: false, paymentIntentId: null },
+    ],
+    [
+      { status: null, payment_status: 'unpaid' },
+      { status: 'open', paid: false, paymentIntentId: null },
+    ],
+  ])("reads a Checkout page's status from Stripe (%o)", async (body, expected) => {
+    const { fetch, requests } = recordingFetch([{ body: { id: 'cs_s', ...body } }]);
+
+    expect(await gatewayWith(fetch).getCheckoutStatus('cs_s')).toEqual(expected);
+    expect(requests[0]!.url).toBe('https://api.stripe.com/v1/checkout/sessions/cs_s');
+    expect(requests[0]!.method).toBe('GET');
+  });
+
+  it('refunds a shop order, naming the order', async () => {
+    const { fetch, requests } = recordingFetch([
+      {
+        body: {
+          id: 're_o',
+          amount: 800,
+          currency: 'usd',
+          status: 'succeeded',
+          payment_intent: 'pi_o',
+        },
+      },
+    ]);
+
+    await gatewayWith(fetch).createRefund(
+      { paymentIntentId: 'pi_o', amountCents: 800, refundPaymentId: null, orderId: 12 },
+      { idempotencyKey: 'order-refund-1' },
+    );
+
+    expect(Object.fromEntries(requests[0]!.form)).toEqual({
+      payment_intent: 'pi_o',
+      amount: '800',
+      'metadata[order_id]': '12',
+    });
+  });
+
   it('expires a session', async () => {
     const { fetch, requests } = recordingFetch([{ body: { id: 'cs_1', status: 'expired' } }]);
 

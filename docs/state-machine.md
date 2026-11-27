@@ -77,3 +77,28 @@ A rejected change returns one of three errors, so the client can tell *why* it f
 - **Concurrency.** The service locks the commission row (`SELECT ... FOR UPDATE`) inside the transaction before checking the rules. If two requests try to change the same commission at once, the second waits and then sees the first one's result, so it can't act on a status that's already out of date.
 - **Defense in depth.** The database independently refuses invalid status values, shipping states for digital work, revision counts above the limit, and any edit or deletion of an event row (see [data-model.md](data-model.md)).
 - **Tests.** The unit tests check all 144 status pairs against all three actor types, using an expected table written independently of the implementation. A deliberate mutation (letting clients start work) is caught by the suite.
+
+## Shop orders (milestone 12b)
+
+Shop orders have their own, smaller lifecycle (`server/src/modules/orders/orders.stateMachine.ts`, [ADR 0020](decisions/0020-shop-cart-and-checkout.md)). Each change is logged in `order_events`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending_payment: checkout (stock held)
+    pending_payment --> paid: system (Stripe)
+    pending_payment --> expired: system (page closed; stock released)
+    pending_payment --> canceled: client (new checkout), system (account deleted)
+    paid --> refunded: admin, system (Dashboard refund)
+    expired --> [*]
+    canceled --> [*]
+    refunded --> [*]
+```
+
+| From | To | Who | Notes |
+| --- | --- | --- | --- |
+| pending_payment | paid | system | Stripe's webhook, or the sweep after asking Stripe |
+| pending_payment | expired | system | The 30-minute payment page closed unpaid; the items go back on sale |
+| pending_payment | canceled | client, system | The client started a new checkout, or deleted their account; the items go back on sale |
+| paid | refunded | admin, system | Once refunds cover the whole order; items go back on sale if the admin asked |
+
+409 `ORDER_INVALID_TRANSITION` for a move that doesn't exist, 403 `ORDER_TRANSITION_FORBIDDEN` for the wrong actor. 12c will add shipping (`paid → shipped → delivered`).

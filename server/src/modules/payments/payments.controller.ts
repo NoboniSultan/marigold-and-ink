@@ -56,7 +56,10 @@ export async function stripeWebhook(req: Request, res: Response) {
       req.body as Buffer,
       req.get('stripe-signature'),
       gateway(req),
-      { donationPercent: req.app.locals.donationPercent ?? null },
+      {
+        donationPercent: req.app.locals.donationPercent ?? null,
+        email: (req.app.locals.adapters as AppAdapters).email,
+      },
     );
     // Send any trees this payment funded. Not awaited: Stripe gets its answer at once, and
     // a Digital Humani problem leaves the trees pending for the next try (never throws).

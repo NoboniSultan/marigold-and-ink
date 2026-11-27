@@ -34,6 +34,24 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/ShopPage.tsx')).ShopPage }),
       },
       {
+        path: 'cart',
+        lazy: async () => ({ Component: (await import('./pages/CartPage.tsx')).CartPage }),
+      },
+      {
+        // Stripe sends the client back here after paying (?payment=success).
+        path: 'orders/:id',
+        lazy: async () => {
+          const { OrderPage } = await import('./pages/OrderPage.tsx');
+          return {
+            Component: () => (
+              <RequireAuth>
+                <OrderPage />
+              </RequireAuth>
+            ),
+          };
+        },
+      },
+      {
         path: 'shop/:slug',
         lazy: async () => ({ Component: (await import('./pages/ProductPage.tsx')).ProductPage }),
       },
@@ -114,6 +132,18 @@ export const routes: RouteObject[] = [
             path: 'shop/:id',
             lazy: async () => ({
               Component: (await import('./pages/admin/AdminProductPage.tsx')).AdminProductPage,
+            }),
+          },
+          {
+            path: 'orders',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminOrdersPage.tsx')).AdminOrdersPage,
+            }),
+          },
+          {
+            path: 'orders/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/AdminOrderPage.tsx')).AdminOrderPage,
             }),
           },
           {

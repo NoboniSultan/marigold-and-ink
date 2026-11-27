@@ -46,6 +46,15 @@ export function sumCents(amounts) {
   return amounts.reduce((total, amount) => total + assertCents(amount), 0);
 }
 
+/** A unit price times a whole quantity: multiplyCents(450, 3) -> 1350. Stays a safe integer. */
+export function multiplyCents(unitCents, quantity) {
+  assertCents(unitCents, 'unit price');
+  if (!Number.isSafeInteger(quantity) || quantity < 0) {
+    throw new TypeError(`quantity must be a non-negative integer, got ${quantity}`);
+  }
+  return assertCents(unitCents * quantity, 'total');
+}
+
 /**
  * A decimal amount written as text, as payment and shipping services send it, to exact
  * cents without passing through a float: centsFromDecimal('7.58') -> 758,

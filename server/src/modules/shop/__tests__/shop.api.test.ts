@@ -416,10 +416,18 @@ describe('admin: options and stock', () => {
         change: -1,
         stockAfter: 9,
         reason: 'adjustment',
+        orderId: null,
         note: 'One damaged',
         createdAt: expect.any(String),
       },
-      { change: 7, stockAfter: 10, reason: 'restock', note: null, createdAt: expect.any(String) },
+      {
+        change: 7,
+        stockAfter: 10,
+        reason: 'restock',
+        orderId: null,
+        note: null,
+        createdAt: expect.any(String),
+      },
     ]);
     expect((await setStock({ stock: 5, reason: 'sale' })).status).toBe(400); // checkout only
   });

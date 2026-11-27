@@ -6,6 +6,8 @@ import { ErrorMessage, Loading } from '../components/Loading.tsx';
 import { COPY } from '../content/copy.ts';
 import { ProductImage } from '../features/shop/ProductImage.tsx';
 import { soldText, usd } from '../features/shop/shopFormat.ts';
+import { useCart } from '../features/cart/CartContext.tsx';
+import buttonStyles from '../components/Button.module.css';
 import { NotFoundPage } from './NotFoundPage.tsx';
 import styles from './ProductPage.module.css';
 
@@ -16,6 +18,11 @@ export function ProductPage() {
   const status = useShopStatus();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [variantId, setVariantId] = useState<number | null>(null);
+  // What's typed, kept as text so the box can be emptied while typing; read on adding.
+  const [quantityText, setQuantityText] = useState('1');
+  const quantity = Math.max(1, Math.min(100, Math.floor(Number(quantityText)) || 1));
+  const [added, setAdded] = useState<string | null>(null);
+  const cart = useCart();
 
   if (isPending) return <Loading label="Loading product" />;
   if (error instanceof ApiError && error.status === 404) return <NotFoundPage />;
@@ -100,6 +107,39 @@ export function ProductPage() {
                 </label>
               ))}
             </fieldset>
+          )}
+
+          {variant && variant.available && (
+            <div className={styles.buy}>
+              {!product.oneOfAKind && (
+                <label className={styles.quantityLabel}>
+                  Quantity
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={quantityText}
+                    onChange={(e) => setQuantityText(e.target.value)}
+                    className={styles.quantity}
+                  />
+                </label>
+              )}
+              <button
+                type="button"
+                className={`${buttonStyles.button} ${buttonStyles.primary}`}
+                onClick={() => {
+                  cart.add(variant.id, product.oneOfAKind ? 1 : quantity);
+                  setAdded(variant.name);
+                }}
+              >
+                Add to cart
+              </button>
+            </div>
+          )}
+          {added && (
+            <p className={styles.added} role="status">
+              Added to your cart. <Link to="/cart">View cart</Link>
+            </p>
           )}
 
           {paragraphs.map((text, i) => (

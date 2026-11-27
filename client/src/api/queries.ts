@@ -3,6 +3,7 @@
  * refreshed, or invalidated reliably (e.g. after login, `queryKeys.me` is updated).
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import type { CartLine, OrderStatus } from '@shared/types/order.ts';
 import { ApiError } from './client.ts';
 import {
   aboutApi,
@@ -17,6 +18,9 @@ import {
   shippingApi,
   shopApi,
   adminShopApi,
+  cartApi,
+  ordersApi,
+  adminOrdersApi,
   type ArtworkFilters,
   type ShopFilters,
 } from './endpoints.ts';
@@ -51,7 +55,55 @@ export const queryKeys = {
   shopProduct: (slug: string) => ['shop', 'product', slug] as const,
   adminProducts: (filters: ShopFilters) => ['admin', 'products', filters] as const,
   adminProduct: (id: number) => ['admin', 'product', id] as const,
+  cartPreview: (lines: CartLine[]) => ['cart', lines] as const,
+  myOrders: (page: number) => ['orders', page] as const,
+  order: (id: number) => ['order', id] as const,
+  adminOrders: (filters: { status?: OrderStatus; page: number }) =>
+    ['admin', 'orders', filters] as const,
+  adminOrder: (id: number) => ['admin', 'order', id] as const,
 };
+
+/** The cart priced by the server; nothing to ask for an empty cart. */
+export function useCartPreview(lines: CartLine[]) {
+  return useQuery({
+    queryKey: queryKeys.cartPreview(lines),
+    queryFn: () => cartApi.preview(lines),
+    enabled: lines.length > 0,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useMyOrders(page: number, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: queryKeys.myOrders(page),
+    queryFn: ({ signal }) => ordersApi.mine(page, signal),
+    enabled,
+  });
+}
+
+/** One order; `pollMs` refetches while set (after Stripe sends the client back). */
+export function useOrder(id: number, { pollMs }: { pollMs?: number | false } = {}) {
+  return useQuery({
+    queryKey: queryKeys.order(id),
+    queryFn: ({ signal }) => ordersApi.get(id, signal),
+    refetchInterval: pollMs ?? false,
+  });
+}
+
+export function useAdminOrders(filters: { status?: OrderStatus; page: number }) {
+  return useQuery({
+    queryKey: queryKeys.adminOrders(filters),
+    queryFn: ({ signal }) => adminOrdersApi.list(filters, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAdminOrder(id: number) {
+  return useQuery({
+    queryKey: queryKeys.adminOrder(id),
+    queryFn: ({ signal }) => adminOrdersApi.get(id, signal),
+  });
+}
 
 /** Whether the shop is open (the header shows its link to everyone then). */
 export function useShopStatus() {

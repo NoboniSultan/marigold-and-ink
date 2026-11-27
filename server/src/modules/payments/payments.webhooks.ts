@@ -19,6 +19,8 @@ import type {
 } from '../../adapters/stripe/stripeGateway.ts';
 import * as commissionsService from '../commissions/commissions.service.js';
 import * as givingService from '../giving/giving.service.ts';
+import * as ordersService from '../orders/orders.service.ts';
+import type { EmailSender } from '../../adapters/email.ts';
 import { SYSTEM_ACTOR } from '../commissions/commissions.stateMachine.ts';
 import * as paymentsRepository from './payments.repository.ts';
 import { requireGateway, settleRefunds } from './payments.service.ts';
@@ -30,16 +32,25 @@ export async function handleStripeWebhook(
   rawBody: Buffer,
   signature: string | undefined,
   gatewayOrNull: PaymentGateway | null,
-  { donationPercent = null }: { donationPercent?: number | null } = {},
+  {
+    donationPercent = null,
+    email = null,
+  }: { donationPercent?: number | null; email?: EmailSender | null } = {},
 ): Promise<{ duplicate: boolean }> {
   const { gateway } = requireGateway(gatewayOrNull);
   const event = gateway.parseWebhook(rawBody, signature); // throws WebhookSignatureError
+  // Emails about what this event did, sent only once its transaction has committed.
+  const afterCommit: (() => Promise<void>)[] = [];
 
-  return withTransaction(async (tx) => {
+  const result = await withTransaction(async (tx) => {
     const fresh = await paymentsRepository.recordProcessedEvent(event.id, event.stripeType, tx);
     if (!fresh) {
       logger.info({ eventId: event.id, type: event.stripeType }, 'duplicate Stripe event ignored');
       return { duplicate: true };
+    }
+    // Shop orders (milestone 12b) first; anything that isn't one is a commission's.
+    if (await ordersService.handleOrderEvent(event, { gateway, email }, tx, afterCommit)) {
+      return { duplicate: false };
     }
     switch (event.type) {
       case 'checkout.completed':
@@ -56,6 +67,14 @@ export async function handleStripeWebhook(
     }
     return { duplicate: false };
   });
+  for (const task of afterCommit) {
+    try {
+      await task();
+    } catch (err) {
+      logger.error({ err, eventId: event.id }, 'after-webhook step failed');
+    }
+  }
+  return result;
 }
 
 /**

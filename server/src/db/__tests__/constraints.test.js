@@ -17,6 +17,8 @@ import {
   createProduct,
   createVariant,
   createProductPhoto,
+  createOrder,
+  createOrderItem,
 } from '../../../tests/factories/index.js';
 
 beforeEach(truncateAllTables);
@@ -1079,6 +1081,205 @@ describe('inventory_movements', () => {
       CHECK_VIOLATION,
       'inventory_movements_note_check',
     );
+  });
+});
+
+describe('orders', () => {
+  const CHECKOUT = {
+    stripeCheckoutSessionId: 'cs_1',
+    checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_1',
+    checkoutExpiresAt: new Date(),
+  };
+  const PAID = { status: 'paid', paidAt: new Date(), stripePaymentIntentId: 'pi_1' };
+
+  it('only allows the known statuses, a positive total, and a currency code', async () => {
+    await expectViolation(createOrder({ status: 'lost' }), CHECK_VIOLATION, 'order_status_check');
+    await expectViolation(
+      createOrder({ subtotalCents: 0 }),
+      CHECK_VIOLATION,
+      'orders_subtotal_cents_check',
+    );
+    await expectViolation(
+      createOrder({ currency: 'USD' }),
+      CHECK_VIOLATION,
+      'orders_currency_check',
+    );
+  });
+
+  it('records the Stripe page as a whole, on https, each page once', async () => {
+    await expect(createOrder(CHECKOUT)).resolves.toBeDefined();
+    await expectViolation(
+      createOrder(CHECKOUT),
+      UNIQUE_VIOLATION,
+      'orders_stripe_checkout_session_id_key',
+    );
+    await expectViolation(
+      createOrder({ ...CHECKOUT, stripeCheckoutSessionId: 'cs_2', checkoutExpiresAt: null }),
+      CHECK_VIOLATION,
+      'orders_checkout_check',
+    );
+    await expectViolation(
+      createOrder({ ...CHECKOUT, stripeCheckoutSessionId: 'cs_3', checkoutUrl: 'http://x' }),
+      CHECK_VIOLATION,
+      'orders_checkout_url_check',
+    );
+  });
+
+  it('records when and how a paid order was paid, each payment once', async () => {
+    await expect(createOrder(PAID)).resolves.toBeDefined();
+    await expectViolation(
+      createOrder(PAID),
+      UNIQUE_VIOLATION,
+      'orders_stripe_payment_intent_id_key',
+    );
+    await expectViolation(createOrder({ status: 'paid' }), CHECK_VIOLATION, 'orders_paid_check');
+    await expectViolation(
+      createOrder({ paidAt: new Date() }),
+      CHECK_VIOLATION,
+      'orders_paid_check',
+    );
+  });
+
+  it("can't lose its client", async () => {
+    const order = await createOrder();
+    await expectViolation(
+      pool.query('DELETE FROM users WHERE id = $1', [order.client_id]),
+      FOREIGN_KEY_VIOLATION,
+    );
+  });
+});
+
+describe('order_items', () => {
+  it('lists each option once per order, with a positive price and quantity', async () => {
+    const item = await createOrderItem();
+    await expectViolation(
+      createOrderItem({ orderId: item.order_id, variantId: item.variant_id }),
+      UNIQUE_VIOLATION,
+      'order_items_order_variant_key',
+    );
+    await expectViolation(
+      createOrderItem({ unitPriceCents: 0 }),
+      CHECK_VIOLATION,
+      'order_items_unit_price_cents_check',
+    );
+    for (const quantity of [0, 101]) {
+      await expectViolation(
+        createOrderItem({ quantity }),
+        CHECK_VIOLATION,
+        'order_items_quantity_check',
+      );
+    }
+    await expectViolation(
+      createOrderItem({ productName: ' ' }),
+      CHECK_VIOLATION,
+      'order_items_text_check',
+    );
+  });
+
+  it('keeps an ordered option from being deleted', async () => {
+    const item = await createOrderItem();
+    await expectViolation(
+      pool.query('DELETE FROM product_variants WHERE id = $1', [item.variant_id]),
+      FOREIGN_KEY_VIOLATION,
+      'order_items_variant_id_fkey',
+    );
+  });
+});
+
+describe('order_events and order_refunds', () => {
+  it('names a user for every actor but the system, and keeps reasons short', async () => {
+    const order = await createOrder();
+    const event = (actorType, actorUserId, reason = 'x') =>
+      pool.query(
+        `INSERT INTO order_events (order_id, from_status, to_status, actor_type, actor_user_id, reason)
+         VALUES ($1, 'pending_payment', 'paid', $2, $3, $4)`,
+        [order.id, actorType, actorUserId, reason],
+      );
+    await expect(event('system', null)).resolves.toBeDefined();
+    await expectViolation(
+      event('system', order.client_id),
+      CHECK_VIOLATION,
+      'order_events_actor_check',
+    );
+    await expectViolation(event('client', null), CHECK_VIOLATION, 'order_events_actor_check');
+    await expectViolation(event('robot', null), CHECK_VIOLATION, 'order_events_actor_check');
+    await expectViolation(event('system', null, ''), CHECK_VIOLATION, 'order_events_reason_check');
+  });
+
+  it('records refunds with a positive amount, a known status, and a reason', async () => {
+    const order = await createOrder();
+    const refund = (overrides = {}) => {
+      const row = {
+        amount: 800,
+        status: 'pending',
+        stripeId: null,
+        reason: 'Broken',
+        restock: false,
+        restockedAt: null,
+        ...overrides,
+      };
+      return pool.query(
+        `INSERT INTO order_refunds (order_id, amount_cents, status, stripe_refund_id, reason,
+                                    restock, restocked_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [order.id, row.amount, row.status, row.stripeId, row.reason, row.restock, row.restockedAt],
+      );
+    };
+    await expect(refund({ stripeId: 're_1' })).resolves.toBeDefined();
+    await expectViolation(
+      refund({ stripeId: 're_1' }),
+      UNIQUE_VIOLATION,
+      'order_refunds_stripe_refund_id_key',
+    );
+    await expectViolation(
+      refund({ amount: 0 }),
+      CHECK_VIOLATION,
+      'order_refunds_amount_cents_check',
+    );
+    await expectViolation(
+      refund({ status: 'maybe' }),
+      CHECK_VIOLATION,
+      'order_refunds_status_check',
+    );
+    await expectViolation(refund({ reason: ' ' }), CHECK_VIOLATION, 'order_refunds_reason_check');
+    // Restocked only when asked, and only after the refund succeeded.
+    await expectViolation(
+      refund({ restockedAt: new Date() }),
+      CHECK_VIOLATION,
+      'order_refunds_restocked_check',
+    );
+    await expectViolation(
+      refund({ restock: true, restockedAt: new Date() }),
+      CHECK_VIOLATION,
+      'order_refunds_restocked_check',
+    );
+    await expect(
+      refund({ restock: true, status: 'succeeded', restockedAt: new Date() }),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe('inventory_movements and orders', () => {
+  it('ties holds, releases, and returns to an order, and nothing else', async () => {
+    const order = await createOrderItem();
+    const log = (reason, orderId) =>
+      pool.query(
+        `INSERT INTO inventory_movements (variant_id, change, stock_after, reason, order_id)
+         VALUES ($1, -1, 0, $2, $3)`,
+        [order.variant_id, reason, orderId],
+      );
+    await expect(log('reservation', order.order_id)).resolves.toBeDefined();
+    await expectViolation(
+      log('reservation', null),
+      CHECK_VIOLATION,
+      'inventory_movements_order_check',
+    );
+    await expectViolation(
+      log('restock', order.order_id),
+      CHECK_VIOLATION,
+      'inventory_movements_order_check',
+    );
+    await expectViolation(log('sale', order.order_id), CHECK_VIOLATION, 'inventory_reason_check');
   });
 });
 

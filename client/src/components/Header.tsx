@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthContext.tsx';
 import { useShopStatus } from '../api/queries.ts';
+import { useCart } from '../features/cart/CartContext.tsx';
 import { COPY } from '../content/copy.ts';
 import styles from './Header.module.css';
 import buttonStyles from './Button.module.css';
@@ -17,6 +18,7 @@ export function Header() {
   const shop = useShopStatus();
   // Everyone sees the shop once it's open; until then only the admin (a preview).
   const showShop = Boolean(shop.data?.open) || user?.role === 'admin';
+  const { count } = useCart();
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -56,6 +58,11 @@ export function Header() {
           {showShop && (
             <NavLink to="/shop" className={navClass}>
               Shop
+            </NavLink>
+          )}
+          {showShop && count > 0 && (
+            <NavLink to="/cart" className={navClass} aria-label={`Cart, ${count} items`}>
+              Cart ({count})
             </NavLink>
           )}
           <NavLink to="/about" className={navClass}>
