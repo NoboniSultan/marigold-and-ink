@@ -9,9 +9,9 @@ import type { EmailMessage } from '../../adapters/email.ts';
 export const SHIPPING_EMAIL_COPY = {
   shipped: {
     subject: 'Your Marigold & Ink order is on its way!',
-    lines: [
-      'Your order has been packed with care and is officially on its way to you! You can follow its journey using the tracking link below.',
-    ],
+    lines: ['Your order has been packed with care and is officially on its way to you!'],
+    /** Added to the first line only when the email has a tracking link to point to. */
+    withTrackingLink: 'You can follow its journey using the tracking link below.',
   },
   delivered: {
     subject: 'Your Marigold & Ink order has arrived!',
@@ -60,10 +60,15 @@ function factLines(facts: PackageFacts | null, pageUrl: string): string[] {
   ];
 }
 
-/** To the client when the carrier has the package (or the owner marks it shipped). */
+/**
+ * To the client when the carrier has the package (or the owner marks it shipped). Marked by
+ * hand without a label, there's no tracking link, so the sentence about it is left out.
+ */
 export function shippedEmail(to: string, facts: PackageFacts | null, pageUrl: string) {
   const copy = SHIPPING_EMAIL_COPY.shipped;
-  return build(to, copy.subject, [...copy.lines, ...factLines(facts, pageUrl)]);
+  const [first, ...rest] = copy.lines;
+  const opening = facts?.trackingUrl ? `${first} ${copy.withTrackingLink}` : first;
+  return build(to, copy.subject, [opening, ...rest, ...factLines(facts, pageUrl)]);
 }
 
 /** To the client when the package was delivered (or the owner marks it delivered). */

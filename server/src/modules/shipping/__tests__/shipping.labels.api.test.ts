@@ -650,6 +650,17 @@ describe('marking shipped or delivered by hand', () => {
     expect(email.sent[0]!.text).not.toContain('Tracking number');
   });
 
+  it("doesn't point to a tracking link when marked shipped without a label", async () => {
+    const s = await setup();
+    await s.admin
+      .post(`/api/v1/commissions/${s.id}/transitions`)
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ toStatus: 'shipped' });
+    expect(email.sent).toHaveLength(1);
+    expect(email.sent[0]!.text).toMatch(/^Your order has been packed with care/);
+    expect(email.sent[0]!.text).not.toContain('tracking link');
+  });
+
   it('logs a failed email and still answers 200 (the change is saved)', async () => {
     const s = await setup();
     email.failOnce();

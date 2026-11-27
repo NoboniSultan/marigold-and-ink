@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), wit
 - **Shipping emails:** the owner's wording for the "on its way" and "has arrived" emails, so they're now sent in production too.
 - **Privacy policy, section 1F:** the shipping address is also shared with the carrier (such as USPS) to deliver the package, and shipping emails are sent with Resend.
 
+### Changed
+
+- The "on its way" email leaves out "You can follow its journey using the tracking link below." when there's no tracking link (a commission marked shipped by hand without a label).
+
 ## [0.13.0] - 2026-11-26 (Milestone 11b: labels, tracking, and shipping emails)
 
 ### Added
