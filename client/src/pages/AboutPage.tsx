@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { useAbout } from '../api/queries.ts';
 import { ArtworkImage } from '../components/ArtworkImage.tsx';
 import { ErrorMessage, Loading } from '../components/Loading.tsx';
-import { InkReveal } from '../features/about/InkReveal.tsx';
+import { InkReveal } from '../components/InkReveal.tsx';
 import styles from './AboutPage.module.css';
 
 /** About: the main photo (ink-spread reveal), the bio, and an optional closing photo. */

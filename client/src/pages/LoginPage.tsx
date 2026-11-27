@@ -5,8 +5,12 @@ import { useAuth } from '../auth/AuthContext.tsx';
 import { GOOGLE_ERRORS, GoogleButton } from '../auth/GoogleButton.tsx';
 import { safeNextPath } from '../auth/RequireAuth.tsx';
 import { FormField } from '../components/FormField.tsx';
+import { InkReveal } from '../components/InkReveal.tsx';
 import buttonStyles from '../components/Button.module.css';
 import styles from './SimplePage.module.css';
+
+/** The logo is small, so the blot covers it early: a slower, steadier spread shows it. */
+const LOGO_INK = { duration: 2.4, ease: [0.3, 0.1, 0.4, 1] } as const;
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -46,6 +50,17 @@ export function LoginPage() {
 
   return (
     <section className={styles.page}>
+      {/* The logo, revealed by the ink spread (a plain fade with reduced motion). */}
+      <InkReveal className={styles.logo} timing={LOGO_INK}>
+        <img
+          src="/brand/logo-256.webp"
+          srcSet="/brand/logo-256.webp 256w, /brand/logo-512.webp 512w"
+          sizes="7rem"
+          width={112}
+          height={112}
+          alt=""
+        />
+      </InkReveal>
       <h1>Log in</h1>
       {googleError && (
         <p className={styles.formError} role="alert">
