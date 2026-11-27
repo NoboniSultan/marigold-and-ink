@@ -41,8 +41,10 @@ What personal data the site collects, where it goes, and how long it stays, take
 ## 3b. Shipping (`shipments`, and Shippo; milestone 11, [ADR 0017](decisions/0017-us-shipping-with-shippo.md))
 
 - **Shipping address** for a physical commission, entered by the client (or the admin): name, street lines, city, state, ZIP. United States only. Stored as the carrier standardized it.
-- **Sent to Shippo:** that address (to check it and to price postage) and the package's weight and size. From milestone 11b, also to buy the label and track the package.
-- **The return address** (the owner's) is in the server's settings only, and printed on labels.
+- **Sent to Shippo:** that address (to check it and to price postage) and the package's weight and size. From milestone 11b, also to buy the label, and the tracking number to track the package.
+- **The return address** (the owner's) is in the server's settings only, and printed on labels. The owner's return **email and phone** (milestone 11b) are also only in the settings; they go to Shippo and USPS with each label, as USPS requires, and aren't printed on it.
+- **Labels and tracking** (`shipping_labels`, `tracking_events`; milestone 11b, [ADR 0018](decisions/0018-shipping-labels-and-tracking.md)): the tracking number and link, what the postage cost, and the carrier's scans (status, time, and the carrier facility's town, never the delivery address). The label PDF (which shows both addresses) isn't stored: the admin gets a fresh link from Shippo each time. Kept with the commission's history, and in the client's data download (without the postage cost). Not removed on account deletion: they hold no name or street.
+- **Shipping emails** (milestone 11b): the client gets an email through Resend when the package ships and when it's delivered (the tracking number and links); the owner gets one if it's returned or can't be delivered.
 - **Account deletion** removes the name and street from the client's past shipments; the city, state, and ZIP stay for records. The data download includes each commission's shipment.
 - Only active once Shippo is configured (`SHIPPO_API_KEY` and the rest); the privacy policy should describe shipping addresses and Shippo before then (docs/setup-shippo.md).
 
@@ -75,9 +77,10 @@ What personal data the site collects, where it goes, and how long it stays, take
 | Neon | Production database | Everything in sections 1 to 4 | AWS US West (Oregon) |
 | Stripe | Payments | Email, amounts, card details (entered on Stripe's page) | Stripe's infrastructure |
 | Google | "Continue with Google" | That the person is signing in to this app | Google's infrastructure |
-| Resend | Sign-up emails (once configured) | Email address and the code | Resend's infrastructure |
+| Resend | Account and shipping emails (once configured) | Email address and the code; for shipping, the tracking number and links | Resend's infrastructure |
 | Cloudflare R2 | Storing commission files | Reference photos (metadata removed), previews, final files | Cloudflare, Eastern North America (location hint ENAM) |
-| Shippo | Shipping physical commissions (once configured) | The shipping address, and the package's weight and size | Shippo's infrastructure (a US company) |
+| Shippo | Shipping physical commissions (once configured) | The shipping address, the package's weight and size, the label, and its tracking | Shippo's infrastructure (a US company) |
+| USPS | Delivering physical commissions (labels bought through Shippo) | The shipping address, and the sender's name, address, email, and phone | United States |
 | Digital Humani | Requesting trees for fully paid commissions (once configured) | **No personal data:** a reference like `commission-12` and a number of trees | Digital Humani's infrastructure (Canada) |
 
 All the site's own data is stored in the United States.
@@ -85,4 +88,3 @@ All the site's own data is stored in the United States.
 ## 8. Not built yet (update this file when they are)
 
 - **Messaging:** the `messages` table exists but is unused.
-- **Shipping labels and tracking** (milestone 11b).

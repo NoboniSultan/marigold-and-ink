@@ -1,6 +1,6 @@
 # Backlog
 
-Work that is out of scope for the current build session (milestones 0 to 11a). Next: milestone 11b, shipping labels and tracking. Each item links back to the relevant section of [proposal.md](proposal.md).
+Work that is out of scope for the current build session (milestones 0 to 11b). Each item links back to the relevant section of [proposal.md](proposal.md).
 
 ## Deferred features
 
@@ -8,7 +8,13 @@ Work that is out of scope for the current build session (milestones 0 to 11a). N
 - **Email notifications** (6.7): new messages, payment reminders, status changes, shipping updates, and the donation amount in order confirmations.
 - **Background jobs**: BullMQ on Redis for email and scheduled tasks.
 - **Slots and waitlist** (6.6): a maximum number of active commissions per period, with automatic promotion from the waitlist.
-- **Shipping 11b** (7, ADR 0017): buy labels from the admin page (Shippo), tracking updates by webhook (confirmed by asking Shippo), `shipped`/`delivered` set by the system, and the shipped and delivered emails. Later: insurance for originals, signature on delivery, a saved address book (with the shop), local pickup for furniture, international shipping.
+- **Shipping, later** (7, ADRs 0017 and 0018): insurance for originals, signature on delivery, a saved address book (with the shop), local pickup for furniture, international shipping.
+- **Label follow-ups** (ADR 0018):
+  - Show what labels cost against what clients paid for shipping in the monthly report (the studio covers any difference).
+  - Let the owner correct the package after the final payment (today the label can be bought from Shippo's dashboard instead).
+  - A 4×6 label option for a label printer (`LABEL_FILE_TYPE` in `adapters/shippo.ts`).
+  - Ask Shippo's sales team to sign webhooks (HMAC), then check the signature too.
+  - Email wording for the shipped and delivered emails (`server/src/modules/shipping/shipping.emails.ts`); they aren't sent in production until it's written.
 - **Shop** (6.10): products, variants, cart, inventory with row-level locking for one-of-a-kind pieces, expiring reservations, and an inventory movement log.
 - **Admin dashboard UI and analytics** (6.8): revenue by month, turnaround time, popular styles, best sellers.
 
@@ -40,7 +46,7 @@ Work that is out of scope for the current build session (milestones 0 to 11a). N
 - **Rush fee shape**: `pricing_rules` stores a flat `amount_cents`. If the owner wants rush as a percentage, add a column and a branch in `pricing.engine.ts`.
 - **Re-quote after sending**: a sent quote can't change. If the price must change after sending, add a "revise quote" flow (supersede the sent quote, and move the commission back to inquiry or keep it quoted, as the owner decides).
 - **Sales tax on the final payment**: shipping is added since milestone 11a; decide on sales tax (Stripe Tax or a fixed rule) with the owner.
-- **Bundle:** the shipping section adds about 3 KB (gzipped) to the main bundle, since the commission page isn't split out. Fold into "Trim the main bundle".
+- **Bundle:** the shipping section adds about 4.5 KB (gzipped) to the main bundle (3.4 KB in 11a, 1.2 KB in 11b), since the commission page isn't split out. Fold into "Trim the main bundle".
 - **Refunds after the final payment** (milestone 7 decision): they move money only. If a commission refunded in full after delivery should end as `refunded`, add those transitions to the state machine.
 - **Delayed payment methods** (bank debits, etc.): Checkout is cards-only so `checkout.session.completed` means paid. Others need the `checkout.session.async_payment_succeeded` / `_failed` events.
 - **Publish the Google sign-in app** once the contact email is in: Google Cloud → OAuth consent screen → app name, support email, homepage `https://noboni.art`, privacy policy `https://noboni.art/privacy`, authorized domain `noboni.art` (verified in Google Search Console with a TXT record at Porkbun), then **Publish app**.

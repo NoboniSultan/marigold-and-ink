@@ -36,4 +36,4 @@ Shippo and EasyPost were compared. Both are free at this volume (Shippo: 30 labe
 - Shipping depends on Shippo at three moments (address, prices, checkout). If it's down, those steps answer 502 and can be retried; nothing is recorded half-way.
 - The owner pays for postage when buying the label (11b), after the client has paid. A label bought later could cost a little more than quoted; the owner absorbs the difference.
 - No address book yet: each commission has its own address. A saved address can come with the shop.
-- In 11b: labels from the admin page, tracking updates (a webhook that the server confirms by asking Shippo), the `shipped`/`delivered` changes by the system, and the shipped and delivered emails.
+- In 11b: labels from the admin page, tracking updates (a webhook that the server confirms by asking Shippo), the `shipped`/`delivered` changes by the system, and the shipped and delivered emails. See ADR 0018.

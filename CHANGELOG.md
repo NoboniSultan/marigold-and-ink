@@ -3,11 +3,39 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one entry per milestone.
 
-## [Unreleased]
+## [0.13.0] - 2026-11-26 (Milestone 11b: labels, tracking, and shipping emails)
 
 ### Added
 
+- **Shipping labels** on the admin commission page, once a physical commission is paid ([ADR 0018](docs/decisions/0018-shipping-labels-and-tracking.md)):
+  - **Get label prices:** today's USPS postage for the package, the client's service marked with what they paid and any difference the studio covers.
+  - **Buy label:** the chosen price is read back from Shippo (never trusted from the browser) and must belong to those prices. A label the carrier can't make shows the carrier's reasons.
+  - **Print label (PDF):** a letter-size page with the label in the top half, through a fresh Shippo link each time (links expire; the PDF isn't stored).
+  - **Void label:** until the carrier scans it; the postage refund is followed until it settles. Voided labels are listed with their refund.
+- **Tracking:**
+  - Shippo's tracking webhook (`POST /api/v1/webhooks/shippo?token=…`): only the tracking number is used, and the tracking is read back from Shippo.
+  - The commission moves to **shipped** at the carrier's first scan and to **delivered** on delivery, by the system.
+  - The client's page shows the tracking number (linked to USPS), where the package is, and every scan.
+  - **Check tracking now** on the admin page, and a daily check (also at startup) as a backup.
+- **Emails:**
+  - To the client when the package ships and when it's delivered, from tracking or when marked by hand.
+  - To the owner once if a package is returned or can't be delivered.
+  - The client wording is a placeholder for the owner to write. Until then those emails aren't sent in production.
+- New settings: `SHIP_FROM_EMAIL` and `SHIP_FROM_PHONE` (USPS requires them on labels; not printed) and `SHIPPO_WEBHOOK_TOKEN` (the webhook link's secret, never logged). All optional, so the site keeps starting without them.
+- New tables `shipping_labels` and `tracking_events`, and `shipments.label_quote_id`.
 - **Privacy policy, section 1F:** shipping information (the US address, shared with Shippo for addresses, postage, labels, and tracking; what account deletion removes). "Last Updated" is now November 26, 2026.
+
+### Changed
+
+- The state machine lets the system (tracking) move `ready_to_ship → shipped` and `shipped → delivered`; the admin still can.
+- The data download includes each package's tracking.
+
+### Notes
+
+- Checked against Shippo's test mode:
+  - prices, buying a label, the label PDF, Shippo's test tracking numbers (in transit, delivered, returned, failure), and void with refund;
+  - USPS refused a label without the sender's email and phone, which is why those settings exist;
+  - test-mode labels can't be tracked (Shippo answers 400), and the site treats that as "no news yet".
 
 ## [0.12.0] - 2026-11-25 (Milestone 11a: shipping addresses, prices, and the final payment)
 
