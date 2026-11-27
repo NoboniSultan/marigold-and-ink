@@ -9,7 +9,11 @@ import { createApp } from '../../../app.js';
 import { pool } from '../../../db/pool.js';
 import { seedCharity } from '../../../db/seeds/charity.ts';
 import { truncateAllTables } from '../../../../tests/setup/database.js';
-import { createPayment, createQuotedCommission } from '../../../../tests/factories/index.js';
+import {
+  createOrder,
+  createPayment,
+  createQuotedCommission,
+} from '../../../../tests/factories/index.js';
 import { loggedInAgent, TRUSTED_ORIGIN } from '../../../../tests/helpers/auth.js';
 import {
   checkoutCompleted,
@@ -22,6 +26,7 @@ import { fakeTrees } from '../../../../tests/helpers/trees.ts';
 import {
   DEFAULT_CHARITY,
   RETRY_AFTER_MINUTES,
+  recordForDeliveredOrder,
   recordForFinalPayment,
   requestPendingTrees,
 } from '../giving.service.ts';
@@ -277,6 +282,40 @@ describe('recordForFinalPayment', () => {
       ),
     );
     expect(id).toBeNull();
+  });
+});
+
+// Milestone 12d (ADR 0022): a delivered shop order's trees, on its items only.
+describe('recordForDeliveredOrder', () => {
+  const record = (orderId: number, subtotalCents: number, donationPercent: number | null = 25) =>
+    withTransaction((client) =>
+      recordForDeliveredOrder({ orderId, subtotalCents }, { client, donationPercent }),
+    );
+
+  it('records one donation per order, even if called twice', async () => {
+    const order = await createOrder({ subtotalCents: 2500 });
+    expect(await record(order.id, 2500)).toEqual(expect.any(Number));
+    expect(await record(order.id, 2500)).toBeNull();
+    expect(await donations()).toEqual([expect.objectContaining({ tree_count: 7 })]);
+  });
+
+  it('records nothing while giving is off, or for an order too small for one whole tree', async () => {
+    const order = await createOrder({ subtotalCents: 99 });
+    expect(await record(order.id, 99, null)).toBeNull();
+    expect(await record(order.id, 99)).toBeNull();
+    expect(await donations()).toEqual([]);
+  });
+
+  it('records nothing, and logs the problem, if no charity is active', async () => {
+    await pool.query('UPDATE charities SET is_active = false');
+    const error = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    const order = await createOrder();
+    expect(await record(order.id, 800)).toBeNull();
+    expect(error).toHaveBeenCalledWith(
+      { orderId: order.id },
+      'no active charity: trees were not recorded',
+    );
+    error.mockRestore();
   });
 });
 

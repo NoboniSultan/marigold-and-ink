@@ -12,6 +12,7 @@ import {
   createPayment,
   createCharity,
   createDonation,
+  createOrderDonation,
   createShipment,
   createShippingLabel,
   createProduct,
@@ -1484,6 +1485,67 @@ describe('donations', () => {
       createDonation({ status: 'paid' }),
       CHECK_VIOLATION,
       'donations_paid_has_payout_date_check',
+    );
+  });
+
+  // Milestone 12d: shop orders fund trees once delivered.
+  it("accepts a shop order's tree donation, once per order", async () => {
+    const donation = await createOrderDonation();
+    expect(donation).toMatchObject({ payment_id: null, commission_id: null });
+    await expectViolation(
+      createOrderDonation({ orderId: donation.order_id }),
+      UNIQUE_VIOLATION,
+      'donations_order_id_key',
+    );
+  });
+
+  it('comes from a commission payment or an order, never both or neither', async () => {
+    const order = await createOrder();
+    const payment = await createPayment();
+    const charity = await createCharity();
+    const base = {
+      charity_id: charity.id,
+      percentage: 25,
+      base_amount_cents: 800,
+      donation_amount_cents: 200,
+      tree_count: 2,
+    };
+    const insertRow = (extra) => {
+      const row = { ...base, ...extra };
+      const keys = Object.keys(row);
+      const values = keys.map((_, i) => `$${i + 1}`).join(', ');
+      return pool.query(
+        `INSERT INTO donations (${keys.join(', ')}) VALUES (${values})`,
+        Object.values(row),
+      );
+    };
+    await expectViolation(
+      insertRow({
+        order_id: order.id,
+        payment_id: payment.id,
+        commission_id: payment.commission_id,
+      }),
+      CHECK_VIOLATION,
+      'donations_source_check',
+    );
+    await expectViolation(insertRow({}), CHECK_VIOLATION, 'donations_source_check');
+    await expectViolation(
+      insertRow({ payment_id: payment.id }),
+      CHECK_VIOLATION,
+      'donations_source_check',
+    );
+    await expectViolation(
+      createOrderDonation({ treeCount: null }),
+      CHECK_VIOLATION,
+      'donations_source_check',
+    );
+  });
+
+  it('keeps an order that funded trees (RESTRICT)', async () => {
+    const donation = await createOrderDonation();
+    await expectViolation(
+      pool.query('DELETE FROM orders WHERE id = $1', [donation.order_id]),
+      FOREIGN_KEY_VIOLATION,
     );
   });
 });

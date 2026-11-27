@@ -1,4 +1,5 @@
 /** Shop orders (milestone 12b, ADR 0020). Money is integer cents. */
+import type { DonationStatus } from './admin.ts';
 import type { ProductPhoto } from './shop.ts';
 import type { Shipment, ShippingAddress, ShippingAddressInput } from './shipping.ts';
 
@@ -132,6 +133,13 @@ export interface AdminOrder extends Order {
   refunds: OrderRefund[];
   /** Can it be refunded now (paid, nothing refunded or pending)? */
   refundable: boolean;
+  /**
+   * What a refund gives back: the total, minus any tree money (trees are ordered once the
+   * order is delivered and can't be cancelled, ADR 0022).
+   */
+  refundableCents: number;
+  /** The trees this order funded, once delivered (null before, or while giving is off). */
+  trees: { count: number; status: DonationStatus; amountCents: number } | null;
   /** Can a label be bought now (paid, shipped, no label in use)? */
   labelOpen: boolean;
   /** Status changes the admin can make by hand now (shipped, delivered). */

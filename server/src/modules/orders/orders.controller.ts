@@ -13,6 +13,7 @@ import type {
   RefundOrderInput,
 } from '@shared/types/order.ts';
 import type { AppAdapters } from '../../adapters/index.ts';
+import type { GivingSetup } from '../giving/giving.service.ts';
 import * as ordersService from './orders.service.ts';
 import * as labelsService from '../shipping/shipping.labels.service.ts';
 import * as trackingService from '../shipping/shipping.tracking.service.ts';
@@ -77,7 +78,9 @@ export async function adminList(req: Request, res: Response) {
     req.validated.query as { status?: OrderStatus; page: number; pageSize: number },
   );
   res.json(
-    result satisfies PaginatedResponse<Omit<AdminOrder, 'events' | 'refunds' | 'refundable'>>,
+    result satisfies PaginatedResponse<
+      Omit<AdminOrder, 'events' | 'refunds' | 'refundable' | 'refundableCents' | 'trees'>
+    >,
   );
 }
 
@@ -99,6 +102,8 @@ export async function refund(req: Request, res: Response) {
 // --- Shipping an order (admin, milestone 12c) ---
 
 const order = (req: Request) => ({ kind: 'order' as const, id: orderId(req) });
+/** Delivering an order records its trees (milestone 12d, ADR 0022). */
+const giving = (req: Request) => req.app.locals.giving as GivingSetup;
 const sendAdminOrder = async (req: Request, res: Response) =>
   res.json({
     data: await ordersService.getAdminOrder(orderId(req)),
@@ -109,7 +114,7 @@ export async function mark(req: Request, res: Response) {
     req.user as User,
     orderId(req),
     (req.validated.body as { toStatus: 'shipped' | 'delivered' }).toStatus,
-    { email: adapters(req).email },
+    { email: adapters(req).email, giving: giving(req) },
   );
   res.json({ data: updated } satisfies ApiResponse<AdminOrder>);
 }
@@ -144,6 +149,7 @@ export async function refreshTracking(req: Request, res: Response) {
   await trackingService.refreshOwner(order(req), {
     shipping: adapters(req).shipping,
     email: adapters(req).email,
+    giving: giving(req),
   });
   await sendAdminOrder(req, res);
 }

@@ -10,6 +10,7 @@
 import type { PoolClient } from 'pg';
 import type { EmailSender } from '../../adapters/email.ts';
 import { config } from '../../config/env.js';
+import type { GivingSetup } from '../giving/giving.service.ts';
 import * as commissionsService from '../commissions/commissions.service.js';
 import { SYSTEM_ACTOR } from '../commissions/commissions.stateMachine.ts';
 import { ships } from './shipping.rules.ts';
@@ -36,13 +37,17 @@ export interface OwnerHandler {
   /** Locks its row in the caller's transaction, then reads it. */
   lock(id: number, tx: PoolClient): Promise<OwnerState>;
   stage(state: OwnerState): ShippingStage;
-  /** Moves it on as the system (from tracking), in the caller's transaction. */
+  /**
+   * Moves it on as the system (from tracking), in the caller's transaction. A delivered
+   * shop order records its trees with `giving` (milestone 12d).
+   */
   move(
     id: number,
     to: 'shipped' | 'delivered',
     reason: string,
     metadata: Record<string, unknown>,
     tx: PoolClient,
+    giving: GivingSetup,
   ): Promise<void>;
   /** Emails the client about a move, after it committed. Never throws. */
   notify(

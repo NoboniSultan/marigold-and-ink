@@ -81,10 +81,12 @@ export interface AdminCommissionDetails {
 
 export type DonationStatus = 'pending' | 'owed' | 'paid' | 'reversed';
 
-/** GET /admin/donations: one commission's trees. */
+/** GET /admin/donations: one commission's or one shop order's trees. */
 export interface AdminDonation {
   id: number;
-  commissionId: number;
+  /** Exactly one of these is set: a commission's final payment, or a delivered order (12d). */
+  commissionId: number | null;
+  orderId: number | null;
   treeCount: number | null;
   amountCents: number;
   status: DonationStatus;
@@ -97,7 +99,7 @@ export interface AdminDonation {
   createdAt: string;
 }
 
-/** POST /admin/donations/mark-paid: one invoice usually covers several commissions. */
+/** POST /admin/donations/mark-paid: one invoice usually covers several commissions and orders. */
 export interface MarkDonationsPaidRequest {
   donationIds: number[];
   /** YYYY-MM-DD, not in the future. */

@@ -7,9 +7,18 @@ import { pool } from '../../db/pool.js';
 
 type Db = Pool | PoolClient;
 
+/** Where a donation came from: a commission's final payment, or a delivered shop order. */
+export type DonationSource = { kind: 'commission'; id: number } | { kind: 'order'; id: number };
+
+function sourceOf(row: Record<string, unknown>): DonationSource {
+  return row.order_id !== null && row.order_id !== undefined
+    ? { kind: 'order', id: Number(row.order_id) }
+    : { kind: 'commission', id: Number(row.commission_id) };
+}
+
 export interface TreeDonation {
   id: number;
-  commissionId: number;
+  source: DonationSource;
   treeCount: number;
   status: 'pending' | 'owed' | 'paid' | 'reversed';
   requestAttemptedAt: Date | null;
@@ -52,6 +61,46 @@ export async function insertTreeDonation(
   return rows[0]?.id ?? null;
 }
 
+/** A delivered order's trees (12d). Null if the order already has its donation. */
+export async function insertOrderTreeDonation(
+  donation: {
+    orderId: number;
+    charityId: number;
+    percentage: number;
+    baseAmountCents: number;
+    donationAmountCents: number;
+    treeCount: number;
+  },
+  client: Db = pool,
+): Promise<number | null> {
+  const { rows } = await client.query(
+    `INSERT INTO donations (order_id, charity_id, percentage, base_amount_cents,
+                            donation_amount_cents, tree_count, status)
+     VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+     ON CONFLICT ON CONSTRAINT donations_order_id_key DO NOTHING
+     RETURNING id`,
+    [
+      donation.orderId,
+      donation.charityId,
+      donation.percentage,
+      donation.baseAmountCents,
+      donation.donationAmountCents,
+      donation.treeCount,
+    ],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/** The order's tree money (12d): requested or about to be, so it can't be refunded. */
+export async function withheldForOrderTreesCents(orderId: number, client: Db = pool) {
+  const { rows } = await client.query(
+    `SELECT coalesce(sum(donation_amount_cents), 0)::int AS cents FROM donations
+      WHERE order_id = $1 AND status <> 'reversed'`,
+    [orderId],
+  );
+  return rows[0].cents as number;
+}
+
 /** The commission's tree money: requested or about to be, so it can't be refunded. */
 export async function withheldForTreesCents(commissionId: number, client: Db = pool) {
   const { rows } = await client.query(
@@ -81,7 +130,7 @@ export async function claimForRequest(
   client: Db = pool,
 ): Promise<TreeDonation | null> {
   const { rows } = await client.query(
-    `SELECT id, commission_id, tree_count, status, request_attempted_at FROM donations
+    `SELECT id, commission_id, order_id, tree_count, status, request_attempted_at FROM donations
       WHERE id = $1 AND status = 'pending' AND tree_count IS NOT NULL
         AND (request_attempted_at IS NULL
              OR request_attempted_at < now() - make_interval(mins => $2))
@@ -93,7 +142,7 @@ export async function claimForRequest(
   await client.query('UPDATE donations SET request_attempted_at = now() WHERE id = $1', [id]);
   return {
     id: row.id,
-    commissionId: row.commission_id,
+    source: sourceOf(row),
     treeCount: row.tree_count,
     status: row.status,
     requestAttemptedAt: row.request_attempted_at,
@@ -102,7 +151,7 @@ export async function claimForRequest(
 
 /**
  * The trees are on order. `requestId` is Digital Humani's ID for the request, or null when
- * a retry found the trees already counted under the commission's reference (the API can
+ * a retry found the trees already counted under the donation's reference (the API can
  * count a reference's trees but not list its requests, so there's no ID to record).
  */
 export async function markRequested(id: number, requestId: string | null, client: Db = pool) {
@@ -113,7 +162,10 @@ export async function markRequested(id: number, requestId: string | null, client
   );
 }
 
-/** For the Giving page: trees funded by fully paid commissions (requested or about to be). */
+/**
+ * For the Giving page: trees funded by fully paid commissions and delivered shop orders
+ * (requested or about to be).
+ */
 export async function treesFunded(client: Db = pool): Promise<number> {
   const { rows } = await client.query(
     `SELECT coalesce(sum(tree_count), 0)::int AS trees FROM donations
@@ -145,7 +197,9 @@ export async function ensureActiveCharity(
 
 export interface DonationRecord {
   id: number;
-  commissionId: number;
+  /** One of these two is set. */
+  commissionId: number | null;
+  orderId: number | null;
   treeCount: number | null;
   amountCents: number;
   status: 'pending' | 'owed' | 'paid' | 'reversed';
@@ -157,13 +211,14 @@ export interface DonationRecord {
   createdAt: Date;
 }
 
-const DONATION_COLUMNS = `id, commission_id, tree_count, donation_amount_cents, status,
+const DONATION_COLUMNS = `id, commission_id, order_id, tree_count, donation_amount_cents, status,
   requested_at, tree_request_id, payout_date::text AS payout_date, receipt_reference, created_at`;
 
 function toDonation(row: Record<string, unknown>): DonationRecord {
   return {
     id: Number(row.id),
-    commissionId: Number(row.commission_id),
+    commissionId: row.commission_id === null ? null : Number(row.commission_id),
+    orderId: row.order_id === null ? null : Number(row.order_id),
     treeCount: row.tree_count === null ? null : Number(row.tree_count),
     amountCents: Number(row.donation_amount_cents),
     status: row.status as DonationRecord['status'],
@@ -233,6 +288,18 @@ export async function treeDonationForCommission(
       WHERE commission_id = $1 AND tree_count IS NOT NULL
       ORDER BY id DESC LIMIT 1`,
     [commissionId],
+  );
+  return rows[0] ? toDonation(rows[0]) : null;
+}
+
+/** An order's tree donation (at most one, recorded when it was delivered). */
+export async function treeDonationForOrder(
+  orderId: number,
+  client: Db = pool,
+): Promise<DonationRecord | null> {
+  const { rows } = await client.query(
+    `SELECT ${DONATION_COLUMNS} FROM donations WHERE order_id = $1`,
+    [orderId],
   );
   return rows[0] ? toDonation(rows[0]) : null;
 }

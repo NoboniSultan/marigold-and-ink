@@ -17,6 +17,7 @@ import { NotFoundError, UnauthorizedError } from '../../errors/index.js';
 import { logger } from '../../lib/logger.js';
 import * as shippingRepository from './shipping.repository.ts';
 import { ownerHandler, type OwnerRef } from './shipping.owners.ts';
+import type { GivingSetup } from '../giving/giving.service.ts';
 import * as usersService from '../users/users.service.ts';
 import * as labelsRepository from './shipping.labels.repository.ts';
 import type { LabelRecord } from './shipping.labels.repository.ts';
@@ -160,7 +161,7 @@ const REASONS = {
  */
 export async function refreshLabel(
   labelId: number,
-  { shipping, email }: { shipping: ShippingSetup; email: Email },
+  { shipping, email, giving }: { shipping: ShippingSetup; email: Email; giving: GivingSetup },
 ): Promise<void> {
   const label = await labelsRepository.findById(labelId);
   if (!label || label.voidedAt) return;
@@ -198,6 +199,7 @@ export async function refreshLabel(
           trackingStatus: info.status,
         },
         tx,
+        giving,
       );
     }
     const alert =
@@ -207,6 +209,14 @@ export async function refreshLabel(
   if (!outcome) return;
 
   for (const to of outcome.moved) await handler.notify(owner.id, to, email);
+  // A delivered shop order recorded its trees in that transaction: request them now.
+  if (outcome.moved.includes('delivered') && giving.requestTrees) {
+    try {
+      await giving.requestTrees();
+    } catch (err) {
+      logger.error({ err, labelId }, 'tree request after delivery failed');
+    }
+  }
   if (outcome.alert) {
     await notifyProblem(
       { ...label, trackingStatus: info.status, trackingDetails: info.details },
@@ -241,7 +251,7 @@ export function checkWebhookToken(token: string | undefined, shipping: Setup): S
  */
 export async function handleWebhook(
   body: { event: string; data?: { tracking_number?: string } | null },
-  { shipping, email }: { shipping: Setup; email: Email },
+  { shipping, email, giving }: { shipping: Setup; email: Email; giving: GivingSetup },
 ): Promise<{ handled: boolean }> {
   const setup = requireShipping(shipping);
   const trackingNumber = body.data?.tracking_number;
@@ -249,7 +259,7 @@ export async function handleWebhook(
   const labels = await labelsRepository.findActiveByTrackingNumber(trackingNumber);
   for (const label of labels) {
     // A 502 when Shippo can't answer: Shippo then sends the webhook again.
-    await viaProvider(() => refreshLabel(label.id, { shipping: setup, email }));
+    await viaProvider(() => refreshLabel(label.id, { shipping: setup, email, giving }));
   }
   return { handled: labels.length > 0 };
 }
@@ -263,16 +273,18 @@ export async function handleWebhook(
 export async function refreshAllTracking({
   shipping,
   email,
+  giving,
 }: {
   shipping: Setup;
   email: Email;
+  giving: GivingSetup;
 }): Promise<{ labels: number; refunds: number; failed: number }> {
   const result = { labels: 0, refunds: 0, failed: 0 };
   if (!shipping) return result;
   try {
     for (const label of await labelsRepository.findToTrack(TRACKED_STATUSES)) {
       try {
-        await refreshLabel(label.id, { shipping, email });
+        await refreshLabel(label.id, { shipping, email, giving });
         result.labels += 1;
       } catch (err) {
         result.failed += 1;
@@ -303,7 +315,7 @@ export async function refreshAllTracking({
 /** The owner's "check tracking now": refreshes the label in use right away. */
 export async function refreshOwner(
   owner: OwnerRef,
-  { shipping, email }: { shipping: Setup; email: Email },
+  { shipping, email, giving }: { shipping: Setup; email: Email; giving: GivingSetup },
 ): Promise<void> {
   const setup = requireShipping(shipping);
   const shipment =
@@ -313,5 +325,5 @@ export async function refreshOwner(
   const labels = shipment ? await labelsRepository.listForShipment(shipment.id) : [];
   const label = labels.find((l) => l.voidedAt === null);
   if (!label) throw new NotFoundError('This commission has no label', { code: 'LABEL_NOT_FOUND' });
-  await viaProvider(() => refreshLabel(label.id, { shipping: setup, email }));
+  await viaProvider(() => refreshLabel(label.id, { shipping: setup, email, giving }));
 }

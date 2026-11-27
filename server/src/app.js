@@ -66,12 +66,21 @@ export function createApp({
   // Sends pending tree requests to Digital Humani (after a payment, and at startup). Kept
   // here so the payments module needn't know about the trees adapter. Never throws.
   app.locals.requestPendingTrees = () => requestPendingTrees(adapters.trees);
+  // What delivering a shop order needs (milestone 12d): the share, and the tree request.
+  app.locals.giving = Object.freeze({
+    donationPercent,
+    requestTrees: app.locals.requestPendingTrees,
+  });
   // Deletes files whose keeping period is over (ADR 0016); server.js runs it daily.
   app.locals.purgeExpiredFiles = () => purgeExpiredFiles(adapters.storage);
   // Checks every package still on its way, and pending label refunds (milestone 11b);
   // server.js runs it at startup and daily, as a backup to Shippo's tracking webhook.
   app.locals.refreshTracking = () =>
-    refreshAllTracking({ shipping: adapters.shipping, email: adapters.email });
+    refreshAllTracking({
+      shipping: adapters.shipping,
+      email: adapters.email,
+      giving: app.locals.giving,
+    });
   // Settles shop orders whose Stripe page closed without a webhook reaching us (asks Stripe);
   // server.js runs it at startup and every few minutes. Never throws.
   app.locals.releaseExpiredOrders = () =>

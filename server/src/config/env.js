@@ -257,6 +257,19 @@ function groupProblems(env) {
       '✖ shipping needs payments switched on (postage is charged with the final payment)\n  → at STRIPE_SECRET_KEY',
     );
   }
+  // Opening the shop (milestone 12d): customers must be able to pay and get their orders.
+  if (env.SHOP_OPEN === 'true') {
+    if (!paymentsOn) {
+      problems.push(
+        '✖ the shop needs payments switched on (orders are paid at checkout)\n  → at STRIPE_SECRET_KEY',
+      );
+    }
+    if (!shippingOn) {
+      problems.push(
+        '✖ the shop needs shipping switched on (orders are shipped)\n  → at SHIPPO_API_KEY',
+      );
+    }
+  }
   // Like trees: a live token buys real postage, paid by the owner, while payments are test-only.
   if (env.SHIPPO_API_KEY?.startsWith('shippo_live_')) {
     problems.push(

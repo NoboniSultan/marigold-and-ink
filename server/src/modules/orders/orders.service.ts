@@ -11,6 +11,8 @@
  *   then marks the order paid, or ends it and puts the stock back.
  * - The admin refunds a paid order in full, optionally putting the items back on sale.
  * - Status changes go through the order state machine and are logged in order_events.
+ * - Once delivered, an order funds trees (milestone 12d, ADR 0022), recorded in the same
+ *   transaction; a later refund gives back everything but that tree money.
  */
 import type { PoolClient } from 'pg';
 import type {
@@ -46,6 +48,9 @@ import { hasPlaceholder } from '../../lib/emailText.ts';
 import { logger } from '../../lib/logger.js';
 import { toLimitOffset, toPageMeta } from '../../lib/pagination.js';
 import { requireGateway } from '../payments/payments.service.ts';
+import { refundableCents as afterTrees } from '../giving/giving.calculator.ts';
+import * as givingService from '../giving/giving.service.ts';
+import type { GivingSetup } from '../giving/giving.service.ts';
 import * as shopService from '../shop/shop.service.ts';
 import * as usersService from '../users/users.service.ts';
 import * as ordersRepository from './orders.repository.ts';
@@ -177,15 +182,29 @@ async function loadOrders(
 
 // --- Status changes ---
 
-/** Moves an order through the state machine and logs it, in the caller's transaction. */
+/**
+ * Moves an order through the state machine and logs it, in the caller's transaction. A
+ * delivered order records its trees here, so every way of delivering it does (tracking,
+ * the admin, a pickup); the caller asks Digital Humani for them after committing.
+ */
 async function moveOrder(
   order: OrderRecord,
   to: OrderStatus,
   actor: OrderActor,
   reason: string,
   tx: PoolClient,
+  { donationPercent }: { donationPercent?: number | null } = {},
 ) {
   assertMoveOrder(order, to, actor);
+  if (to === 'delivered') {
+    if (donationPercent === undefined) {
+      throw new Error('Delivering an order needs the giving setup (its trees)');
+    }
+    await givingService.recordForDeliveredOrder(
+      { orderId: order.id, subtotalCents: order.subtotalCents },
+      { client: tx, donationPercent },
+    );
+  }
   await ordersRepository.setStatus(order.id, to, tx);
   await ordersRepository.insertEvent(
     {
@@ -661,15 +680,16 @@ export async function handleOrderEvent(
 // --- Refunds ---
 
 /**
- * Once refunds cover the whole order, it becomes refunded; items of refunds marked
- * `restock` go back on sale (once each).
+ * Once refunds cover the whole order (all but its tree money), it becomes refunded; items
+ * of refunds marked `restock` go back on sale (once each).
  */
 async function settleRefunds(order: OrderRecord, actor: OrderActor, tx: PoolClient) {
   const refunds = await ordersRepository.refundsFor([order.id], tx);
   const refunded = refunds
     .filter((r) => r.status === 'succeeded')
     .reduce((sum, r) => sum + r.amountCents, 0);
-  if (refunded >= totalOf(order) && REFUNDABLE_STATUSES.includes(order.status)) {
+  const due = await refundDueCents(order, tx);
+  if (refunded >= due && REFUNDABLE_STATUSES.includes(order.status)) {
     await moveOrder(order, 'refunded', actor, 'Refunded in full', tx);
   }
   for (const r of refunds) {
@@ -684,15 +704,31 @@ async function settleRefunds(order: OrderRecord, actor: OrderActor, tx: PoolClie
 /** Paid orders can be refunded, also after they shipped or arrived (a return). */
 const REFUNDABLE_STATUSES: OrderStatus[] = ['paid', 'shipped', 'delivered'];
 
-function refundable(order: OrderRecord, refunds: OrderRefundRecord[]) {
+/**
+ * What a refund gives back: the total, minus the tree money of a delivered order. Trees
+ * can't be cancelled once ordered, and the owner doesn't pay for them twice (ADR 0013).
+ */
+async function refundDueCents(order: OrderRecord, client?: PoolClient) {
+  return afterTrees({
+    paidCents: totalOf(order),
+    refundedCents: 0,
+    withheldForTreesCents: await givingService.withheldForOrderTreesCents(order.id, { client }),
+  });
+}
+
+function refundable(order: OrderRecord, refunds: OrderRefundRecord[], dueCents: number) {
   return (
     REFUNDABLE_STATUSES.includes(order.status) &&
     Boolean(order.stripePaymentIntentId) &&
-    !refunds.some((r) => r.status !== 'failed')
+    !refunds.some((r) => r.status !== 'failed') &&
+    dueCents > 0
   );
 }
 
-/** The admin refunds a paid order in full, optionally putting its items back on sale. */
+/**
+ * The admin refunds a paid order in full (less the tree money once delivered), optionally
+ * putting its items back on sale.
+ */
 export async function refundOrder(
   admin: SessionUser,
   orderId: number,
@@ -703,7 +739,8 @@ export async function refundOrder(
   await withTransaction(async (tx) => {
     const order = await ordersRepository.findById(orderId, tx, { forUpdate: true });
     if (!order) throw orderNotFound();
-    if (!refundable(order, await ordersRepository.refundsFor([orderId], tx))) {
+    const dueCents = await refundDueCents(order, tx);
+    if (!refundable(order, await ordersRepository.refundsFor([orderId], tx), dueCents)) {
       throw new BusinessRuleError('Only a paid order with no refund yet can be refunded', {
         code: 'ORDER_NOT_REFUNDABLE',
         details: { status: order.status },
@@ -712,7 +749,7 @@ export async function refundOrder(
     const row = await ordersRepository.insertRefund(
       {
         orderId,
-        amountCents: totalOf(order),
+        amountCents: dueCents,
         status: 'pending',
         stripeRefundId: null,
         reason,
@@ -725,7 +762,7 @@ export async function refundOrder(
       gateway.createRefund(
         {
           paymentIntentId: order.stripePaymentIntentId!,
-          amountCents: totalOf(order),
+          amountCents: dueCents,
           refundPaymentId: null,
           orderId,
         },
@@ -793,11 +830,13 @@ export async function listAdminOrders(query: {
 export async function getAdminOrder(orderId: number): Promise<AdminOrder> {
   const order = await ordersRepository.findById(orderId);
   if (!order) throw orderNotFound();
-  const [[loaded], events, refunds, clients] = await Promise.all([
+  const [[loaded], events, refunds, clients, dueCents, trees] = await Promise.all([
     loadOrders([order], { admin: true }),
     ordersRepository.eventsFor(orderId),
     ordersRepository.refundsFor([orderId]),
     withClients([order]),
+    refundDueCents(order),
+    givingService.orderTrees(orderId),
   ]);
   const client = clients.get(order.clientId);
   return {
@@ -813,7 +852,9 @@ export async function getAdminOrder(orderId: number): Promise<AdminOrder> {
       restockedAt: r.restockedAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
     })),
-    refundable: refundable(order, refunds),
+    refundable: refundable(order, refunds, dueCents),
+    refundableCents: dueCents,
+    trees,
     ...adminShippingFacts(order, loaded!),
   };
 }
@@ -856,24 +897,27 @@ async function notifyPackage(orderId: number, to: 'shipped' | 'delivered', email
 
 /**
  * The admin marks an order shipped or delivered by hand (no label, or before tracking
- * catches up), or a pickup as collected (delivered). Shipped orders' clients are emailed.
+ * catches up), or a pickup as collected (delivered). Shipped orders' clients are emailed;
+ * a delivered order's trees are requested once this commits.
  */
 export async function markOrder(
   admin: SessionUser,
   orderId: number,
   to: 'shipped' | 'delivered',
-  { email }: { email: Email },
+  { email, giving }: { email: Email; giving: GivingSetup },
 ): Promise<AdminOrder> {
   const order = await withTransaction(async (tx) => {
     const locked = await ordersRepository.findById(orderId, tx, { forUpdate: true });
     if (!locked) throw orderNotFound();
     const reason = locked.pickup ? MANUAL_REASONS.picked : MANUAL_REASONS[to];
-    await moveOrder(locked, to, { type: 'admin', userId: admin.id }, reason, tx);
+    await moveOrder(locked, to, { type: 'admin', userId: admin.id }, reason, tx, giving);
     return locked;
   });
-  if (!order.pickup) {
-    await runAfter([() => notifyPackage(orderId, to, email)]);
-  }
+  const after: AfterCommit = [];
+  if (!order.pickup) after.push(() => notifyPackage(orderId, to, email));
+  if (to === 'delivered' && giving.requestTrees)
+    after.push(async () => void (await giving.requestTrees!()));
+  await runAfter(after);
   return getAdminOrder(orderId);
 }
 
@@ -899,9 +943,9 @@ registerShipmentOwner('order', {
           : state.status === 'delivered'
             ? 'delivered'
             : 'other',
-  async move(id, to, reason, _metadata, tx) {
+  async move(id, to, reason, _metadata, tx, giving) {
     const order = (await ordersRepository.findById(id, tx, { forUpdate: true }))!;
-    await moveOrder(order, to, ORDER_SYSTEM, reason, tx);
+    await moveOrder(order, to, ORDER_SYSTEM, reason, tx, giving);
   },
   async notify(id, to, email) {
     try {
