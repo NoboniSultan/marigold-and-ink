@@ -304,6 +304,8 @@ describe('the admin order page', () => {
     events: [],
     refunds: [],
     refundable: true,
+    refundableCents: ORDER.totalCents,
+    trees: null,
     labelOpen: true,
     manualMoves: ['shipped'],
     ...overrides,

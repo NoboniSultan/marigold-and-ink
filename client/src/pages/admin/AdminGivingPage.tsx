@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import type { DonationStatus } from '@shared/types/admin.ts';
+import type { AdminDonation, DonationStatus } from '@shared/types/admin.ts';
 import { fieldErrors, formMessage } from '../../api/client.ts';
 import { adminApi } from '../../api/endpoints.ts';
 import { queryKeys, useAdminDonations } from '../../api/queries.ts';
@@ -30,6 +30,13 @@ function today(): string {
  * covers several commissions), tick its donations and record the day it was paid and the
  * receipt number, all at once.
  */
+/** Where a donation came from: a commission request, or a delivered shop order (12d). */
+function source(d: AdminDonation) {
+  return d.orderId !== null
+    ? { label: `order #${d.orderId}`, to: `/admin/orders/${d.orderId}` }
+    : { label: `request #${d.commissionId}`, to: `/admin/commissions/${d.commissionId}` };
+}
+
 export function AdminGivingPage() {
   const [params, setParams] = useSearchParams();
   const status = (VIEWS.find((v) => v.status === params.get('status'))?.status ??
@@ -138,7 +145,7 @@ export function AdminGivingPage() {
                       />
                     </th>
                   )}
-                  <th scope="col">Request</th>
+                  <th scope="col">From</th>
                   <th scope="col" className={styles.number}>
                     Trees
                   </th>
@@ -157,14 +164,14 @@ export function AdminGivingPage() {
                       <td>
                         <input
                           type="checkbox"
-                          aria-label={`Select request #${d.commissionId}`}
+                          aria-label={`Select ${source(d).label}`}
                           checked={selected.includes(d.id)}
                           onChange={() => toggle(d.id)}
                         />
                       </td>
                     )}
                     <td>
-                      <Link to={`/admin/commissions/${d.commissionId}`}>#{d.commissionId}</Link>
+                      <Link to={source(d).to}>{source(d).label}</Link>
                     </td>
                     <td className={styles.number}>{d.treeCount ?? '–'}</td>
                     <td className={styles.number}>{formatMoney(d.amountCents, CURRENCY)}</td>

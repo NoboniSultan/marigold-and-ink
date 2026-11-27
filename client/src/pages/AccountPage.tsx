@@ -285,8 +285,8 @@ function DataSection() {
     <section className={styles.section} aria-labelledby="data-heading">
       <h2 id="data-heading">Your data</h2>
       <p>
-        Download everything the site holds about you: your account details, and each commission with
-        its history, quote, and payments, as a JSON file.
+        Download everything the site holds about you: your account details, each commission with its
+        history, quote, and payments, and each shop order, as a JSON file.
       </p>
       <a
         href={ACCOUNT_EXPORT_URL}

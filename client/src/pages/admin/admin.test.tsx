@@ -361,9 +361,11 @@ describe('Admin: one commission', () => {
 });
 
 describe('Admin: giving', () => {
-  const owed = (id: number, commissionId: number, trees: number): AdminDonation => ({
+  /** Owed trees from a commission request, or from a shop order (milestone 12d). */
+  const owed = (id: number, from: number | { orderId: number }, trees: number): AdminDonation => ({
     id,
-    commissionId,
+    commissionId: typeof from === 'number' ? from : null,
+    orderId: typeof from === 'number' ? null : from.orderId,
     treeCount: trees,
     amountCents: trees * 100,
     status: 'owed',
@@ -376,7 +378,7 @@ describe('Admin: giving', () => {
 
   it('marks the selected owed donations paid with one invoice', async () => {
     const user = userEvent.setup();
-    const rows = [owed(5, 7, 25), owed(6, 9, 28)];
+    const rows = [owed(5, 7, 25), owed(6, { orderId: 9 }, 28)];
     const calls = api({
       extra: (call) => {
         if (call.path === '/admin/donations') return page(rows);
@@ -388,9 +390,13 @@ describe('Admin: giving', () => {
     });
     renderRoute('/admin/giving');
 
-    expect(await screen.findByRole('link', { name: '#7' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'request #7' })).toHaveAttribute(
       'href',
       '/admin/commissions/7',
+    );
+    expect(screen.getByRole('link', { name: 'order #9' })).toHaveAttribute(
+      'href',
+      '/admin/orders/9',
     );
     const button = screen.getByRole('button', { name: 'Select the donations this invoice covers' });
     expect(button).toBeDisabled();

@@ -389,6 +389,8 @@ describe('the admin order pages', () => {
     ],
     refunds: [],
     refundable: true,
+    refundableCents: ORDER.totalCents,
+    trees: null,
     labelOpen: false,
     manualMoves: ['delivered'],
     ...overrides,
@@ -465,5 +467,72 @@ describe('the admin order pages', () => {
     expect(await screen.findByText(/items back on sale/)).toBeInTheDocument();
     expect(screen.queryByRole('form', { name: 'Refund' })).not.toBeInTheDocument();
     confirm.mockRestore();
+  });
+
+  // Milestone 12d: a delivered order funded trees, which a refund never gives back.
+  it("shows a delivered order's trees, and refunds everything but them", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const delivered = adminOrder({
+      status: 'delivered',
+      trees: { count: 2, status: 'owed', amountCents: 200 },
+      refundableCents: ORDER.totalCents - 200,
+      manualMoves: [],
+    });
+    api({
+      user: ADMIN,
+      extra: (call) =>
+        call.path === '/admin/orders/42' && call.method === 'GET'
+          ? { body: { data: delivered } }
+          : undefined,
+    });
+    renderRoute('/admin/orders/42');
+
+    expect(await screen.findByText('2 trees, $2.00 (owed)')).toBeInTheDocument();
+    const form = screen.getByRole('form', { name: 'Refund' });
+    expect(form).toHaveTextContent('The $2.00 that went to trees isn’t refunded');
+    await user.type(within(form).getByLabelText(/Reason/), 'Returned');
+    await user.click(within(form).getByRole('button', { name: 'Refund $6.00' }));
+    expect(confirm).toHaveBeenCalledWith('Refund $6.00 for order #42?');
+    confirm.mockRestore();
+  });
+
+  it('says when nothing is left to refund', async () => {
+    api({
+      user: ADMIN,
+      extra: (call) =>
+        call.path === '/admin/orders/42' && call.method === 'GET'
+          ? {
+              body: {
+                data: adminOrder({
+                  status: 'delivered',
+                  trees: { count: 8, status: 'owed', amountCents: ORDER.subtotalCents },
+                  refundable: false,
+                  refundableCents: 0,
+                }),
+              },
+            }
+          : undefined,
+    });
+    renderRoute('/admin/orders/42');
+
+    expect(
+      await screen.findByText('Nothing is left to refund: the whole order went to trees.'),
+    ).toBeInTheDocument();
+  });
+
+  it('says trees come once the order is delivered', async () => {
+    api({
+      user: ADMIN,
+      extra: (call) =>
+        call.path === '/admin/orders/42' && call.method === 'GET'
+          ? { body: { data: adminOrder() } }
+          : undefined,
+    });
+    renderRoute('/admin/orders/42');
+
+    expect(
+      await screen.findByText('None yet: trees are ordered once the order is delivered'),
+    ).toBeInTheDocument();
   });
 });
